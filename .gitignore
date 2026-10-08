@@ -31,12 +31,19 @@ pnpm-debug.log*
 *.p12
 *.pfx
 
+# Node distributions (Repository-local tools)
+node-v*-darwin-*/
+node-v*-linux-*/
+node-v*-win-*/
+
 # AWS SAM and local cloud state
 .aws-sam/
 .sam-cache/
 samconfig.local.toml
 .localstack/
 localstack-data/
+.sam/
+localstack_data/
 
 # Local databases and volumes
 postgres-data/
@@ -44,6 +51,7 @@ pgdata/
 *.sqlite
 *.sqlite3
 *.db
+db_data/
 
 # Python caches and virtual environments
 __pycache__/
@@ -53,6 +61,13 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+
+# Kisan Saathi (P1)
+*.wav
+*.mp3
+*.m4a
+.outbox/
+services/agent-kisan/evals/results/
 
 # Editors and operating systems
 .DS_Store
@@ -67,11 +82,3 @@ tmp/
 temp/
 *.tmp
 *.bak
-
-
-# Kisan Saathi (P1)
-*.wav
-*.mp3
-*.m4a
-.outbox/
-services/agent-kisan/evals/results/
