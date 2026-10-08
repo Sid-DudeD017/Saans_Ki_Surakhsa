@@ -93,7 +93,7 @@ def test_no_speech_backend_is_a_503(client, monkeypatch):
 
     monkeypatch.setattr(api, "transcriber_factory", missing)
     res = client.post("/v1/agent/kisan/voice", files={"audio": ("a.wav", b"x", "audio/wav")})
-    assert res.status_code == 503 and "isn't set up" in res.json()["detail"]
+    assert res.status_code == 503 and "isn't set up" in res.json()["error"]["message"]
 
 
 def test_whisper_missing_at_first_use_is_a_503(client, monkeypatch):

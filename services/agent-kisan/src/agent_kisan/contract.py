@@ -62,14 +62,13 @@ REQUEST_EXAMPLES = {
         "status": "machine_assigned", "machineType": "Happy Seeder", "chcName": "Demo CHC B",
         "chcPhone": "+91 00000 00002", "date": "2026-11-02"},
 }
-ERROR_EXAMPLES = {
-    "401": {"detail": "wrong or missing X-Saans-Service-Token"},
-    "404": {"detail": "unknown session_id; omit it to start a new conversation"},
-    "409": {"detail": "still answering the previous message in this conversation"},
-    "413": {"detail": "voice notes can be up to 10 MB"},
-    "422": {"detail": [{"loc": ["body", "paddy", "value"], "msg": "Input should be greater than or equal to 0",
-                        "type": "greater_than_equal"}]},
-    "503": {"detail": "the language model is unavailable"},
+P4_ERROR = "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"  # one error shape for every service
+ERROR_MESSAGES = {  # written with the same error_body() the API uses
+    "401": "wrong or missing X-Saans-Service-Token",
+    "404": "unknown session_id; omit it to start a new conversation",
+    "409": "still answering the previous message in this conversation",
+    "413": "voice notes can be up to 10 MB",
+    "503": "the language model is unavailable",
 }
 
 
@@ -191,6 +190,7 @@ def _live_examples() -> dict[tuple[str, str], object]:
                 f"/v1/agent/kisan/sessions/{sid}/status"),
             ("/v1/agent/kisan/voice", "post"): client.post("/v1/agent/kisan/voice", data={"language": "pa"},
                                                            files={"audio": ("note.m4a", b"audio", "audio/mp4")}),
+            "422": client.post("/v1/farm/coverage", json={**GURPREET_COVERAGE, "paddy": {"value": -1, "unit": "killa"}}),
             ("/v1/agent/kisan/photo", "post"): client.post("/v1/agent/kisan/photo", data={"session_id": sid},
                                                            files={"photo": ("farm.jpg", _photo(), "image/jpeg")}),
         }
@@ -203,10 +203,13 @@ def _live_examples() -> dict[tuple[str, str], object]:
             api._chats.pop(s, None)
             api._locks.pop(s, None)
         photos.cleanup()
+    invalid = calls.pop("422")
+    if invalid.status_code != 422:
+        raise RuntimeError(f"expected a 422 example, got {invalid.status_code}")
     for (path, method), res in calls.items():
         if res.status_code != 200:
             raise RuntimeError(f"{method.upper()} {path} answered {res.status_code}: {res.text}")
-    return {k: _stable(res.json()) for k, res in calls.items()}
+    return {**{k: _stable(res.json()) for k, res in calls.items()}, "422": invalid.json()}
 
 
 def _complaint_example() -> dict:
@@ -257,11 +260,12 @@ def build() -> dict:
                     if (path, method) not in examples:
                         raise RuntimeError(f"no example for {method.upper()} {path}")
                     media["example"] = examples[(path, method)]
-                elif code in ERROR_EXAMPLES:
-                    media["example"] = ERROR_EXAMPLES[code]
-                if code == "422":  # FastAPI's field errors, or a Problem when a route checks something itself
-                    media["schema"] = {"anyOf": [{"$ref": "#/components/schemas/HTTPValidationError"},
-                                                 {"$ref": "#/components/schemas/Problem"}]}
+                else:
+                    media["schema"] = {"$ref": P4_ERROR}
+                    media["example"] = examples["422"] if code == "422" else api.error_body(
+                        int(code), ERROR_MESSAGES[code])
+    for name in ("ErrorEnvelope", "ErrorBody", "ErrorDetail", "HTTPValidationError", "ValidationError"):
+        spec["components"]["schemas"].pop(name, None)  # P4's ErrorEnvelope replaces them
 
     _, defs = models_json_schema([(FarmerSupportComplaint, "validation")], ref_template="#/components/schemas/{model}")
     schemas = spec["components"]["schemas"]

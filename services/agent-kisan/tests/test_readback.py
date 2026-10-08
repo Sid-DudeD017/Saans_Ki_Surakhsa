@@ -129,7 +129,7 @@ def test_audio_errors(client, monkeypatch):
 
     monkeypatch.setattr(api, "speaker_factory", no_torch)
     res = client.get(f"/v1/agent/kisan/sessions/{sid}/readback.wav")
-    assert res.status_code == 503 and "aren't set up" in res.json()["detail"]
+    assert res.status_code == 503 and "aren't set up" in res.json()["error"]["message"]
 
 
 def test_readback_audio_is_prepared_in_the_background(client, monkeypatch):

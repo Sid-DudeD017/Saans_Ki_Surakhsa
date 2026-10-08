@@ -10,8 +10,10 @@ from typing import Literal, Self
 
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, Form, Header, HTTPException, Query, UploadFile
-from fastapi.responses import RedirectResponse, Response
+from fastapi import FastAPI, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, RedirectResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
 from agent_kisan.coverage import (
@@ -28,6 +30,7 @@ from agent_kisan.schemas import (
     AllocationResponse,
     Booking,
     ChcsResponse,
+    ErrorEnvelope,
     FiresNearResponse,
     HelpRequestStatusResponse,
     KisanStatusResponse,
@@ -44,13 +47,34 @@ MachineType = Literal["happy_seeder", "super_seeder", "mulcher_rmb", "baler"]
 app = FastAPI(title="Kisan Saathi", version="1.0.0", generate_unique_id_function=lambda route: route.name)
 
 
-class Problem(BaseModel):
-    detail: str = Field(description="What went wrong, in words the app can show")
+# ---- errors: every reply that isn't a success is P4's ErrorEnvelope ----
+
+ERROR_CODES = {400: "invalid_request", 401: "unauthorized", 403: "forbidden", 404: "not_found", 409: "conflict",
+               413: "payload_too_large", 422: "invalid_request", 503: "unavailable"}
 
 
 def _errors(*codes: int) -> dict:
     """OpenAPI entries for the HTTPExceptions a route raises."""
-    return {code: {"model": Problem} for code in codes}
+    return {code: {"model": ErrorEnvelope} for code in codes}
+
+
+def error_body(status: int, message: str, details: list[dict] | None = None) -> dict:
+    body = {"code": ERROR_CODES.get(status, "invalid_request" if status < 500 else "unavailable"), "message": message}
+    return {"error": {**body, **({"details": details} if details else {})}}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    return JSONResponse(error_body(exc.status_code, str(exc.detail)), status_code=exc.status_code,
+                        headers=getattr(exc, "headers", None))
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    details = [{"field": ".".join(str(part) for part in e["loc"]), "problem": e["msg"]} for e in exc.errors()]
+    first = details[0] if details else {"field": "request", "problem": "doesn't match the contract"}
+    message = first["problem"] if first["field"] == "body" else f"{first['field']}: {first['problem']}"
+    return JSONResponse(error_body(422, message, details), status_code=422)
 
 
 class Paddy(BaseModel):

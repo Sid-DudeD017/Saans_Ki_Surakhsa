@@ -73,3 +73,50 @@ def test_no_location_cannot_go_to_command():
     with pytest.raises(NoLocation, match="GPS"):
         to_complaint({"farm": {}, "help_request": None,
                       "help_request_error": "no farm location: send GPS from the app"})
+
+
+# ---- every error is P4's ErrorEnvelope ----
+
+def test_errors_have_one_shape():
+    from fastapi.testclient import TestClient
+
+    from agent_kisan import api
+
+    client = TestClient(api.app)
+    bad = client.post("/v1/farm/coverage", json={"paddy": {"value": -1, "unit": "killa"}, "window_days": 20,
+                                                 "machines": []})
+    assert bad.status_code == 422
+    error = bad.json()["error"]
+    assert error["code"] == "invalid_request" and error["message"].startswith("body.paddy.value")
+    assert error["details"] == [{"field": "body.paddy.value", "problem": "Input should be greater than or equal to 0"}]
+
+    missing = client.get("/v1/agent/kisan/sessions/nope/status")
+    assert missing.status_code == 404 and missing.json() == {"error": {"code": "not_found", "message": "unknown session_id"}}
+
+    nothing = client.get("/v1/nothing-here")
+    assert nothing.status_code == 404 and nothing.json()["error"]["code"] == "not_found"
+
+    wrong_method = client.delete("/v1/farm/coverage")
+    assert wrong_method.status_code == 405 and wrong_method.json()["error"]["code"] == "invalid_request"
+
+
+def test_error_codes_are_p4s(spec):
+    """Kisan's ErrorCode list matches P4's, and every error response points at P4's ErrorEnvelope."""
+    import re
+    import typing
+
+    from agent_kisan.api import ERROR_CODES
+    from agent_kisan.schemas import ErrorCode
+
+    p4 = (contract.PROPOSAL.parent / "p4-command.openapi.yaml").read_text(encoding="utf-8")
+    block = p4.split("    ErrorCode:")[1].split("    ErrorDetail:")[0]
+    p4_codes = re.findall(r"^\s+- (\w+)$", block, re.M)
+    assert sorted(typing.get_args(ErrorCode)) == sorted(p4_codes)
+    assert set(ERROR_CODES.values()) <= set(p4_codes)
+    for path, methods in spec["paths"].items():
+        for method, op in methods.items():
+            for code, response in op["responses"].items():
+                media = response.get("content", {}).get("application/json")
+                if media and not code.startswith("2"):
+                    assert media["schema"] == {"$ref": contract.P4_ERROR}, f"{method.upper()} {path} {code}"
+                    assert set(media["example"]) == {"error"}
