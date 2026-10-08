@@ -1,0 +1,399 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Saans AQI Data Platform",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/aqi": {
+      "get": {
+        "summary": "Get AQI for a location",
+        "operationId": "get_aqi_v1_aqi_get",
+        "description": "Returns the CPCB National AQI for the requested location using inverse-distance weighting across nearby stations. Includes per-pollutant sub-indices, GRAP stage, wind, and weather.",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "minimum": -90.0,
+              "maximum": 90.0
+            }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "minimum": -180.0,
+              "maximum": 180.0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AqiResponse"
+                },
+                "examples": {
+                  "good_day": {
+                    "summary": "Good Day (AQI 45, dominant pm25)",
+                    "value": {
+                      "aqi": 45,
+                      "category": "Good",
+                      "dominant_pollutant": "pm25",
+                      "sub_indices": {
+                        "pm25": { "sub_index": 45, "concentration": 27.0, "unit": "µg/m³" },
+                        "pm10": { "sub_index": 40, "concentration": 40.0, "unit": "µg/m³" },
+                        "o3":   { "sub_index": 30, "concentration": 30.0, "unit": "µg/m³" }
+                      },
+                      "grap_stage": "None",
+                      "station_count": 3,
+                      "data_timestamp": "2026-10-08T08:00:00Z",
+                      "stale": false,
+                      "wind": { "speed_kmh": 12.5, "direction_deg": 270.0 },
+                      "weather": { "temperature_c": 28.0, "humidity_pct": 55, "heat_index_c": 28.5 }
+                    }
+                  },
+                  "poor_day": {
+                    "summary": "Poor Day (AQI 250, dominant no2)",
+                    "value": {
+                      "aqi": 250,
+                      "category": "Poor",
+                      "dominant_pollutant": "no2",
+                      "sub_indices": {
+                        "no2":  { "sub_index": 250, "concentration": 230.0, "unit": "µg/m³" },
+                        "pm25": { "sub_index": 220, "concentration": 96.6, "unit": "µg/m³" },
+                        "co":   { "sub_index": 78, "concentration": 1.6, "unit": "mg/m³" }
+                      },
+                      "grap_stage": "Stage 1",
+                      "station_count": 5,
+                      "data_timestamp": "2026-10-08T08:00:00Z",
+                      "stale": false,
+                      "wind": { "speed_kmh": 5.0, "direction_deg": 90.0 },
+                      "weather": { "temperature_c": 33.0, "humidity_pct": 60, "heat_index_c": 38.7 }
+                    }
+                  },
+                  "severe_day": {
+                    "summary": "Severe Day (AQI 450, dominant pm10)",
+                    "value": {
+                      "aqi": 450,
+                      "category": "Severe",
+                      "dominant_pollutant": "pm10",
+                      "sub_indices": {
+                        "pm10": { "sub_index": 450, "concentration": 470.0, "unit": "µg/m³" },
+                        "pm25": { "sub_index": 420, "concentration": 275.8, "unit": "µg/m³" },
+                        "o3":   { "sub_index": 150, "concentration": 134.2, "unit": "µg/m³" }
+                      },
+                      "grap_stage": "Stage 3",
+                      "station_count": 4,
+                      "data_timestamp": "2026-10-08T08:00:00Z",
+                      "stale": false,
+                      "wind": { "speed_kmh": 2.0, "direction_deg": 180.0 },
+                      "weather": { "temperature_c": 38.0, "humidity_pct": 45, "heat_index_c": 42.1 }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No AQI coverage for the requested location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "no_coverage",
+                  "detail": "No monitoring stations found within interpolation radius of the requested coordinates."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "All upstream data sources are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "sources_unavailable",
+                  "detail": "All upstream AQI data sources (OpenAQ, CPCB, Open-Meteo) failed to respond. Retry after 60 seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fires": {
+      "get": {
+        "summary": "Get fires within a bounding box",
+        "operationId": "get_fires_v1_fires_get",
+        "description": "Returns active fire detections from NASA FIRMS within the requested bounding box.",
+        "parameters": [
+          {
+            "name": "bbox",
+            "in": "query",
+            "description": "Bounding box: minLon,minLat,maxLon,maxLat",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FiresResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No fire data available for the requested region",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "no_coverage",
+                  "detail": "Requested bounding box is outside the supported coverage area."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "NASA FIRMS data source is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "sources_unavailable",
+                  "detail": "NASA FIRMS API failed to respond. Retry after 60 seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Pollutant": {
+        "type": "string",
+        "enum": ["pm25", "pm10", "no2", "so2", "co", "o3", "nh3", "pb"],
+        "title": "Pollutant"
+      },
+      "AqiCategory": {
+        "type": "string",
+        "enum": ["Good", "Satisfactory", "Moderately polluted", "Poor", "Very poor", "Severe"],
+        "title": "AqiCategory"
+      },
+      "GrapStage": {
+        "type": "string",
+        "enum": ["None", "Stage 1", "Stage 2", "Stage 3", "Stage 4"],
+        "title": "GrapStage",
+        "description": "GRAP (Graded Response Action Plan) stage. Stage 1 = Poor (AQI 201-300), Stage 2 = Very Poor (AQI 301-400), Stage 3 = Severe (AQI 401-450), Stage 4 = Severe+ (AQI > 450). VERIFY against latest CAQM GRAP revisions."
+      },
+      "SubIndex": {
+        "type": "object",
+        "properties": {
+          "sub_index": {
+            "type": "number",
+            "description": "CPCB sub-index value (0-500) computed via linear interpolation within the pollutant's breakpoint band"
+          },
+          "concentration": {
+            "type": "number",
+            "description": "Raw measured or interpolated concentration"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of concentration (e.g. µg/m³, mg/m³)"
+          }
+        },
+        "required": ["sub_index", "concentration", "unit"],
+        "title": "SubIndex"
+      },
+      "Wind": {
+        "type": "object",
+        "properties": {
+          "speed_kmh": {
+            "type": "number",
+            "description": "Wind speed in kilometres per hour"
+          },
+          "direction_deg": {
+            "type": "number",
+            "description": "Direction the wind blows FROM, degrees clockwise from north (meteorological convention)"
+          }
+        },
+        "required": ["speed_kmh", "direction_deg"],
+        "title": "Wind"
+      },
+      "Weather": {
+        "type": "object",
+        "properties": {
+          "temperature_c": {
+            "type": "number",
+            "description": "Ambient air temperature in degrees Celsius"
+          },
+          "humidity_pct": {
+            "type": "number",
+            "description": "Relative humidity as a percentage (0-100)"
+          },
+          "heat_index_c": {
+            "type": "number",
+            "description": "Apparent temperature (heat index) in degrees Celsius, accounting for humidity"
+          }
+        },
+        "required": ["temperature_c", "humidity_pct", "heat_index_c"],
+        "title": "Weather"
+      },
+      "AqiResponse": {
+        "type": "object",
+        "properties": {
+          "aqi": {
+            "type": "number",
+            "description": "Overall AQI: the maximum sub-index across all reported pollutants. Requires >= 3 pollutants with at least one being PM2.5 or PM10."
+          },
+          "category": { "$ref": "#/components/schemas/AqiCategory" },
+          "dominant_pollutant": { "$ref": "#/components/schemas/Pollutant" },
+          "sub_indices": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/SubIndex" },
+            "description": "Map of pollutant code to its sub-index, concentration, and unit"
+          },
+          "grap_stage": { "$ref": "#/components/schemas/GrapStage" },
+          "station_count": {
+            "type": "integer",
+            "description": "Number of monitoring stations used in the IDW interpolation"
+          },
+          "data_timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of the most recent source data used"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True if the most recent data is older than 2 hours"
+          },
+          "wind": { "$ref": "#/components/schemas/Wind" },
+          "weather": { "$ref": "#/components/schemas/Weather" }
+        },
+        "required": [
+          "aqi", "category", "dominant_pollutant", "sub_indices",
+          "grap_stage", "station_count", "data_timestamp", "stale",
+          "wind", "weather"
+        ],
+        "title": "AqiResponse"
+      },
+      "FirePoint": {
+        "type": "object",
+        "properties": {
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "acquisition_time": { "type": "string", "format": "date-time" },
+          "satellite": { "type": "string", "description": "e.g. VIIRS, MODIS" },
+          "confidence": { "type": "string", "description": "Confidence level: low, nominal, high" },
+          "frp": { "type": "number", "description": "Fire Radiative Power in MW" }
+        },
+        "required": ["lat", "lon", "acquisition_time", "satellite", "confidence", "frp"],
+        "title": "FirePoint"
+      },
+      "FiresResponse": {
+        "type": "object",
+        "properties": {
+          "fires": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FirePoint" }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total number of fire detections returned"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the latest FIRMS data included"
+          }
+        },
+        "required": ["fires", "count", "as_of"],
+        "title": "FiresResponse"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error code"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable error description"
+          }
+        },
+        "required": ["error", "detail"],
+        "title": "ErrorResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": { "type": "string", "title": "Message" },
+          "type": { "type": "string", "title": "Error Type" }
+        },
+        "type": "object",
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": { "$ref": "#/components/schemas/ValidationError" },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      }
+    }
+  }
+}
