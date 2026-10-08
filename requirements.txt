@@ -1,0 +1,5 @@
+# No Python runtime dependencies are required by the current repository.
+#
+# The existing application and tests use Node.js dependencies declared in
+# package.json and locked in package-lock.json. Add Python packages here only
+# when a Python Lambda, migration, or development tool is actually introduced.

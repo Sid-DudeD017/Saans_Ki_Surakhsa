@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+
+# Next.js and frontend build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# AWS SAM and local cloud state
+.aws-sam/
+.sam-cache/
+samconfig.local.toml
+.localstack/
+localstack-data/
+
+# Local databases and volumes
+postgres-data/
+pgdata/
+*.sqlite
+*.sqlite3
+*.db
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
