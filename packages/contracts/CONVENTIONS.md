@@ -23,3 +23,10 @@ This document records the authoritative G1 "One vocabulary" decisions for the un
 - **Errors (decided at G2)**: every error from every service has one body, P4's `ErrorEnvelope`:
   `{"error": {"code": "invalid_request", "message": "body.paddy.value: …", "details": [{"field": "body.paddy.value", "problem": "…"}]}}`.
   `code` comes from `ErrorCode` in `proposals/p4-command.openapi.yaml` (add new codes there, lowercase); `message` is a sentence the app can show; `details` lists the fields that failed validation, as dotted paths (`body.…`, `query.…`). Status codes don't change: Kisan and air data answer validation errors with 422, Command with 400. Proposals point their error responses at `./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope` instead of defining their own. Clients read `error.message` to show and `error.code` to decide.
+
+## G5: complaint intake
+
+- **Idempotency-Key** is required on `POST /v1/complaints` (6–128 characters; Kisan sends its session id). The same key with the same JSON (field order doesn't matter) returns the first `201` with `Idempotent-Replayed: true` and adds nothing; the same key with a different body is a `409 idempotency_conflict`. A `503 unavailable` means "send it again with the same key".
+- **Evidence** must come from `POST /v1/uploads`: PUT the file to `upload_url` with exactly the returned `headers` (the URL is bound to the file's type and sha256 and lasts 15 minutes), then cite its `object_key` and the same `hash`. Anything else is a `400` naming `body.evidence.N.…`.
+- **Routing** (authorities, deadline, penalty or not) is `infra/config/routing.json`. `farmer_support` goes to the Agriculture department and CHC with 72 hours and is never a penalty.
+- **Not yet**: no sign-in on the real routes until G7 (the mock still asks for a token); citizen reports have no district until the PostGIS boundary lookup (Stage 3); `CaseSummary.type` doesn't list `farmer_support` yet, which the case queue (`GET /v1/cases`) will need.

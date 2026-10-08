@@ -1,0 +1,219 @@
+# Saans Command on AWS (SAM). G5 defines complaint intake; G7 deploys it to ap-south-1 and adds sign-in
+# (Cognito), the database (RDS PostGIS) and the alarms. Intrinsics are written in long form (Fn::Sub,
+# Ref) so the file is plain YAML that tests can read.
+#
+# Not deployable yet, on purpose: the complaints function can't start the state machine until G7 adds
+# @aws-sdk/client-sfn (services/command-api/lambda.ts), and DatabaseUrl has no RDS behind it.
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Saans Command - uploads, complaints and the intake workflow (G5)
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, demo]
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+    Description: postgres:// URL of the PostGIS database (G7 replaces this with RDS and Secrets Manager)
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 15
+    Environment:
+      Variables:
+        SAANS_DATABASE_URL:
+          Ref: DatabaseUrl
+        SAANS_EVIDENCE_BUCKET:
+          Ref: EvidenceBucket
+        SAANS_S3_ENDPOINT: ""
+        NODE_OPTIONS: --enable-source-maps
+
+Resources:
+  EvidenceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: saans-evidence-${Stage}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [PUT]
+            AllowedOrigins: ["*"]
+            AllowedHeaders: ["*"]
+            MaxAge: 600
+
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName:
+        Ref: Stage
+
+  UploadsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/lambda.uploads
+      CodeUri: ../
+      Policies:
+        - S3WritePolicy:
+            BucketName:
+              Ref: EvidenceBucket
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: POST
+            Path: /v1/uploads
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/lambda.ts]
+        Target: node22
+        Sourcemap: true
+
+  ComplaintsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/lambda.complaints
+      CodeUri: ../
+      Environment:
+        Variables:
+          SAANS_STATE_MACHINE_ARN:
+            Ref: IntakeStateMachine
+      Policies:
+        - StepFunctionsExecutionPolicy:
+            StateMachineName:
+              Fn::GetAtt: [IntakeStateMachine, Name]
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: POST
+            Path: /v1/complaints
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/lambda.ts]
+        Target: node22
+        Sourcemap: true
+
+  ValidateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/workflows/lambda.validate
+      CodeUri: ../
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/workflows/lambda.ts]
+        Target: node22
+
+  HashEvidenceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/workflows/lambda.hashEvidence
+      CodeUri: ../
+      Timeout: 60
+      Policies:
+        - S3ReadPolicy:
+            BucketName:
+              Ref: EvidenceBucket
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/workflows/lambda.ts]
+        Target: node22
+
+  TriageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/workflows/lambda.triage
+      CodeUri: ../
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/workflows/lambda.ts]
+        Target: node22
+
+  AssignFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/workflows/lambda.assign
+      CodeUri: ../
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/workflows/lambda.ts]
+        Target: node22
+
+  RecordFailureFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/workflows/lambda.recordFailure
+      CodeUri: ../
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/workflows/lambda.ts]
+        Target: node22
+
+  IntakeStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      DefinitionUri: ../services/workflows/complaint-intake.asl.json
+      DefinitionSubstitutions:
+        ValidateFunctionArn:
+          Fn::GetAtt: [ValidateFunction, Arn]
+        HashEvidenceFunctionArn:
+          Fn::GetAtt: [HashEvidenceFunction, Arn]
+        TriageFunctionArn:
+          Fn::GetAtt: [TriageFunction, Arn]
+        AssignFunctionArn:
+          Fn::GetAtt: [AssignFunction, Arn]
+        RecordFailureFunctionArn:
+          Fn::GetAtt: [RecordFailureFunction, Arn]
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName:
+              Ref: ValidateFunction
+        - LambdaInvokePolicy:
+            FunctionName:
+              Ref: HashEvidenceFunction
+        - LambdaInvokePolicy:
+            FunctionName:
+              Ref: TriageFunction
+        - LambdaInvokePolicy:
+            FunctionName:
+              Ref: AssignFunction
+        - LambdaInvokePolicy:
+            FunctionName:
+              Ref: RecordFailureFunction
+
+Outputs:
+  ApiUrl:
+    Description: Base URL for SAANS_API_URL and NEXT_PUBLIC_API_BASE_URL (no /v1)
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+  EvidenceBucketName:
+    Value:
+      Ref: EvidenceBucket
+  IntakeStateMachineArn:
+    Value:
+      Ref: IntakeStateMachine

@@ -53,6 +53,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/IntakeUnavailable'
   /v1/complaints:
     post:
       tags: [Command]
@@ -118,6 +120,8 @@ paths:
                 error:
                   code: idempotency_conflict
                   message: this Idempotency-Key was used with a different request
+        '503':
+          $ref: '#/components/responses/IntakeUnavailable'
   /v1/cases:
     get:
       tags: [Command]
@@ -418,6 +422,18 @@ components:
             error:
               code: forbidden
               message: this case is in another district
+    IntakeUnavailable:
+      description: >-
+        Intake can't reach its database, storage or workflow right now. A complaint may already be saved:
+        send it again with the same Idempotency-Key, which never adds a second one.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: unavailable
+              message: the complaint is saved but its processing didn't start; send it again with the same Idempotency-Key
     NotFound:
       description: No such case
       content:

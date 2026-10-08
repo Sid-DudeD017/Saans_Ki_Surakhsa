@@ -1,0 +1,45 @@
+{
+  "Comment": "Saans Command intake v1: a stored complaint becomes one case in PostGIS. template.yaml deploys this file to Step Functions; locally, services/workflows/local.ts runs the same file in-process. Each step is retry-safe.",
+  "StartAt": "Validate",
+  "States": {
+    "Validate": {
+      "Type": "Task",
+      "Resource": "${ValidateFunctionArn}",
+      "Retry": [{ "ErrorEquals": ["Transient"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "RecordFailure" }],
+      "Next": "HashEvidence"
+    },
+    "HashEvidence": {
+      "Type": "Task",
+      "Resource": "${HashEvidenceFunctionArn}",
+      "Retry": [{ "ErrorEquals": ["Transient"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "RecordFailure" }],
+      "Next": "Triage"
+    },
+    "Triage": {
+      "Type": "Task",
+      "Resource": "${TriageFunctionArn}",
+      "Retry": [{ "ErrorEquals": ["Transient"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "RecordFailure" }],
+      "Next": "Assign"
+    },
+    "Assign": {
+      "Type": "Task",
+      "Resource": "${AssignFunctionArn}",
+      "Retry": [{ "ErrorEquals": ["Transient"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "RecordFailure" }],
+      "End": true
+    },
+    "RecordFailure": {
+      "Type": "Task",
+      "Resource": "${RecordFailureFunctionArn}",
+      "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2 }],
+      "Next": "Failed"
+    },
+    "Failed": {
+      "Type": "Fail",
+      "Error": "ComplaintNotProcessed",
+      "Cause": "See the complaint's failure column and its workflow_events."
+    }
+  }
+}

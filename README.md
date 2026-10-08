@@ -44,6 +44,20 @@ npm run test
 npm run build
 ```
 
+### Complaint intake: the local stack (G5)
+`POST /v1/uploads` and `POST /v1/complaints` need PostGIS and LocalStack S3, run in Docker by `infra/compose.yaml`:
+```bash
+npm run stack          # start PostGIS (127.0.0.1:5433) and LocalStack (127.0.0.1:4566), wait until healthy
+npm run smoke:intake   # upload a photo, file a complaint, and check it became one case row in PostGIS
+npm run stack:down     # stop them; complaints and cases are kept in the saans-pg volume
+```
+With the stack up, `npm run dev` serves both routes; tables and the evidence bucket are created on the first request.
+A complaint runs `services/workflows/complaint-intake.asl.json` (validate → hash evidence → triage → assign) in-process; on AWS (G7) Step Functions runs the same file. Look at a complaint's progress with:
+```bash
+docker compose -f infra/compose.yaml exec postgis psql -U saans -d saans -c "SELECT state, event, at FROM workflow_events ORDER BY id DESC LIMIT 10"
+```
+To run the PostGIS tests: `SAANS_DATABASE_URL=postgres://saans:saans@127.0.0.1:5433/saans npx vitest run services/command-api/intake.stack.test.ts`.
+
 ---
 
 ## Configuration

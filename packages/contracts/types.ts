@@ -2183,6 +2183,23 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
+        /** @description Intake can't reach its database, storage or workflow right now. A complaint may already be saved: send it again with the same Idempotency-Key, which never adds a second one. */
+        IntakeUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "unavailable",
+                 *         "message": "the complaint is saved but its processing didn't start; send it again with the same Idempotency-Key"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
         /** @description No such case */
         NotFound: {
             headers: {
@@ -3630,6 +3647,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            503: components["responses"]["IntakeUnavailable"];
         };
     };
     farm_coverage: {
@@ -4499,6 +4517,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            503: components["responses"]["IntakeUnavailable"];
         };
     };
 }
