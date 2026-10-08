@@ -156,17 +156,49 @@
     },
     "/v1/fires": {
       "get": {
-        "summary": "Get fires within a bounding box",
+        "summary": "Get fires within a search area",
         "operationId": "get_fires_v1_fires_get",
-        "description": "Returns active fire detections from NASA FIRMS within the requested bounding box.",
+        "description": "Returns active fire detections from NASA FIRMS. Clients MUST specify the search area using EITHER a bounding box (`bbox`) OR a point-radius (`lat`, `lon`, `radius_km`). Do not provide an incomplete point-radius query (e.g. lat without lon or radius_km).",
         "parameters": [
           {
             "name": "bbox",
             "in": "query",
-            "description": "Bounding box: minLon,minLat,maxLon,maxLat",
-            "required": true,
+            "description": "Bounding box: minLon,minLat,maxLon,maxLat. Mutually exclusive with point-radius parameters.",
+            "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "description": "Latitude of the center point.",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": -90.0,
+              "maximum": 90.0
+            }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "description": "Longitude of the center point.",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": -180.0,
+              "maximum": 180.0
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "description": "Search radius in kilometres.",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "exclusiveMinimum": 0
             }
           }
         ],
@@ -177,6 +209,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FiresResponse"
+                },
+                "examples": {
+                  "bbox_example": {
+                    "summary": "Bounding Box Search",
+                    "description": "Example request: `/v1/fires?bbox=77.0,28.0,77.5,28.8`",
+                    "value": {
+                      "fires": [
+                        { "lat": 28.4, "lon": 77.2, "acquisition_time": "2026-10-08T13:30:00+05:30", "satellite": "VIIRS", "confidence": "nominal", "frp": 12.5 }
+                      ],
+                      "count": 1,
+                      "as_of": "2026-10-08T14:00:00+05:30"
+                    }
+                  },
+                  "point_radius_example": {
+                    "summary": "Point-Radius Search",
+                    "description": "Example request: `/v1/fires?lat=28.6139&lon=77.2090&radius_km=25`",
+                    "value": {
+                      "fires": [
+                        { "lat": 28.5, "lon": 77.3, "acquisition_time": "2026-10-08T13:45:00+05:30", "satellite": "MODIS", "confidence": "high", "frp": 45.2 },
+                        { "lat": 28.7, "lon": 77.1, "acquisition_time": "2026-10-08T13:45:00+05:30", "satellite": "MODIS", "confidence": "nominal", "frp": 8.0 }
+                      ],
+                      "count": 2,
+                      "as_of": "2026-10-08T14:00:00+05:30"
+                    }
+                  }
                 }
               }
             }
