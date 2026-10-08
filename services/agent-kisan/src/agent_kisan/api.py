@@ -10,7 +10,7 @@ from typing import Literal, Self
 
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, Form, Header, HTTPException, Query, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field, model_validator
 
@@ -22,6 +22,7 @@ from agent_kisan.coverage import (
     estimate_coverage,
 )
 from agent_kisan.agent import KisanChat
+from agent_kisan.fires import DEFAULT_RADIUS_KM, MAX_RADIUS_KM, FireSource, FiresUnavailable, default_fires
 from agent_kisan.planner import DEFAULT_MAX_KM, find_chcs, plan_zero_burn
 from agent_kisan.seed import load_seed
 from agent_kisan.units import to_acres
@@ -236,6 +237,19 @@ def chcs_near(lat: float | None = None, lon: float | None = None, village: str |
         raise HTTPException(status_code=422, detail="give lat and lon, a known village, or a district")
     found = find_chcs(chcs, farm_location=location, district=district, machine=machine, max_km=max_km)
     return {"chcs": found, "demo_data": demo}
+
+
+fire_source: FireSource | None = None  # tests swap in a fake; None = P3's /v1/fires at SAANS_AQI_URL
+
+
+@app.get("/v1/farm/fires")
+def farm_fires(lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180),
+               radius_km: float = Query(default=DEFAULT_RADIUS_KM, gt=0, le=MAX_RADIUS_KM)) -> dict:
+    """Satellite fire points around a farm in the last day, nearest first (NASA FIRMS through P3's /v1/fires)."""
+    try:
+        return (fire_source or default_fires)(lat, lon, radius_km).to_json(limit=50)
+    except FiresUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
 
 
 # ---- request status and SMS (Command reports progress) ----

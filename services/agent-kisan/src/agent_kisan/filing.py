@@ -27,6 +27,7 @@ class Filer(Protocol):
 def build_support_request(
     session_id: str, profile: "FarmProfile", cov: "CoverageResult", plan: "Plan | None", language: str,
     location: tuple[float, float] | None = None, location_source: str | None = None, farmer_id: str | None = None,
+    nearby_fires: dict | None = None,
 ) -> dict:
     """plan=None means the planner couldn't run, so the whole gap is unmet.
 
@@ -70,6 +71,7 @@ def build_support_request(
         },
         "plan": bookings,  # suggested CHC bookings; the CHC or officer confirms them
         "unmet": unmet,  # what the department is asked to provide
+        "nearby_fires": nearby_fires,  # the last satellite check around the farm; None if never checked
     }
     try:
         request["help_request"] = to_help_request(request, farmer_id or f"kisan-farmer-{session_id[:12]}")

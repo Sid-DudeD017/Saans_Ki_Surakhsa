@@ -9,6 +9,7 @@ and tests/test_contract_fixtures.py fails if this file falls out of date with he
 import json
 from datetime import date
 
+from agent_kisan.fires import Fire, FiresNear
 from agent_kisan.seed import repo_root
 from agent_kisan.session import KisanSession
 
@@ -25,11 +26,20 @@ class _Keep:
         return {"via": "fixture"}
 
 
-def _example(name: str, days: int = 2, **profile) -> dict:
+# Two satellite points near Bhawanigarh, as P3's /v1/fires would return them.
+_FIRES = FiresNear((Fire(30.2696, 76.0400, 0.4, "2026-10-23T13:42:00+05:30", "N", "nominal", 6.1),
+                    Fire(30.2930, 76.0400, 3.0, "2026-10-23T13:42:00+05:30", "N", "high", 11.4)),
+                   5.0, "2026-10-23T14:00:00+05:30")
+
+
+def _example(name: str, days: int = 2, fires: FiresNear | None = None, **profile) -> dict:
     s = KisanSession(filer=_Keep(), session_id=name, weather=None, today=lambda: date(2026, 10, 8),
-                     rain_dates={date(2026, 10, 27), date(2026, 10, 28)})
+                     rain_dates={date(2026, 10, 27), date(2026, 10, 28)},
+                     fire_source=(lambda lat, lon, radius_km: fires) if fires else None)
     s.begin_turn(_SAID.format(d=days))
     s.update(**{**_GURPREET, "machines": {"super_seeder": days}, **profile})
+    if fires:
+        s.fires_near()
     s.prepare_readback()
     s.begin_turn("haan")
     s.file_report()
@@ -41,6 +51,7 @@ def examples() -> dict[str, dict]:
         "gurpreet_open": _example("gurpreet-open"),
         "fully_booked_matched": _example("fully-booked", days=3),
         "unknown_village_district_centre": _example("district-centre", village="Somewhere new"),
+        "fires_seen_nearby": _example("fires-nearby", fires=_FIRES),
     }
 
 

@@ -28,6 +28,7 @@
         "cost_inr": 5500
       }
     ],
+    "nearbyFires": null,
     "source": "kisan_saathi"
   },
   "fully_booked_matched": {
@@ -59,6 +60,7 @@
         "cost_inr": 1500
       }
     ],
+    "nearbyFires": null,
     "source": "kisan_saathi"
   },
   "unknown_village_district_centre": {
@@ -90,6 +92,45 @@
         "cost_inr": 5250
       }
     ],
+    "nearbyFires": null,
+    "source": "kisan_saathi"
+  },
+  "fires_seen_nearby": {
+    "id": "kisan-fires-nearby",
+    "farmerId": "kisan-farmer-fires-nearby",
+    "farmLocation": {
+      "lat": 30.266,
+      "lon": 76.04
+    },
+    "district": "Sangrur",
+    "crop": "Paddy",
+    "acreage": 18.0,
+    "machineType": "Happy Seeder",
+    "requiredFrom": "2026-10-20T00:00:00+05:30",
+    "requiredUntil": "2026-11-09T00:00:00+05:30",
+    "coveragePercent": 92,
+    "uncoveredAcres": 1.5,
+    "status": "OPEN",
+    "ownCoveragePercent": 61,
+    "locationSource": "village",
+    "plannedBookings": [
+      {
+        "date": "2026-11-02",
+        "machine": "Super Seeder",
+        "chc_id": "demo-chc-a",
+        "chc_name": "Demo CHC A (Bhawanigarh)",
+        "distance_km": 2.0,
+        "acres": 5.5,
+        "cost_inr": 5500
+      }
+    ],
+    "nearbyFires": {
+      "count": 2,
+      "countNominalOrHigh": 2,
+      "nearestKm": 0.4,
+      "radiusKm": 5.0,
+      "asOf": "2026-10-23T14:00:00+05:30"
+    },
     "source": "kisan_saathi"
   }
 }

@@ -43,6 +43,7 @@ How to work:
 - Convert spoken dates to YYYY-MM-DD using today's date. If a date is vague ("Diwali ke baad"), ask for a day.
 - Never work out coverage, acres, straw, pollution, dates or costs yourself. Call estimate_coverage and use its numbers exactly.
 - Coverage and the plan leave out forecast rain days. If rain takes days away, say how many (get_rain_days).
+- Before the read-back, call get_fires_near_farm once. If fires were seen nearby, the help request says so, which makes it more urgent. Never tell the farmer or imply that they burned; a satellite point may be another field. Mention nearby fires only if the farmer asks about smoke.
 - If there is a gap, call plan_zero_burn and tell the farmer which CHC machine it found, on which day, and the cost. These are suggested bookings that the CHC confirms; say so. Whatever is still unmet goes in the help request.
 - When every detail is in, call prepare_readback, read all the details and the coverage back, and ask the farmer to confirm. File with file_resource_gap_report only after the farmer says yes in their next message. If they correct anything, update it and read back again.
 - After filing, tell them their request has gone to the agriculture department, and what is still short.
@@ -117,6 +118,17 @@ def build_agent(session: KisanSession, model: BedrockModel | None = None, callba
         return _json(session.chcs_near(machine))
 
     @tool
+    def get_fires_near_farm(radius_km: float = 5.0) -> str:
+        """Satellite fire points (NASA FIRMS) seen around the farm in the last day, nearest first. A point can be
+        a neighbour's field, so never suggest the farmer burned. Use it to tell the department the request is
+        urgent, or when the farmer asks about smoke nearby.
+
+        Args:
+            radius_km: How far around the farm to look, up to 25 km. Default 5.
+        """
+        return _json(session.fires_near(radius_km))
+
+    @tool
     def plan_zero_burn() -> str:
         """Book CHC machines on free, dry days for the farm's gap, cheapest first. Returns the bookings, the cost
         after subsidy, coverage after booking, and what is still unmet (that becomes the help request)."""
@@ -135,8 +147,8 @@ def build_agent(session: KisanSession, model: BedrockModel | None = None, callba
     return Agent(
         model=model or default_model(),
         system_prompt=SYSTEM_PROMPT + f"\nToday is {date.today().isoformat()}.",
-        tools=[update_farm_profile, get_farm_profile, estimate_coverage, get_rain_days, find_chc, plan_zero_burn,
-               prepare_readback, file_resource_gap_report],
+        tools=[update_farm_profile, get_farm_profile, estimate_coverage, get_rain_days, find_chc, get_fires_near_farm,
+               plan_zero_burn, prepare_readback, file_resource_gap_report],
         callback_handler=callback_handler,
     )
 

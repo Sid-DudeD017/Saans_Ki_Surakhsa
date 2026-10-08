@@ -43,8 +43,16 @@ def to_help_request(request: dict, farmer_id: str) -> dict:
         "ownCoveragePercent": cov["coverage_pct"],
         "locationSource": farm.get("location_source"),
         "plannedBookings": [{**b, "machine": MACHINE_NAMES.get(b["machine"], b["machine"])} for b in plan],
+        "nearbyFires": _fires(request.get("nearby_fires")),
         "source": "kisan_saathi",
     }
+
+
+def _fires(checked: dict | None) -> dict | None:
+    if not checked:
+        return None
+    return {"count": checked["count"], "countNominalOrHigh": checked["count_nominal_or_high"],
+            "nearestKm": checked["nearest_km"], "radiusKm": checked["radius_km"], "asOf": checked["as_of"]}
 
 
 def _datetime(day: str) -> str:
