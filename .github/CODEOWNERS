@@ -1,0 +1,31 @@
+# .github/CODEOWNERS
+
+# Owners are maintained by @Sid-DudeD017 (current repository owner). Maintainers may replace handles as needed.
+
+# P1
+/services/agent-kisan/ @Sid-DudeD017
+/src/app/kisan/ @Sid-DudeD017
+/data/seed/chc_demo.json @Sid-DudeD017
+
+# P2
+/package.json @Sid-DudeD017
+/package-lock.json @Sid-DudeD017
+/src/app/layout.tsx @Sid-DudeD017
+/src/app/page.tsx @Sid-DudeD017
+/src/components/ui/ @Sid-DudeD017
+/src/lib/api.ts @Sid-DudeD017
+/src/app/shala/ @Sid-DudeD017
+
+# P3
+/packages/aqi/ @Sid-DudeD017
+/services/aqi/ @Sid-DudeD017
+/src/app/ghar/ @Sid-DudeD017
+
+# P4
+/packages/contracts/ @Sid-DudeD017
+/infra/ @Sid-DudeD017
+/src/domain/ @Sid-DudeD017
+/services/command-api/ @Sid-DudeD017
+/src/app/command/ @Sid-DudeD017
+/.github/ @Sid-DudeD017
+/scripts/smoke.sh @Sid-DudeD017
