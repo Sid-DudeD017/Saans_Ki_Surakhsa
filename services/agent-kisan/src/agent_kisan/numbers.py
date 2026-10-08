@@ -48,22 +48,26 @@ _ROMAN = """
 28 atthais athais athai atthai | 29 untis unatti | 30 thirty tees tih teeh | 40 forty chalis chaali
 50 fifty pachas panjah | 60 sixty | 70 seventy sattar | 80 eighty assi | 90 ninety nabbe | 100 hundred sau
 """
-_FRACTIONS = {"dedh": 1.5, "derh": 1.5, "ਡੇਢ": 1.5, "डेढ़": 1.5, "dhai": 2.5, "dhaai": 2.5, "ਢਾਈ": 2.5, "ढाई": 2.5,
+# Whisper's spellings of Hindi: it often writes ध for ढ and drops the nukta (धाई for ढाई, साडे for साढ़े).
+_ASR_FRACTIONS = {"धाई": 2.5, "ढाइ": 2.5, "डेड": 1.5, "डेड़": 1.5}
+_ASR_PREFIXES = {"साडे": 0.5, "साढे": 0.5, "सादे": 0.5}
+_FRACTIONS = {**_ASR_FRACTIONS, "dedh": 1.5, "derh": 1.5, "ਡੇਢ": 1.5, "डेढ़": 1.5, "dhai": 2.5, "dhaai": 2.5, "ਢਾਈ": 2.5, "ढाई": 2.5,
               "half": 0.5, "aadha": 0.5, "adha": 0.5, "aadhi": 0.5, "adhi": 0.5, "ਅੱਧਾ": 0.5, "ਅੱਧੀ": 0.5,
               "आधा": 0.5, "आधी": 0.5}
-_PREFIXES = {"sava": 0.25, "sawa": 0.25, "ਸਵਾ": 0.25, "सवा": 0.25, "saadhe": 0.5, "sadhe": 0.5, "ਸਾਢੇ": 0.5,
+_PREFIXES = {**_ASR_PREFIXES, "sava": 0.25, "sawa": 0.25, "ਸਵਾ": 0.25, "सवा": 0.25, "saadhe": 0.5, "sadhe": 0.5, "ਸਾਢੇ": 0.5,
              "साढ़े": 0.5, "paune": -0.25, "pone": -0.25, "ਪੌਣੇ": -0.25, "पौने": -0.25}
 _MULTIPLIERS = {"sau": 100, "hundred": 100, "ਸੌ": 100, "सौ": 100, "hazaar": 1000, "hazar": 1000, "thousand": 1000,
                 "ਹਜ਼ਾਰ": 1000, "हज़ार": 1000}
 _NEGATIONS = {"nahi", "nahin", "nai", "no", "none", "ਨਹੀਂ", "नहीं", "koi"}
 _KINDS = {
-    "area": "killa kila kille killa ਕਿੱਲੇ ਕਿੱਲਾ ਕਿੱਲਿਆਂ किल्ले किल्ला acre acres ekad ekar ਏਕੜ एकड़ hectare hectares ha "
+    "area": "killa kila kille killa ਕਿੱਲੇ ਕਿੱਲਾ ਕਿੱਲਿਆਂ किल्ले किल्ला acre acres ekad ekar ਏਕੜ एकड़ एकर ऐकर ਏਕਰ hectare hectares ha "
             "ਹੈਕਟੇਅਰ हेक्टेयर bigha bighe ਬਿੱਘੇ ਬਿੱਘਾ बीघा बीघे",
-    "tractors": "tractor tractors ਟਰੈਕਟਰ ਟ੍ਰੈਕਟਰ ट्रैक्टर ट्रेक्टर",
+    "tractors": "tractor tractors ਟਰੈਕਟਰ ਟ੍ਰੈਕਟਰ ट्रैक्टर ट्रेक्टर ट्रक्तर ट्रैक्तर ट्रेक्तर",
     "days": "din dino dinon day days ਦਿਨ ਦਿਨਾਂ दिन दिनों",
     "month": "january february march april may june july august september october november december jan feb mar "
              "apr jun jul aug sep sept oct nov dec ਜਨਵਰੀ ਫ਼ਰਵਰੀ ਮਾਰਚ ਅਪ੍ਰੈਲ ਮਈ ਜੂਨ ਜੁਲਾਈ ਅਗਸਤ ਸਤੰਬਰ ਅਕਤੂਬਰ ਨਵੰਬਰ "
-             "ਦਸੰਬਰ जनवरी फ़रवरी मार्च अप्रैल मई जून जुलाई अगस्त सितंबर अक्टूबर अक्तूबर नवंबर दिसंबर",
+             "ਦਸੰਬਰ जनवरी फ़रवरी मार्च अप्रैल मई जून जुलाई अगस्त सितंबर अक्टूबर अक्तूबर अक्तोबर अक्टोबर नवंबर नवम्बर नवेंबर "
+             "दिसंबर दिसम्बर",
 }
 # "Sat Sri Akal": the greeting's "sat" is not 7.
 _GREETING_NEXT = {"ਸ੍ਰੀ", "ਸ਼੍ਰੀ", "sri", "shri"}
@@ -91,6 +95,35 @@ def _table(*blocks: str) -> dict[str, float]:
 
 
 WORDS = _table(_GURMUKHI, _DEVANAGARI, _ROMAN)
+
+
+def _first_spellings(block: str) -> dict[float, str]:
+    out = {}
+    for entry in block.replace("\n", "|").split("|"):
+        if entry.strip():
+            value, first, *_ = entry.split()
+            out[float(value)] = first
+    return out
+
+
+# The way to say each number, for read-back audio and labels (as written, not normalised).
+SPOKEN = {"pa": _first_spellings(_GURMUKHI), "hi": _first_spellings(_DEVANAGARI)}
+_HALVES = {"pa": {0.5: "ਅੱਧਾ", 1.5: "ਡੇਢ", 2.5: "ਢਾਈ", "prefix": "ਸਾਢੇ"},
+           "hi": {0.5: "आधा", 1.5: "डेढ़", 2.5: "ढाई", "prefix": "साढ़े"}}
+
+
+def spoken(value: float, language: str) -> str | None:
+    """Number words for a value in Punjabi or Hindi, or None if the tables can't say it exactly."""
+    words, halves = SPOKEN.get(language), _HALVES.get(language)
+    if words is None:
+        return None
+    if float(value).is_integer():
+        return words.get(float(value))
+    if value in halves:
+        return halves[value]
+    if (value * 2).is_integer() and value > 3 and float(value - 0.5) in words:
+        return f"{halves['prefix']} {words[float(value - 0.5)]}"
+    return None
 FRACTIONS = {normalize(k): v for k, v in _FRACTIONS.items()}
 PREFIXES = {normalize(k): v for k, v in _PREFIXES.items()}
 MULTIPLIERS = {normalize(k): v for k, v in _MULTIPLIERS.items()}

@@ -157,6 +157,43 @@ def plan_zero_burn(
     )
 
 
+def find_chcs(
+    chcs: Iterable[Chc],
+    *,
+    farm_location: tuple[float, float] | None = None,
+    district: str | None = None,
+    machine: str | None = None,
+    window: tuple[date, date] | None = None,
+    rain_dates: Iterable[date] = (),
+    today: date | None = None,
+    max_km: float = DEFAULT_MAX_KM,
+) -> list[dict]:
+    """CHCs within reach, nearest first, with each machine's price after subsidy and, given a
+    window, how many dry days it is free and the first one."""
+    rain = set(rain_dates)
+    out = []
+    for chc in chcs:
+        dist = _reach(chc, farm_location, district, max_km)
+        if dist is False:
+            continue
+        machines = []
+        for m in chc.machines:
+            if machine and m.type != machine:
+                continue
+            entry = {"machine": m.type, "units": m.units,
+                     "cost_per_acre_inr": round(m.rate_per_acre_inr * (1 - chc.subsidy_fraction))}
+            if window:
+                start, end = window
+                free = [start + timedelta(d) for d in range((end - start).days)]
+                free = [d for d in free if d not in rain and (today is None or d >= today) and m.free_units(d) > 0]
+                entry.update(free_days=len(free), first_free=free[0].isoformat() if free else None)
+            machines.append(entry)
+        if machines:
+            out.append({"chc_id": chc.id, "name": chc.name, "village": chc.village, "phone": chc.phone,
+                        "distance_km": None if dist is None else round(dist, 1), "machines": machines})
+    return sorted(out, key=lambda c: (c["distance_km"] is None, c["distance_km"] or 0, c["chc_id"]))
+
+
 def haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
     lat1, lon1, lat2, lon2 = map(math.radians, (*a, *b))
     h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2

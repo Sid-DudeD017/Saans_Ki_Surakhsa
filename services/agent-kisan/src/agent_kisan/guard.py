@@ -55,8 +55,11 @@ def numeric_slots(profile, explicitly_set: set[str]) -> list[tuple[str, float | 
     return slots
 
 
-def unsure(profile, explicitly_set: set[str], messages: list[str], language: str) -> list[dict]:
-    mentions = [m for text in messages for m in numbers_in(text)]
+def unsure(profile, explicitly_set: set[str], messages: list[str], language: str,
+           distrusted: list[frozenset[float]] | None = None) -> list[dict]:
+    """distrusted[i]: numbers in messages[i] that speech recognition was unsure of; they don't count."""
+    distrusted = distrusted or [frozenset()] * len(messages)
+    mentions = [m for text, bad in zip(messages, distrusted) for m in numbers_in(text) if round(m.value, 2) not in bad]
     said_none = any(says_none(text) for text in messages)
     out = []
     for slot, value in numeric_slots(profile, explicitly_set):

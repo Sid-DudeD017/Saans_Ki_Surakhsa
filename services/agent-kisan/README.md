@@ -18,13 +18,24 @@ uv run python scripts/smoke_gurpreet.py                   # scripted Punjabi con
 - `POST /v1/farm/plan`: the same farm plus `harvest_date`, `wheat_deadline`, `village`/`district` or
   `lat`/`lon`, and optional `rain_dates` (omit them to use the Open-Meteo forecast) → coverage, CHC bookings by day with cost after subsidy,
   coverage after booking, what is still `unmet`, and `demo_data` while the CHC list is made up.
+- `GET /v1/chcs?village=…|lat=…&lon=…|district=…&machine=…`: CHCs within 15 km, nearest first, with
+  price per acre after subsidy and phone.
+- `POST /v1/agent/kisan/voice`: multipart `audio` (m4a, wav, ogg, mp3, up to 10 MB) plus optional
+  `session_id` and `language` → the same reply as a message, with the `transcript`.
+- `POST /v1/agent/kisan/photo`: multipart `photo` (+ optional `session_id`) → location and time from the
+  photo, a stored copy with faces blurred and no metadata, and the machine it shows (Claude on Bedrock).
+- `GET /v1/agent/kisan/sessions/{id}/readback.wav`: the current read-back spoken in Punjabi or Hindi.
+- `GET /v1/agent/kisan/sessions/{id}/status`: the farmer's status page (filed, seen, machine assigned, done).
+- `POST /v1/agent/kisan/help-requests/{id}/status`: for Command, with `X-Saans-Service-Token`; texts the farmer.
+- `POST /v1/allocations`: for Command: shares CHC machines across open `HelpRequest`s
+  (earliest wheat deadline first, nearest machine first, one farm per machine per day).
 - `POST /v1/agent/kisan/messages`: `{session_id?, text, language}` → `{session_id, reply, missing, quick_replies, filed}`.
   Conversations are held in memory for now.
 
 ## Agent
 
 Strands on Amazon Bedrock. Tools: `update_farm_profile`, `get_farm_profile`, `estimate_coverage`,
-`get_rain_days`, `plan_zero_burn`, `prepare_readback`, `file_resource_gap_report`. The filing rules are enforced in `session.py`, not the
+`get_rain_days`, `find_chc`, `plan_zero_burn`, `prepare_readback`, `file_resource_gap_report`. The filing rules are enforced in `session.py`, not the
 prompt: a request is filed only after a read-back, a later reply from the farmer, and no changes since.
 
 Use the Saans AWS account, not your default profile: `aws configure --profile saans`, then run
@@ -47,6 +58,24 @@ with `ownCoveragePercent` and `plannedBookings` as extra fields. `farmLocation` 
 phone's GPS, else the village, else the district centre in `data/seed`. Without any of those,
 `help_request` is null and `help_request_error` says why.
 
+The contract is tested on both sides: `python -m agent_kisan.contract_fixtures` writes example
+requests to `packages/contracts/fixtures/kisan-help-requests.json`, `src/__tests__/kisan-help-request.test.ts`
+parses them with Command's real `HelpRequestSchema` (`npx vitest run`), and a Python test fails
+if the fixture is out of date.
+
+## Deploying
+
+```bash
+docker build -f services/agent-kisan/Dockerfile -t saans-agent-kisan .   # from the repo root
+AWS_PROFILE=saans services/agent-kisan/deploy/deploy.sh                   # ECR + App Runner, costs money
+AWS_PROFILE=saans services/agent-kisan/deploy/teardown.sh                 # list what's running
+AWS_PROFILE=saans services/agent-kisan/deploy/teardown.sh --yes           # delete it all (Sunday)
+```
+
+`deploy/apprunner.yaml` runs one instance (conversations are in memory), 1 vCPU / 2 GB, health check
+on `/healthz`, with an instance role that may only call Bedrock. Set `SAANS_API_URL` before
+deploying to file to Command; otherwise requests go to an outbox inside the container.
+
 ## Simulated farmers
 
 ```bash
@@ -58,6 +87,44 @@ digits; one-at-a-time, all-at-once or rambling; some correct themselves or start
 Scores per farmer: each of 8 details right, filed correctly, filed with a wrong detail, coverage
 error, turns, and whether the agent asked for Aadhaar or bank details. Results land in
 `evals/results/<time>/` (git-ignored) with a summary broken down by language and behaviour.
+
+## Voice notes
+
+`transcribe.py` turns voice notes into text with Whisper. `KISAN_ASR_BACKEND=local` (the default)
+runs faster-whisper on your machine with `large-v3-turbo` (about 1.6 GB, downloaded on first use;
+`KISAN_ASR_MODEL` picks another); `sagemaker` calls `KISAN_ASR_ENDPOINT` (written, not yet tried
+against a live endpoint). Local Whisper is in the `asr` dependency group, which the deployed image
+leaves out. On a MacBook Air a short Hindi note takes about 7–8 s.
+
+Number words Whisper heard with low probability don't count as heard, so the farmer is asked to
+confirm them: this catches some speech mistakes, not only the model's. The word tables include
+Whisper's own Hindi spellings (एकर, ट्रक्तर, अक्तोबर, धाई for ढाई). Not yet tried on Punjabi audio.
+
+### Results
+
+<!-- EVAL RESULTS START -->
+Not run yet: the AWS account can't reach Bedrock. After a run: `uv run python scripts/eval_to_readme.py`.
+<!-- EVAL RESULTS END -->
+
+## Read-back card and voice
+
+When the agent reads the details back, the reply carries `readback`: a card (big digits, icon keys
+for P2's screens), the spoken script, and `audio_url`. `tts.py` speaks Punjabi and Hindi with Meta's
+MMS voices (CC-BY-NC), sentence by sentence, starting in the background as soon as the read-back
+exists, and caches it. On a laptop it takes ~2.5 s; on App Runner's 1 vCPU ~30 s, so the head start
+matters. One-word clips stitched together were tried first and dropped: unintelligible. The phrasing
+needs a native speaker's check.
+
+## SMS
+
+`notify.py` keeps each request's status history and texts the farmer (`farmer_phone`, +91) when it's
+filed, when Command assigns a machine and when the work is done: SNS with `KISAN_SMS=sns`
+(and `KISAN_SMS_SENDER_ID` once DLT-registered), else `.outbox/sms.jsonl`. Command's updates need
+`KISAN_SERVICE_TOKEN` set on both sides. The templates in `notify.py` are the ones to register for DLT.
+
+## Video
+
+`video/scene-0020-gurpreet.md`: shot list, lines and checklist for the 0:20–0:55 scene.
 
 ## Number guard
 

@@ -1,0 +1,95 @@
+{
+  "gurpreet_open": {
+    "id": "kisan-gurpreet-open",
+    "farmerId": "kisan-farmer-gurpreet-ope",
+    "farmLocation": {
+      "lat": 30.266,
+      "lng": 76.04
+    },
+    "district": "Sangrur",
+    "crop": "Paddy",
+    "acreage": 18.0,
+    "machineType": "Happy Seeder",
+    "requiredFrom": "2026-10-20T00:00:00Z",
+    "requiredUntil": "2026-11-09T00:00:00Z",
+    "coveragePercent": 92,
+    "uncoveredAcres": 1.5,
+    "status": "OPEN",
+    "ownCoveragePercent": 61,
+    "locationSource": "village",
+    "plannedBookings": [
+      {
+        "date": "2026-11-02",
+        "machine": "Super Seeder",
+        "chc_id": "demo-chc-a",
+        "chc_name": "Demo CHC A (Bhawanigarh)",
+        "distance_km": 2.0,
+        "acres": 5.5,
+        "cost_inr": 5500
+      }
+    ],
+    "source": "kisan_saathi"
+  },
+  "fully_booked_matched": {
+    "id": "kisan-fully-booked",
+    "farmerId": "kisan-farmer-fully-booked",
+    "farmLocation": {
+      "lat": 30.266,
+      "lng": 76.04
+    },
+    "district": "Sangrur",
+    "crop": "Paddy",
+    "acreage": 18.0,
+    "machineType": "Any",
+    "requiredFrom": "2026-10-20T00:00:00Z",
+    "requiredUntil": "2026-11-09T00:00:00Z",
+    "coveragePercent": 100,
+    "uncoveredAcres": 0,
+    "status": "MATCHED",
+    "ownCoveragePercent": 92,
+    "locationSource": "village",
+    "plannedBookings": [
+      {
+        "date": "2026-11-02",
+        "machine": "Super Seeder",
+        "chc_id": "demo-chc-a",
+        "chc_name": "Demo CHC A (Bhawanigarh)",
+        "distance_km": 2.0,
+        "acres": 1.5,
+        "cost_inr": 1500
+      }
+    ],
+    "source": "kisan_saathi"
+  },
+  "unknown_village_district_centre": {
+    "id": "kisan-district-centre",
+    "farmerId": "kisan-farmer-district-cen",
+    "farmLocation": {
+      "lat": 30.2458,
+      "lng": 75.8421
+    },
+    "district": "Sangrur",
+    "crop": "Paddy",
+    "acreage": 18.0,
+    "machineType": "Any",
+    "requiredFrom": "2026-10-20T00:00:00Z",
+    "requiredUntil": "2026-11-09T00:00:00Z",
+    "coveragePercent": 100,
+    "uncoveredAcres": 0,
+    "status": "MATCHED",
+    "ownCoveragePercent": 61,
+    "locationSource": "district",
+    "plannedBookings": [
+      {
+        "date": "2026-10-20",
+        "machine": "Happy Seeder",
+        "chc_id": "demo-chc-c",
+        "chc_name": "Demo CHC C (25 km away)",
+        "distance_km": null,
+        "acres": 7.0,
+        "cost_inr": 5250
+      }
+    ],
+    "source": "kisan_saathi"
+  }
+}

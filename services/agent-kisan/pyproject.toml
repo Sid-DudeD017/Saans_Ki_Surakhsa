@@ -7,14 +7,25 @@ dependencies = [
     "botocore[crt]>=1.43.109",
     "fastapi>=0.142.4",
     "httpx>=0.28.1",
+    "opencv-python-headless<5",
+    "pillow>=12.3.0",
+    "python-multipart>=0.0.32",
     "strands-agents>=1.58.1",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
+asr = [
+    "av<16",
+    "faster-whisper>=1.2.1",
+]
 dev = [
     "httpx>=0.28.1",
     "pytest>=8",
+]
+tts = [
+    "torch>=2.14.1",
+    "transformers>=5.19.0",
 ]
 
 [build-system]
@@ -24,5 +35,18 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_kisan"]
 
+[tool.uv]
+# asr = local Whisper (development only). tts = the read-back voices, also built into the deployed image.
+default-groups = ["dev", "asr", "tts"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# On Linux (the deployed image) take the CPU-only PyTorch build; the default one carries GBs of GPU libraries.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
