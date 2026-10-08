@@ -2,7 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Saans AQI Data Platform",
-    "version": "0.1.0",
+    "version": "0.2.0",
+    "description": "Air-quality, forecast, indoor-estimate and clean-route APIs for Saans Ki Suraksha. All enum values are lowercase snake_case codes; display labels live in the UI (src/lib/labels.ts).",
     "license": {
       "name": "MIT"
     }
@@ -38,7 +39,8 @@
               "type": "number",
               "minimum": -180.0,
               "maximum": 180.0
-            }
+            },
+            "description": "Longitude. Always 'lon', never 'lng'."
           }
         ],
         "responses": {
@@ -51,60 +53,60 @@
                 },
                 "examples": {
                   "good_day": {
-                    "summary": "Good Day (AQI 45, dominant pm25)",
+                    "summary": "Good Day — AQI 45, dominant pm25",
                     "value": {
                       "aqi": 45,
-                      "category": "Good",
+                      "category": "good",
                       "dominant_pollutant": "pm25",
                       "sub_indices": {
-                        "pm25": { "sub_index": 45, "concentration": 27.0, "unit": "µg/m³" },
-                        "pm10": { "sub_index": 40, "concentration": 40.0, "unit": "µg/m³" },
-                        "o3":   { "sub_index": 30, "concentration": 30.0, "unit": "µg/m³" }
+                        "pm25": { "sub_index": 45, "concentration": 27.0, "unit": "ug/m3" },
+                        "pm10": { "sub_index": 40, "concentration": 40.0, "unit": "ug/m3" },
+                        "o3":   { "sub_index": 30, "concentration": 30.0, "unit": "ug/m3" }
                       },
-                      "grap_stage": "None",
+                      "grap_stage": "none",
                       "station_count": 3,
-                      "data_timestamp": "2026-10-08T08:00:00Z",
+                      "data_timestamp": "2026-10-08T08:00:00+05:30",
                       "stale": false,
                       "wind": { "speed_kmh": 12.5, "direction_deg": 270.0 },
-                      "weather": { "temperature_c": 28.0, "humidity_pct": 55, "heat_index_c": 28.5 }
+                      "weather": { "temperature_c": 28.0, "humidity_pct": 55, "heat_index_c": 28.9 }
                     }
                   },
                   "poor_day": {
-                    "summary": "Poor Day (AQI 250, dominant no2)",
+                    "summary": "Poor Day — AQI 250, dominant no2",
                     "value": {
                       "aqi": 250,
-                      "category": "Poor",
+                      "category": "poor",
                       "dominant_pollutant": "no2",
                       "sub_indices": {
-                        "no2":  { "sub_index": 250, "concentration": 230.0, "unit": "µg/m³" },
-                        "pm25": { "sub_index": 220, "concentration": 96.6, "unit": "µg/m³" },
-                        "co":   { "sub_index": 78, "concentration": 1.6, "unit": "mg/m³" }
+                        "no2":  { "sub_index": 250, "concentration": 230.0, "unit": "ug/m3" },
+                        "pm25": { "sub_index": 220, "concentration": 96.6, "unit": "ug/m3" },
+                        "co":   { "sub_index": 78, "concentration": 1.6, "unit": "mg/m3" }
                       },
-                      "grap_stage": "Stage 1",
+                      "grap_stage": "stage_1",
                       "station_count": 5,
-                      "data_timestamp": "2026-10-08T08:00:00Z",
+                      "data_timestamp": "2026-10-08T08:00:00+05:30",
                       "stale": false,
                       "wind": { "speed_kmh": 5.0, "direction_deg": 90.0 },
-                      "weather": { "temperature_c": 33.0, "humidity_pct": 60, "heat_index_c": 38.7 }
+                      "weather": { "temperature_c": 33.0, "humidity_pct": 60, "heat_index_c": 39.5 }
                     }
                   },
                   "severe_day": {
-                    "summary": "Severe Day (AQI 450, dominant pm10)",
+                    "summary": "Severe Day — AQI 440, dominant pm10",
                     "value": {
-                      "aqi": 450,
-                      "category": "Severe",
+                      "aqi": 440,
+                      "category": "severe",
                       "dominant_pollutant": "pm10",
                       "sub_indices": {
-                        "pm10": { "sub_index": 450, "concentration": 470.0, "unit": "µg/m³" },
-                        "pm25": { "sub_index": 420, "concentration": 275.8, "unit": "µg/m³" },
-                        "o3":   { "sub_index": 150, "concentration": 134.2, "unit": "µg/m³" }
+                        "pm10": { "sub_index": 440, "concentration": 462.1, "unit": "ug/m3" },
+                        "pm25": { "sub_index": 420, "concentration": 275.8, "unit": "ug/m3" },
+                        "o3":   { "sub_index": 150, "concentration": 134.2, "unit": "ug/m3" }
                       },
-                      "grap_stage": "Stage 3",
+                      "grap_stage": "stage_3",
                       "station_count": 4,
-                      "data_timestamp": "2026-10-08T08:00:00Z",
+                      "data_timestamp": "2026-10-08T08:00:00+05:30",
                       "stale": false,
                       "wind": { "speed_kmh": 2.0, "direction_deg": 180.0 },
-                      "weather": { "temperature_c": 38.0, "humidity_pct": 45, "heat_index_c": 42.1 }
+                      "weather": { "temperature_c": 38.0, "humidity_pct": 45, "heat_index_c": 45.9 }
                     }
                   }
                 }
@@ -219,6 +221,297 @@
           }
         }
       }
+    },
+    "/v1/aqi/forecast": {
+      "get": {
+        "summary": "Hourly AQI forecast",
+        "operationId": "get_aqi_forecast_v1_aqi_forecast_get",
+        "description": "Returns hourly predicted PM2.5 concentration and AQI category for the requested location.",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "number", "minimum": -90.0, "maximum": 90.0 }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "number", "minimum": -180.0, "maximum": 180.0 }
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "description": "Number of forecast hours to return (default 24, max 72).",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 72, "default": 24 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastResponse"
+                },
+                "examples": {
+                  "delhi_24h": {
+                    "summary": "24-hour Delhi forecast (rising PM2.5)",
+                    "value": {
+                      "lat": 28.6139,
+                      "lon": 77.209,
+                      "generated_at": "2026-10-08T08:00:00+05:30",
+                      "hours": [
+                        { "time": "2026-10-08T09:00:00+05:30", "pm25_ug_m3": 62.0, "aqi": 102, "category": "moderate" },
+                        { "time": "2026-10-08T10:00:00+05:30", "pm25_ug_m3": 71.0, "aqi": 112, "category": "moderate" },
+                        { "time": "2026-10-08T11:00:00+05:30", "pm25_ug_m3": 55.0, "aqi": 91, "category": "satisfactory" }
+                      ],
+                      "model": "open_meteo_cams",
+                      "model_version": "0.1.0"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No forecast coverage for the requested location",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "no_coverage",
+                  "detail": "Forecast data is not available for the requested coordinates."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          },
+          "503": {
+            "description": "Forecast data source is unavailable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "sources_unavailable",
+                  "detail": "Forecast upstream (Open-Meteo CAMS) failed to respond. Retry after 60 seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/indoor/estimate": {
+      "post": {
+        "summary": "Indoor air quality estimate",
+        "operationId": "post_indoor_estimate_v1_indoor_estimate_post",
+        "description": "Estimates indoor PM2.5 given room parameters, ventilation, filtration, and indoor emission sources. Returns a 72-hour hourly series and a plain-language plan for today.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndoorEstimateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndoorEstimateResponse"
+                },
+                "examples": {
+                  "small_room_lpg": {
+                    "summary": "Small room with LPG, 1 window, basic purifier",
+                    "value": {
+                      "indoor_pm25_now_ug_m3": 48.0,
+                      "outdoor_pm25_now_ug_m3": 120.0,
+                      "hourly_series": [
+                        { "time": "2026-10-08T09:00:00+05:30", "indoor_pm25_ug_m3": 48.0, "outdoor_pm25_ug_m3": 120.0 },
+                        { "time": "2026-10-08T10:00:00+05:30", "indoor_pm25_ug_m3": 44.0, "outdoor_pm25_ug_m3": 115.0 },
+                        { "time": "2026-10-08T11:00:00+05:30", "indoor_pm25_ug_m3": 52.0, "outdoor_pm25_ug_m3": 130.0 }
+                      ],
+                      "today_plan": "Keep windows closed until 14:00 when outdoor PM2.5 dips below 60 ug/m3. Run the purifier on high during cooking (12:00-13:00).",
+                      "assumptions": {
+                        "infiltration_rate_ach": 0.5,
+                        "purifier_effective_cadr_m3_h": 150,
+                        "cooking_emission_ug_m3_h": 80,
+                        "decay_rate_h": 0.2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No outdoor AQI data available for the location",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "no_coverage",
+                  "detail": "No outdoor PM2.5 data available for the specified location to anchor the indoor model."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          },
+          "503": {
+            "description": "Upstream data sources are unavailable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "sources_unavailable",
+                  "detail": "Outdoor AQI sources failed to respond. Retry after 60 seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/routes/clean": {
+      "post": {
+        "summary": "Find the cleanest commute route",
+        "operationId": "post_routes_clean_v1_routes_clean_post",
+        "description": "Given an origin, destination, departure time and travel mode, returns routes ranked by PM2.5 dose. Dose = Σ C × (1 + 0.3 × congestion) × f_mode × BR_mode × dt. Mode factors are planning values: two_wheeler (f=1.0, BR=0.6 m³/h), car_windows_up (f=0.5, BR=0.5), bus (f=0.9, BR=0.5), walk (f=1.0, BR=1.0), cycle (f=1.0, BR=2.0), metro (f=0.6, BR=0.5).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanRouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanRouteResponse"
+                },
+                "examples": {
+                  "delhi_two_wheeler": {
+                    "summary": "Two-wheeler commute in Delhi, 3 routes",
+                    "value": {
+                      "origin": { "lat": 28.6139, "lon": 77.209 },
+                      "destination": { "lat": 28.5535, "lon": 77.2588 },
+                      "depart_at": "2026-10-08T08:30:00+05:30",
+                      "mode": "two_wheeler",
+                      "routes": [
+                        {
+                          "route_id": "r1",
+                          "label": "Via Ring Road",
+                          "duration_min": 35,
+                          "distance_km": 14.2,
+                          "dose_ug": 58.4,
+                          "percent_lower_than_fastest": 22,
+                          "segments": [
+                            { "name": "Connaught Place → ITO", "pm25_ug_m3": 110.0, "congestion": 0.6, "duration_min": 12 },
+                            { "name": "ITO → Ring Road", "pm25_ug_m3": 95.0, "congestion": 0.3, "duration_min": 10 },
+                            { "name": "Ring Road → Sarita Vihar", "pm25_ug_m3": 88.0, "congestion": 0.2, "duration_min": 13 }
+                          ]
+                        },
+                        {
+                          "route_id": "r2",
+                          "label": "Via Mathura Road (fastest)",
+                          "duration_min": 28,
+                          "distance_km": 12.1,
+                          "dose_ug": 74.8,
+                          "percent_lower_than_fastest": 0,
+                          "segments": [
+                            { "name": "Connaught Place → India Gate", "pm25_ug_m3": 130.0, "congestion": 0.8, "duration_min": 10 },
+                            { "name": "India Gate → Ashram", "pm25_ug_m3": 145.0, "congestion": 0.7, "duration_min": 10 },
+                            { "name": "Ashram → Sarita Vihar", "pm25_ug_m3": 105.0, "congestion": 0.4, "duration_min": 8 }
+                          ]
+                        },
+                        {
+                          "route_id": "r3",
+                          "label": "Via Lodhi Garden corridor",
+                          "duration_min": 40,
+                          "distance_km": 15.5,
+                          "dose_ug": 52.1,
+                          "percent_lower_than_fastest": 30,
+                          "segments": [
+                            { "name": "Connaught Place → Lodhi Garden", "pm25_ug_m3": 72.0, "congestion": 0.2, "duration_min": 14 },
+                            { "name": "Lodhi Garden → Jangpura", "pm25_ug_m3": 80.0, "congestion": 0.3, "duration_min": 12 },
+                            { "name": "Jangpura → Sarita Vihar", "pm25_ug_m3": 90.0, "congestion": 0.3, "duration_min": 14 }
+                          ]
+                        }
+                      ],
+                      "recommended_route_id": "r3",
+                      "better_departure_time": "2026-10-08T07:00:00+05:30",
+                      "mode_factors_used": {
+                        "f": 1.0,
+                        "breathing_rate_m3_h": 0.6,
+                        "note": "Planning values — not medical advice"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No route or AQI data available",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "no_coverage",
+                  "detail": "No routing or PM2.5 data available for the requested origin/destination."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+              }
+            }
+          },
+          "503": {
+            "description": "Routing or AQI data sources are unavailable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "sources_unavailable",
+                  "detail": "Routing or AQI upstream failed to respond. Retry after 60 seconds."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -226,25 +519,27 @@
       "Pollutant": {
         "type": "string",
         "enum": ["pm25", "pm10", "no2", "so2", "co", "o3", "nh3", "pb"],
-        "title": "Pollutant"
+        "title": "Pollutant",
+        "description": "Lowercase pollutant codes. Display labels: pm25='PM 2.5', pm10='PM 10', no2='Nitrogen Dioxide', so2='Sulphur Dioxide', co='Carbon Monoxide', o3='Ozone', nh3='Ammonia', pb='Lead'."
       },
       "AqiCategory": {
         "type": "string",
-        "enum": ["Good", "Satisfactory", "Moderately polluted", "Poor", "Very poor", "Severe"],
-        "title": "AqiCategory"
+        "enum": ["good", "satisfactory", "moderate", "poor", "very_poor", "severe"],
+        "title": "AqiCategory",
+        "description": "Lowercase AQI category codes. Display labels: good='Good' (0-50), satisfactory='Satisfactory' (51-100), moderate='Moderately polluted' (101-200), poor='Poor' (201-300), very_poor='Very Poor' (301-400), severe='Severe' (401-500)."
       },
       "GrapStage": {
         "type": "string",
-        "enum": ["None", "Stage 1", "Stage 2", "Stage 3", "Stage 4"],
+        "enum": ["none", "stage_1", "stage_2", "stage_3", "stage_4"],
         "title": "GrapStage",
-        "description": "GRAP (Graded Response Action Plan) stage. Stage 1 = Poor (AQI 201-300), Stage 2 = Very Poor (AQI 301-400), Stage 3 = Severe (AQI 401-450), Stage 4 = Severe+ (AQI > 450). VERIFY against latest CAQM GRAP revisions."
+        "description": "GRAP (Graded Response Action Plan) stage as lowercase codes. Display labels: none='No GRAP action' (AQI 0-200), stage_1='Stage I — Poor' (AQI 201-300), stage_2='Stage II — Very Poor' (AQI 301-400), stage_3='Stage III — Severe' (AQI 401-450 VERIFY), stage_4='Stage IV — Severe+' (AQI >450 VERIFY). VERIFY against latest CAQM GRAP revisions."
       },
       "SubIndex": {
         "type": "object",
         "properties": {
           "sub_index": {
-            "type": "number",
-            "description": "CPCB sub-index value (0-500) computed via linear interpolation within the pollutant's breakpoint band"
+            "type": "integer",
+            "description": "CPCB sub-index value (0-500) computed via linear interpolation within the pollutant's breakpoint band, rounded to nearest integer"
           },
           "concentration": {
             "type": "number",
@@ -252,7 +547,7 @@
           },
           "unit": {
             "type": "string",
-            "description": "Unit of concentration (e.g. µg/m³, mg/m³)"
+            "description": "Concentration unit: 'ug/m3' for all pollutants except CO which uses 'mg/m3'"
           }
         },
         "required": ["sub_index", "concentration", "unit"],
@@ -286,7 +581,7 @@
           },
           "heat_index_c": {
             "type": "number",
-            "description": "Apparent temperature (heat index) in degrees Celsius, accounting for humidity"
+            "description": "Apparent temperature (heat index) in degrees Celsius, computed using the NWS Rothfusz regression formula. See prep/p3/example-math.md for full arithmetic."
           }
         },
         "required": ["temperature_c", "humidity_pct", "heat_index_c"],
@@ -296,8 +591,8 @@
         "type": "object",
         "properties": {
           "aqi": {
-            "type": "number",
-            "description": "Overall AQI: the maximum sub-index across all reported pollutants. Requires >= 3 pollutants with at least one being PM2.5 or PM10."
+            "type": "integer",
+            "description": "Overall AQI: the maximum sub-index across all reported pollutants. Requires >= 3 pollutants with at least one being PM2.5 or PM10 (VERIFY: CPCB National AQI document)."
           },
           "category": { "$ref": "#/components/schemas/AqiCategory" },
           "dominant_pollutant": { "$ref": "#/components/schemas/Pollutant" },
@@ -314,7 +609,7 @@
           "data_timestamp": {
             "type": "string",
             "format": "date-time",
-            "description": "ISO 8601 timestamp of the most recent source data used"
+            "description": "ISO 8601 timestamp with +05:30 offset of the most recent source data used"
           },
           "stale": {
             "type": "boolean",
@@ -330,12 +625,269 @@
         ],
         "title": "AqiResponse"
       },
+      "ForecastHour": {
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp with +05:30 offset"
+          },
+          "pm25_ug_m3": {
+            "type": "number",
+            "description": "Predicted PM2.5 concentration in ug/m3"
+          },
+          "aqi": {
+            "type": "integer",
+            "description": "Predicted AQI (PM2.5 sub-index)"
+          },
+          "category": { "$ref": "#/components/schemas/AqiCategory" }
+        },
+        "required": ["time", "pm25_ug_m3", "aqi", "category"],
+        "title": "ForecastHour"
+      },
+      "ForecastResponse": {
+        "type": "object",
+        "properties": {
+          "lat": { "type": "number" },
+          "lon": { "type": "number" },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp with +05:30 when the forecast was generated"
+          },
+          "hours": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ForecastHour" },
+            "description": "Hourly forecast entries"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model identifier used for the forecast"
+          },
+          "model_version": {
+            "type": "string",
+            "description": "Version of the forecast model"
+          }
+        },
+        "required": ["lat", "lon", "generated_at", "hours", "model", "model_version"],
+        "title": "ForecastResponse"
+      },
+      "IndoorEstimateRequest": {
+        "type": "object",
+        "properties": {
+          "lat": { "type": "number", "minimum": -90.0, "maximum": 90.0 },
+          "lon": { "type": "number", "minimum": -180.0, "maximum": 180.0 },
+          "room_area_m2": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Room floor area in square metres"
+          },
+          "ceiling_height_m": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 2.7,
+            "description": "Ceiling height in metres (default 2.7)"
+          },
+          "windows": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of windows (0 = sealed room)"
+          },
+          "windows_open": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether windows are currently open"
+          },
+          "purifier_cadr_m3_h": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0,
+            "description": "Clean Air Delivery Rate of air purifier in m3/h (0 = no purifier)"
+          },
+          "hepa_class": {
+            "type": "string",
+            "enum": ["none", "h11", "h12", "h13", "h14"],
+            "default": "none",
+            "description": "HEPA filter class of the purifier"
+          },
+          "cooking_fuel": {
+            "type": "string",
+            "enum": ["none", "lpg", "png", "kerosene", "biomass", "electric"],
+            "default": "none",
+            "description": "Primary cooking fuel"
+          },
+          "smokers": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Number of active smokers in the room"
+          },
+          "incense": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether incense / agarbatti is burning"
+          },
+          "mosquito_coils": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether mosquito coils are burning"
+          }
+        },
+        "required": ["lat", "lon", "room_area_m2", "windows"],
+        "title": "IndoorEstimateRequest"
+      },
+      "IndoorHour": {
+        "type": "object",
+        "properties": {
+          "time": { "type": "string", "format": "date-time" },
+          "indoor_pm25_ug_m3": { "type": "number" },
+          "outdoor_pm25_ug_m3": { "type": "number" }
+        },
+        "required": ["time", "indoor_pm25_ug_m3", "outdoor_pm25_ug_m3"],
+        "title": "IndoorHour"
+      },
+      "IndoorEstimateResponse": {
+        "type": "object",
+        "properties": {
+          "indoor_pm25_now_ug_m3": {
+            "type": "number",
+            "description": "Current estimated indoor PM2.5 in ug/m3"
+          },
+          "outdoor_pm25_now_ug_m3": {
+            "type": "number",
+            "description": "Current outdoor PM2.5 at the location in ug/m3"
+          },
+          "hourly_series": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/IndoorHour" },
+            "description": "72-hour hourly indoor and outdoor PM2.5 predictions"
+          },
+          "today_plan": {
+            "type": "string",
+            "description": "Plain-language recommendation for today's ventilation and purifier use"
+          },
+          "assumptions": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Model assumptions used for transparency (infiltration rate, effective CADR, emission rates, decay rate)"
+          }
+        },
+        "required": ["indoor_pm25_now_ug_m3", "outdoor_pm25_now_ug_m3", "hourly_series", "today_plan", "assumptions"],
+        "title": "IndoorEstimateResponse"
+      },
+      "LatLon": {
+        "type": "object",
+        "properties": {
+          "lat": { "type": "number" },
+          "lon": { "type": "number" }
+        },
+        "required": ["lat", "lon"],
+        "title": "LatLon"
+      },
+      "CleanRouteRequest": {
+        "type": "object",
+        "properties": {
+          "origin": { "$ref": "#/components/schemas/LatLon" },
+          "destination": { "$ref": "#/components/schemas/LatLon" },
+          "depart_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Desired departure time, ISO 8601 with +05:30"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["two_wheeler", "car_windows_up", "bus", "walk", "cycle", "metro"],
+            "description": "Travel mode. Determines exposure factor (f) and breathing rate (BR). Planning values: two_wheeler f=1.0 BR=0.6, car_windows_up f=0.5 BR=0.5, bus f=0.9 BR=0.5, walk f=1.0 BR=1.0, cycle f=1.0 BR=2.0, metro f=0.6 BR=0.5."
+          },
+          "max_extra_min": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 15,
+            "description": "Maximum extra minutes over the fastest route the user is willing to accept"
+          }
+        },
+        "required": ["origin", "destination", "depart_at", "mode"],
+        "title": "CleanRouteRequest"
+      },
+      "RouteSegment": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Human-readable segment label" },
+          "pm25_ug_m3": { "type": "number", "description": "Average PM2.5 along this segment in ug/m3" },
+          "congestion": { "type": "number", "minimum": 0, "maximum": 1, "description": "Congestion factor (0 = free flow, 1 = gridlock)" },
+          "duration_min": { "type": "number", "description": "Segment travel time in minutes" }
+        },
+        "required": ["name", "pm25_ug_m3", "congestion", "duration_min"],
+        "title": "RouteSegment"
+      },
+      "Route": {
+        "type": "object",
+        "properties": {
+          "route_id": { "type": "string" },
+          "label": { "type": "string", "description": "Human-readable route name" },
+          "duration_min": { "type": "number" },
+          "distance_km": { "type": "number" },
+          "dose_ug": {
+            "type": "number",
+            "description": "Total PM2.5 dose in micrograms. Dose = Σ C × (1 + 0.3 × congestion) × f_mode × BR_mode × dt"
+          },
+          "percent_lower_than_fastest": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Percentage by which this route's dose is lower than the fastest route's dose. 0 for the fastest route."
+          },
+          "segments": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RouteSegment" }
+          }
+        },
+        "required": ["route_id", "label", "duration_min", "distance_km", "dose_ug", "percent_lower_than_fastest", "segments"],
+        "title": "Route"
+      },
+      "ModeFactors": {
+        "type": "object",
+        "properties": {
+          "f": { "type": "number", "description": "Exposure factor (dimensionless)" },
+          "breathing_rate_m3_h": { "type": "number", "description": "Breathing rate in m3/h" },
+          "note": { "type": "string" }
+        },
+        "required": ["f", "breathing_rate_m3_h"],
+        "title": "ModeFactors",
+        "description": "Planning values for the selected travel mode — not medical advice"
+      },
+      "CleanRouteResponse": {
+        "type": "object",
+        "properties": {
+          "origin": { "$ref": "#/components/schemas/LatLon" },
+          "destination": { "$ref": "#/components/schemas/LatLon" },
+          "depart_at": { "type": "string", "format": "date-time" },
+          "mode": { "type": "string" },
+          "routes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Route" }
+          },
+          "recommended_route_id": {
+            "type": "string",
+            "description": "Route ID of the recommended route (lowest dose within max_extra_min constraint)"
+          },
+          "better_departure_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "A suggested departure time (ISO 8601 +05:30) with lower predicted PM2.5 exposure, if available"
+          },
+          "mode_factors_used": { "$ref": "#/components/schemas/ModeFactors" }
+        },
+        "required": ["origin", "destination", "depart_at", "mode", "routes", "recommended_route_id", "mode_factors_used"],
+        "title": "CleanRouteResponse"
+      },
       "FirePoint": {
         "type": "object",
         "properties": {
           "lat": { "type": "number" },
           "lon": { "type": "number" },
-          "acquisition_time": { "type": "string", "format": "date-time" },
+          "acquisition_time": { "type": "string", "format": "date-time", "description": "ISO 8601 with +05:30" },
           "satellite": { "type": "string", "description": "e.g. VIIRS, MODIS" },
           "confidence": { "type": "string", "description": "Confidence level: low, nominal, high" },
           "frp": { "type": "number", "description": "Fire Radiative Power in MW" }
@@ -357,7 +909,7 @@
           "as_of": {
             "type": "string",
             "format": "date-time",
-            "description": "Timestamp of the latest FIRMS data included"
+            "description": "Timestamp (+05:30) of the latest FIRMS data included"
           }
         },
         "required": ["fires", "count", "as_of"],
