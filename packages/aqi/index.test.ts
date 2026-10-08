@@ -131,6 +131,12 @@ describe("CPCB Sub-Index Calculation", () => {
   it("handles PM2.5 decimals", () => {
     expect(subIndex("pm25", 96.6).value).toBe(220);
   });
+
+  it("handles exactly 500 without setting above_scale flag", () => {
+    const res = subIndex("pm25", 380); // upper boundary of severe is exactly 500
+    expect(res.value).toBe(500);
+    expect(res.above_scale).toBe(false);
+  });
 });
 
 describe("Overall AQI Calculation", () => {
@@ -180,9 +186,9 @@ describe("OpenAPI Contract Examples Verification", () => {
     expect(res.aqi).toBe(45);
     expect(res.category).toBe("good");
     expect(res.dominant_pollutant).toBe("pm25");
-    expect(res.sub_indices["pm25"]).toBe(45);
-    expect(res.sub_indices["pm10"]).toBe(40);
-    expect(res.sub_indices["o3"]).toBe(30);
+    expect(res.sub_indices["pm25"].sub_index).toBe(45);
+    expect(res.sub_indices["pm10"].sub_index).toBe(40);
+    expect(res.sub_indices["o3"].sub_index).toBe(30);
   });
 
   it("matches Poor Day example", () => {
@@ -194,9 +200,9 @@ describe("OpenAPI Contract Examples Verification", () => {
     expect(res.aqi).toBe(250);
     expect(res.category).toBe("poor");
     expect(res.dominant_pollutant).toBe("no2");
-    expect(res.sub_indices["no2"]).toBe(250);
-    expect(res.sub_indices["pm25"]).toBe(220); // 220.1 rounded
-    expect(res.sub_indices["co"]).toBe(78); // 78.2 rounded
+    expect(res.sub_indices["no2"].sub_index).toBe(250);
+    expect(res.sub_indices["pm25"].sub_index).toBe(220); // 220.1 rounded
+    expect(res.sub_indices["co"].sub_index).toBe(78); // 78.2 rounded
   });
 
   it("matches Severe Day example", () => {
@@ -208,8 +214,8 @@ describe("OpenAPI Contract Examples Verification", () => {
     expect(res.aqi).toBe(440);
     expect(res.category).toBe("severe");
     expect(res.dominant_pollutant).toBe("pm10");
-    expect(res.sub_indices["pm10"]).toBe(440);
-    expect(res.sub_indices["pm25"]).toBe(420);
-    expect(res.sub_indices["o3"]).toBe(150);
+    expect(res.sub_indices["pm10"].sub_index).toBe(440);
+    expect(res.sub_indices["pm25"].sub_index).toBe(420);
+    expect(res.sub_indices["o3"].sub_index).toBe(150);
   });
 });

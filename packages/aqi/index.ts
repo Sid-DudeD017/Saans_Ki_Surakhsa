@@ -123,7 +123,7 @@ export interface AqiResult {
   aqi: number;
   category: AqiCategoryCode;
   dominant_pollutant: PollutantCode;
-  sub_indices: Record<string, number>;
+  sub_indices: Record<string, { sub_index: number; concentration: number; unit: string }>;
   above_scale?: boolean;
 }
 
@@ -136,14 +136,18 @@ export function overallAqi(readings: AqiReading[]): AqiResult {
     throw new Error("Insufficient data: AQI requires >= 3 pollutants including PM2.5 or PM10");
   }
 
-  const subIndices: Record<string, number> = {};
+  const subIndices: Record<string, { sub_index: number; concentration: number; unit: string }> = {};
   let maxIdx = -1;
   let dominant: PollutantCode | null = null;
   let anyAboveScale = false;
 
   for (const r of readings) {
     const res = subIndex(r.pollutant, r.concentration);
-    subIndices[r.pollutant] = res.value;
+    subIndices[r.pollutant] = {
+      sub_index: res.value,
+      concentration: r.concentration,
+      unit: r.pollutant === "co" ? "mg/m3" : "ug/m3"
+    };
     if (res.above_scale) anyAboveScale = true;
     
     if (res.value > maxIdx) {
