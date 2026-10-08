@@ -114,30 +114,54 @@ const LanguageContext = createContext<LanguageContextValue | undefined>(
 );
 
 const STORAGE_KEY_LANG = 'saans_selected_lang';
+const VALID_LANGS: SupportedLanguage[] = ['en', 'hi', 'pa'];
+
+const langListeners = new Set<() => void>();
+
+function subscribeLang(callback: () => void) {
+  langListeners.add(callback);
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY_LANG) callback();
+  };
+  window.addEventListener('storage', handleStorage);
+  return () => {
+    langListeners.delete(callback);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+function getLangSnapshot(): SupportedLanguage {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_LANG);
+    if (saved && VALID_LANGS.includes(saved as SupportedLanguage)) {
+      return saved as SupportedLanguage;
+    }
+  } catch {
+    // LocalStorage not available
+  }
+  return 'en';
+}
+
+function getServerLangSnapshot(): SupportedLanguage {
+  return 'en';
+}
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [language, setLanguageState] = useState<SupportedLanguage>('en');
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_LANG);
-      if (saved && ['en', 'hi', 'pa'].includes(saved)) {
-        setLanguageState(saved as SupportedLanguage);
-      }
-    } catch {
-      // LocalStorage not available or SSR
-    }
-  }, []);
+  const language = React.useSyncExternalStore(
+    subscribeLang,
+    getLangSnapshot,
+    getServerLangSnapshot
+  );
 
   const setLanguage = (lang: SupportedLanguage) => {
-    setLanguageState(lang);
     try {
       localStorage.setItem(STORAGE_KEY_LANG, lang);
     } catch {
       // ignore
     }
+    langListeners.forEach((l) => l());
   };
 
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;

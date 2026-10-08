@@ -20,17 +20,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setLoading(true);
-      getNotifications()
-        .then((data) => {
+    if (!isOpen) return;
+
+    let isCancelled = false;
+    Promise.resolve().then(() => {
+      if (!isCancelled) setLoading(true);
+    });
+
+    getNotifications()
+      .then((data) => {
+        if (!isCancelled) {
           setNotifications(data);
           const unread = data.filter((n) => !n.read).length;
           if (onCountChange) onCountChange(unread);
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [isOpen]);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, onCountChange]);
 
   const handleMarkRead = async (id: string) => {
     await markNotificationRead(id);

@@ -38,42 +38,66 @@ const DEFAULT_USER: User = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const VALID_ROLES: UserRole[] = [
+  'student',
+  'parent',
+  'teacher',
+  'principal',
+  'citizen',
+  'official',
+];
+
+const roleListeners = new Set<() => void>();
+
+function subscribeRole(callback: () => void) {
+  roleListeners.add(callback);
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY_ROLE) callback();
+  };
+  window.addEventListener('storage', handleStorage);
+  return () => {
+    roleListeners.delete(callback);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+function getRoleSnapshot(): UserRole {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_ROLE);
+    if (saved && VALID_ROLES.includes(saved as UserRole)) {
+      return saved as UserRole;
+    }
+  } catch {
+    // LocalStorage not available
+  }
+  return 'student';
+}
+
+function getServerRoleSnapshot(): UserRole {
+  return 'student';
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [role, setRoleState] = useState<UserRole>('student');
-  const [user, setUser] = useState<User | null>(DEFAULT_USER);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_ROLE);
-      if (
-        saved &&
-        [
-          'student',
-          'parent',
-          'teacher',
-          'principal',
-          'citizen',
-          'official',
-        ].includes(saved)
-      ) {
-        setRoleState(saved as UserRole);
-        setUser((prev) => (prev ? { ...prev, role: saved as UserRole } : null));
-      }
-    } catch {
-      // LocalStorage not available or SSR
-    }
-  }, []);
+  const role = React.useSyncExternalStore(
+    subscribeRole,
+    getRoleSnapshot,
+    getServerRoleSnapshot
+  );
 
   const setRole = (newRole: UserRole) => {
-    setRoleState(newRole);
-    setUser((prev) => (prev ? { ...prev, role: newRole } : null));
     try {
       localStorage.setItem(STORAGE_KEY_ROLE, newRole);
     } catch {
       // ignore
     }
+    roleListeners.forEach((l) => l());
+  };
+
+  const user: User | null = {
+    ...DEFAULT_USER,
+    role,
   };
 
   const getCurrentRole = () => role;
