@@ -9,11 +9,16 @@ from pathlib import Path
 
 from agent_kisan.planner import Chc, ChcMachine
 
-REPO_SEED_DIR = Path(__file__).resolve().parents[4] / "data" / "seed"
+def repo_root() -> Path:
+    """The nearest folder above this file that has data/seed (the repo, when run from a checkout)."""
+    here = Path(__file__).resolve()
+    return next((p for p in here.parents if (p / "data" / "seed").is_dir()), here.parent)
 
 
 def seed_path() -> Path:
-    return Path(os.environ.get("KISAN_CHC_SEED", REPO_SEED_DIR / "chc_demo.json"))
+    if env := os.environ.get("KISAN_CHC_SEED"):
+        return Path(env)
+    return repo_root() / "data" / "seed" / "chc_demo.json"
 
 
 def load_seed(path: Path | None = None) -> tuple[tuple[Chc, ...], dict[str, tuple[float, float]], bool]:

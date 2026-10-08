@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Kisan Saathi (P1) agent API on App Runner in ap-south-1. Deploy with deploy/deploy.sh.
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: ECR image, e.g. 123456789012.dkr.ecr.ap-south-1.amazonaws.com/saans-agent-kisan:abc1234
+  ModelId:
+    Type: String
+    Default: in.anthropic.claude-opus-5
+    Description: Bedrock model or inference profile for the agent (in.* keeps inference in India)
+  SaansApiUrl:
+    Type: String
+    Default: ""
+    Description: Saans Command API base URL; empty files help requests to a local outbox in the container
+
+Conditions:
+  HasCommandApi: !Not [!Equals [!Ref SaansApiUrl, ""]]
+
+Resources:
+  AccessRole:  # lets App Runner pull the image from ECR
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: build.apprunner.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+
+  InstanceRole:  # what the running agent may do: call Bedrock, nothing else
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: tasks.apprunner.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: bedrock-invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                Resource:
+                  - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*
+                  - arn:aws:bedrock:*::foundation-model/anthropic.*
+
+  SingleInstance:  # conversations live in memory, so exactly one instance until they move to DynamoDB
+    Type: AWS::AppRunner::AutoScalingConfiguration
+    Properties:
+      AutoScalingConfigurationName: saans-kisan-single
+      MinSize: 1
+      MaxSize: 1
+      MaxConcurrency: 50
+
+  Service:
+    Type: AWS::AppRunner::Service
+    Properties:
+      ServiceName: saans-agent-kisan
+      AutoScalingConfigurationArn: !GetAtt SingleInstance.AutoScalingConfigurationArn
+      SourceConfiguration:
+        AutoDeploymentsEnabled: false
+        AuthenticationConfiguration:
+          AccessRoleArn: !GetAtt AccessRole.Arn
+        ImageRepository:
+          ImageRepositoryType: ECR
+          ImageIdentifier: !Ref ImageUri
+          ImageConfiguration:
+            Port: "8080"
+            RuntimeEnvironmentVariables:
+              - {Name: KISAN_MODEL_ID, Value: !Ref ModelId}
+              - {Name: KISAN_BEDROCK_REGION, Value: !Ref AWS::Region}
+              - !If [HasCommandApi, {Name: SAANS_API_URL, Value: !Ref SaansApiUrl}, !Ref AWS::NoValue]
+      InstanceConfiguration:
+        Cpu: 1 vCPU
+        Memory: 2 GB
+        InstanceRoleArn: !GetAtt InstanceRole.Arn
+      HealthCheckConfiguration:
+        Protocol: HTTP
+        Path: /healthz
+        Interval: 10
+        Timeout: 5
+        HealthyThreshold: 1
+        UnhealthyThreshold: 3
+
+Outputs:
+  ServiceUrl:
+    Value: !Sub https://${Service.ServiceUrl}

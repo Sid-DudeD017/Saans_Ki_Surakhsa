@@ -18,13 +18,17 @@ uv run python scripts/smoke_gurpreet.py                   # scripted Punjabi con
 - `POST /v1/farm/plan`: the same farm plus `harvest_date`, `wheat_deadline`, `village`/`district` or
   `lat`/`lon`, and optional `rain_dates` (omit them to use the Open-Meteo forecast) → coverage, CHC bookings by day with cost after subsidy,
   coverage after booking, what is still `unmet`, and `demo_data` while the CHC list is made up.
+- `GET /v1/chcs?village=…|lat=…&lon=…|district=…&machine=…`: CHCs within 15 km, nearest first, with
+  price per acre after subsidy and phone.
+- `POST /v1/agent/kisan/voice`: multipart `audio` (m4a, wav, ogg, mp3, up to 10 MB) plus optional
+  `session_id` and `language` → the same reply as a message, with the `transcript`.
 - `POST /v1/agent/kisan/messages`: `{session_id?, text, language}` → `{session_id, reply, missing, quick_replies, filed}`.
   Conversations are held in memory for now.
 
 ## Agent
 
 Strands on Amazon Bedrock. Tools: `update_farm_profile`, `get_farm_profile`, `estimate_coverage`,
-`get_rain_days`, `plan_zero_burn`, `prepare_readback`, `file_resource_gap_report`. The filing rules are enforced in `session.py`, not the
+`get_rain_days`, `find_chc`, `plan_zero_burn`, `prepare_readback`, `file_resource_gap_report`. The filing rules are enforced in `session.py`, not the
 prompt: a request is filed only after a read-back, a later reply from the farmer, and no changes since.
 
 Use the Saans AWS account, not your default profile: `aws configure --profile saans`, then run
@@ -47,6 +51,23 @@ with `ownCoveragePercent` and `plannedBookings` as extra fields. `farmLocation` 
 phone's GPS, else the village, else the district centre in `data/seed`. Without any of those,
 `help_request` is null and `help_request_error` says why.
 
+The contract is tested on both sides: `python -m agent_kisan.contract_fixtures` writes example
+requests to `packages/contracts/fixtures/kisan-help-requests.json`, `src/__tests__/kisan-help-request.test.ts`
+parses them with Command's real `HelpRequestSchema` (`npx vitest run`), and a Python test fails
+if the fixture is out of date.
+
+## Deploying
+
+```bash
+docker build -f services/agent-kisan/Dockerfile -t saans-agent-kisan .   # from the repo root
+AWS_PROFILE=saans services/agent-kisan/deploy/deploy.sh                   # ECR + App Runner, costs money
+aws cloudformation delete-stack --stack-name saans-agent-kisan --region ap-south-1   # tear down
+```
+
+`deploy/apprunner.yaml` runs one instance (conversations are in memory), 1 vCPU / 2 GB, health check
+on `/healthz`, with an instance role that may only call Bedrock. Set `SAANS_API_URL` before
+deploying to file to Command; otherwise requests go to an outbox inside the container.
+
 ## Simulated farmers
 
 ```bash
@@ -58,6 +79,18 @@ digits; one-at-a-time, all-at-once or rambling; some correct themselves or start
 Scores per farmer: each of 8 details right, filed correctly, filed with a wrong detail, coverage
 error, turns, and whether the agent asked for Aadhaar or bank details. Results land in
 `evals/results/<time>/` (git-ignored) with a summary broken down by language and behaviour.
+
+## Voice notes
+
+`transcribe.py` turns voice notes into text with Whisper. `KISAN_ASR_BACKEND=local` (the default)
+runs faster-whisper on your machine with `large-v3-turbo` (about 1.6 GB, downloaded on first use;
+`KISAN_ASR_MODEL` picks another); `sagemaker` calls `KISAN_ASR_ENDPOINT` (written, not yet tried
+against a live endpoint). Local Whisper is in the `asr` dependency group, which the deployed image
+leaves out. On a MacBook Air a short Hindi note takes about 7–8 s.
+
+Number words Whisper heard with low probability don't count as heard, so the farmer is asked to
+confirm them: this catches some speech mistakes, not only the model's. The word tables include
+Whisper's own Hindi spellings (एकर, ट्रक्तर, अक्तोबर, धाई for ढाई). Not yet tried on Punjabi audio.
 
 ## Number guard
 

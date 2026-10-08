@@ -7,6 +7,7 @@ coverage engine, and the filing rules live in KisanSession, not in the prompt.
 import json
 import os
 from datetime import date
+from typing import TYPE_CHECKING
 
 from strands import Agent, tool
 from strands.models import BedrockModel
@@ -14,6 +15,9 @@ from strands.models.model import CacheConfig
 
 from agent_kisan.filing import Filer, default_filer
 from agent_kisan.session import KisanSession
+
+if TYPE_CHECKING:
+    from agent_kisan.transcribe import Transcript
 
 # The best Claude model served from India-only inference (ap-south-1 "in." profile).
 # global.anthropic.claude-opus-5-5 is newer, but global routing can send data outside India.
@@ -103,6 +107,16 @@ def build_agent(session: KisanSession, model: BedrockModel | None = None, callba
         return _json(session.rain())
 
     @tool
+    def find_chc(machine: str | None = None) -> str:
+        """Custom Hiring Centres near the farm, nearest first, with machines, price per acre after subsidy,
+        phone, and (once dates are known) free dry days. Use when the farmer asks where to get a machine.
+
+        Args:
+            machine: Only this machine: happy_seeder, super_seeder, mulcher_rmb or baler. Omit for all.
+        """
+        return _json(session.chcs_near(machine))
+
+    @tool
     def plan_zero_burn() -> str:
         """Book CHC machines on free, dry days for the farm's gap, cheapest first. Returns the bookings, the cost
         after subsidy, coverage after booking, and what is still unmet (that becomes the help request)."""
@@ -121,7 +135,7 @@ def build_agent(session: KisanSession, model: BedrockModel | None = None, callba
     return Agent(
         model=model or default_model(),
         system_prompt=SYSTEM_PROMPT + f"\nToday is {date.today().isoformat()}.",
-        tools=[update_farm_profile, get_farm_profile, estimate_coverage, get_rain_days, plan_zero_burn,
+        tools=[update_farm_profile, get_farm_profile, estimate_coverage, get_rain_days, find_chc, plan_zero_burn,
                prepare_readback, file_resource_gap_report],
         callback_handler=callback_handler,
     )
@@ -145,13 +159,23 @@ class KisanChat:
         self.agent = build_agent(self.session, model=model, callback_handler=callback_handler)
         self.usage = {"inputTokens": 0, "outputTokens": 0}
 
-    def send(self, text: str) -> str:
-        self.session.begin_turn(text)
+    def send(self, text: str, distrust: frozenset[float] = frozenset()) -> str:
+        self.session.begin_turn(text, distrust)
         result = self.agent(text)
         used = getattr(getattr(result, "metrics", None), "accumulated_usage", None) or {}
         # accumulated_usage is the agent's running total, so keep the latest rather than adding.
         self.usage = {k: used.get(k, self.usage[k]) for k in self.usage}
         return str(result).strip()
+
+
+    def send_voice(self, audio: bytes, transcriber=None) -> tuple[str, "Transcript"]:
+        """Transcribe a voice note and send it. Numbers Whisper was unsure of must be confirmed."""
+        from agent_kisan.transcribe import default_transcriber
+
+        transcript = (transcriber or default_transcriber()).transcribe(audio, self.session.language)
+        if not transcript.text:
+            return "", transcript
+        return self.send(transcript.text, transcript.unsure_numbers), transcript
 
 
 def _json(d: dict) -> str:

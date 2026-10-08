@@ -8,7 +8,7 @@ from typing import Literal, Self
 
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field, model_validator
 
 from agent_kisan.coverage import (
@@ -19,7 +19,7 @@ from agent_kisan.coverage import (
     estimate_coverage,
 )
 from agent_kisan.agent import KisanChat
-from agent_kisan.planner import DEFAULT_MAX_KM, plan_zero_burn
+from agent_kisan.planner import DEFAULT_MAX_KM, find_chcs, plan_zero_burn
 from agent_kisan.seed import load_seed
 from agent_kisan.units import to_acres
 from agent_kisan.weather import rain_forecast
@@ -213,6 +213,23 @@ def farm_plan(req: PlanRequest) -> PlanResponse:
                         rain_dates_used=sorted(rain), rain_note=rain_note, **plan)
 
 
+@app.get("/v1/chcs")
+def chcs_near(lat: float | None = None, lon: float | None = None, village: str | None = None,
+              district: str | None = None, machine: str | None = None, max_km: float = DEFAULT_MAX_KM) -> dict:
+    """CHCs within reach of a farm, nearest first (demo data until the KVK list comes in)."""
+    if machine is not None and machine not in CAPACITY_ACRES_PER_DAY:
+        raise HTTPException(status_code=422, detail=f"unknown machine; known: {', '.join(CAPACITY_ACRES_PER_DAY)}")
+    try:
+        chcs, villages, demo = load_seed()
+    except (OSError, KeyError, ValueError) as e:
+        raise HTTPException(status_code=503, detail=f"CHC data unavailable: {e}") from e
+    location = (lat, lon) if lat is not None and lon is not None else villages.get((village or "").strip().lower())
+    if location is None and not district:
+        raise HTTPException(status_code=422, detail="give lat and lon, a known village, or a district")
+    found = find_chcs(chcs, farm_location=location, district=district, machine=machine, max_km=max_km)
+    return {"chcs": found, "demo_data": demo}
+
+
 # ---- the agent ----
 
 class MessageRequest(BaseModel):
@@ -234,35 +251,77 @@ class MessageResponse(BaseModel):
     missing: list[str]
     quick_replies: list[QuickReply] = Field(description="Numbers the farmer hasn't said yet, to confirm by tapping")
     filed: bool
+    transcript: dict | None = Field(default=None, description="For voice notes: what speech recognition heard")
 
 
 # In memory, so one App Runner instance holds every conversation. Move to DynamoDB before scaling out.
 _chats: dict[str, KisanChat] = {}
 _locks: dict[str, threading.Lock] = {}
 chat_factory: Callable[[str], KisanChat] = lambda language: KisanChat(language=language)
+transcriber_factory: Callable[[], object] | None = None  # tests swap in a fake; None = KISAN_ASR_BACKEND
+MAX_AUDIO_BYTES = 10 * 1024 * 1024
 
 
-@app.post("/v1/agent/kisan/messages")
-def kisan_message(req: MessageRequest) -> MessageResponse:
-    if req.session_id is None:
-        chat = chat_factory(req.language)
+def _chat_for(session_id: str | None, language: str) -> tuple[str, KisanChat]:
+    if session_id is None:
+        chat = chat_factory(language)
         sid = chat.session.session_id
         _chats[sid], _locks[sid] = chat, threading.Lock()
-    elif req.session_id in _chats:
-        sid, chat = req.session_id, _chats[req.session_id]
-    else:
-        raise HTTPException(status_code=404, detail="unknown session_id; omit it to start a new conversation")
+        return sid, chat
+    if session_id in _chats:
+        return session_id, _chats[session_id]
+    raise HTTPException(status_code=404, detail="unknown session_id; omit it to start a new conversation")
 
+
+def _one_at_a_time(sid: str, turn: Callable):
     if not _locks[sid].acquire(blocking=False):
         raise HTTPException(status_code=409, detail="still answering the previous message in this conversation")
     try:
-        reply = chat.send(req.text)
+        return turn()
     except (ClientError, BotoCoreError) as e:
         raise HTTPException(status_code=503, detail=f"the language model is unavailable: {e}") from e
     finally:
         _locks[sid].release()
 
+
+def _response(sid: str, chat: KisanChat, reply: str, transcript: dict | None = None) -> MessageResponse:
     return MessageResponse(
         session_id=sid, reply=reply, missing=chat.session.profile.missing(),
         quick_replies=[QuickReply(**q) for q in chat.session.unsure()], filed=chat.session.filed is not None,
+        transcript=transcript,
     )
+
+
+@app.post("/v1/agent/kisan/messages")
+def kisan_message(req: MessageRequest) -> MessageResponse:
+    sid, chat = _chat_for(req.session_id, req.language)
+    return _response(sid, chat, _one_at_a_time(sid, lambda: chat.send(req.text)))
+
+
+@app.post("/v1/agent/kisan/voice")
+def kisan_voice(
+    audio: UploadFile,
+    session_id: str | None = Form(default=None),
+    language: Literal["pa", "hi", "en"] = Form(default="pa"),
+) -> MessageResponse:
+    """A voice note (m4a, wav, ogg, mp3...). The reply includes the transcript so the app can show what was heard."""
+    data = audio.file.read(MAX_AUDIO_BYTES + 1)
+    if not data:
+        raise HTTPException(status_code=422, detail="the voice note is empty")
+    if len(data) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="voice notes can be up to 10 MB")
+    try:
+        from agent_kisan.transcribe import default_transcriber
+
+        transcriber = transcriber_factory() if transcriber_factory else default_transcriber()
+    except (ImportError, KeyError, ValueError) as e:
+        raise HTTPException(status_code=503, detail=f"speech recognition isn't set up here: {e}") from e
+
+    sid, chat = _chat_for(session_id, language)
+    try:
+        reply, transcript = _one_at_a_time(sid, lambda: chat.send_voice(data, transcriber))
+    except ImportError as e:  # local Whisper is a dev-only dependency
+        raise HTTPException(status_code=503, detail=f"speech recognition isn't set up here: {e}") from e
+    if not transcript.text:
+        raise HTTPException(status_code=422, detail="no speech found in the voice note; please record it again")
+    return _response(sid, chat, reply, transcript.to_json())

@@ -114,8 +114,8 @@ def test_agent_builds_with_its_tools(s):
 
     agent = build_agent(s)
     assert set(agent.tool_names) == {
-        "update_farm_profile", "get_farm_profile", "estimate_coverage", "get_rain_days", "plan_zero_burn",
-        "prepare_readback", "file_resource_gap_report",
+        "update_farm_profile", "get_farm_profile", "estimate_coverage", "get_rain_days", "find_chc",
+        "plan_zero_burn", "prepare_readback", "file_resource_gap_report",
     }
 
 

@@ -24,7 +24,7 @@ import httpx
 from agent_kisan.coverage import CAPACITY_ACRES_PER_DAY, CoverageResult, estimate_coverage
 from agent_kisan.filing import Filer, build_support_request
 from agent_kisan.guard import unsure as unsure_numbers
-from agent_kisan.planner import Chc, Plan, plan_zero_burn
+from agent_kisan.planner import Chc, Plan, find_chcs, plan_zero_burn
 from agent_kisan.seed import load_districts, load_seed
 from agent_kisan.units import UnknownUnitError, is_known_unit, to_acres
 from agent_kisan.weather import RainForecast, rain_forecast
@@ -81,19 +81,22 @@ class KisanSession:
     forecast_error: str | None = None
     today: Callable[[], date] = date.today
     messages: list[str] = field(default_factory=list)  # what the farmer said, turn by turn
+    distrusted: list[frozenset[float]] = field(default_factory=list)  # numbers speech recognition was unsure of
     explicitly_set: set[str] = field(default_factory=set)
     farmer_id: str | None = None  # from sign-in (P4's Cognito), when the app sends it
     districts: dict[str, tuple[float, float]] | None = None  # None = load data/seed
     chcs: tuple[Chc, ...] | None = None  # None = load data/seed
     villages: dict[str, tuple[float, float]] | None = None
 
-    def begin_turn(self, text: str | None = None) -> None:
+    def begin_turn(self, text: str | None = None, distrust: frozenset[float] = frozenset()) -> None:
+        """distrust: numbers in this message that speech recognition wasn't sure it heard right."""
         self.turn += 1
         if text:
             self.messages.append(text)
+            self.distrusted.append(frozenset(distrust))
 
     def unsure(self) -> list[dict]:
-        return unsure_numbers(self.profile, self.explicitly_set, self.messages, self.language)
+        return unsure_numbers(self.profile, self.explicitly_set, self.messages, self.language, self.distrusted)
 
     # ---- tools call these ----
 
@@ -129,6 +132,27 @@ class KisanSession:
         if self.forecast is None:
             return {"error": self.forecast_error or "no forecast", "rain_dates": sorted(d.isoformat() for d in self._rain_in_window())}
         return self.forecast.to_json(window)
+
+    def chcs_near(self, machine: str | None = None) -> dict:
+        """CHCs near the farm, nearest first. Works before the profile is complete."""
+        p = self.profile
+        if machine is not None and machine not in CAPACITY_ACRES_PER_DAY:
+            return {"error": f"unknown machine {machine!r}; known: {', '.join(CAPACITY_ACRES_PER_DAY)}"}
+        where, source = self._located()
+        if where is None and not p.district:
+            return {"error": "need the village or district first"}
+        try:
+            chcs = self.chcs if self.chcs is not None else load_seed()[0]
+        except (OSError, KeyError, ValueError) as e:
+            return {"error": f"CHC list unavailable: {e}"}
+        window = None
+        if p.harvest_date and p.wheat_deadline and p.window_days() >= 0:
+            self._fetch_rain()
+            window = (p.harvest_date, p.wheat_deadline)
+        found = find_chcs(chcs, farm_location=where, district=p.district, machine=machine, window=window,
+                          rain_dates=self.rain_dates, today=self.today())
+        note = "distances are from the district centre, so only rough" if source == "district" else None
+        return {"chcs": found, "located_by": source, **({"note": note} if note else {})}
 
     def plan(self) -> dict:
         result = self._coverage()

@@ -1,0 +1,8 @@
+# Used by BuildKit for services/agent-kisan/Dockerfile only, so the repo root needs no .dockerignore.
+**
+!services/agent-kisan/pyproject.toml
+!services/agent-kisan/uv.lock
+!services/agent-kisan/src/**
+!data/seed/**
+**/__pycache__
+**/*.pyc

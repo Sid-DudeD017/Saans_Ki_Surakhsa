@@ -7,11 +7,16 @@ dependencies = [
     "botocore[crt]>=1.43.109",
     "fastapi>=0.142.4",
     "httpx>=0.28.1",
+    "python-multipart>=0.0.32",
     "strands-agents>=1.58.1",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
+asr = [
+    "av<16",
+    "faster-whisper>=1.2.1",
+]
 dev = [
     "httpx>=0.28.1",
     "pytest>=8",
@@ -23,6 +28,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_kisan"]
+
+[tool.uv]
+# asr = local Whisper for development; the deployed image leaves it out (speech runs on SageMaker).
+default-groups = ["dev", "asr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
