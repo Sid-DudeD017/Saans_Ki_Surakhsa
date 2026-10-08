@@ -10,7 +10,7 @@
 //
 // Rules: a path and method belongs to one proposal (two claiming it is an error), operation ids are
 // unique, and components with the same name must be identical. If they differ, the later proposal's
-// copy is renamed with its owner's prefix (P3's ValidationError becomes AqiValidationError) and its
+// copy is renamed with its owner's prefix (a different Location from P3 would become AqiLocation) and its
 // $refs follow. A proposal can point at another's component with "./p1-kisan.openapi.json#/...".
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";

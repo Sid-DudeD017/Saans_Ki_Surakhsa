@@ -395,6 +395,9 @@ components:
             error:
               code: invalid_request
               message: location.lat must be a number from -90 to 90
+              details:
+                - field: body.location.lat
+                  problem: must be a number from -90 to 90
     Unauthorized:
       description: Not signed in
       content:
@@ -767,6 +770,9 @@ components:
             $ref: '#/components/schemas/PublicBoardDistrict'
     ErrorEnvelope:
       type: object
+      description: >-
+        Every error from every Saans service has this body (CONVENTIONS.md). code is for programs; message
+        is a sentence the app can show; details lists the fields that failed validation.
       required: [error]
       properties:
         error:
@@ -774,9 +780,37 @@ components:
           required: [code, message]
           properties:
             code:
-              type: string
+              $ref: '#/components/schemas/ErrorCode'
             message:
               type: string
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+    ErrorCode:
+      type: string
+      description: Add new codes here, in lowercase.
+      enum:
+        - invalid_request
+        - unauthorized
+        - forbidden
+        - not_found
+        - no_coverage
+        - conflict
+        - idempotency_conflict
+        - version_conflict
+        - payload_too_large
+        - unavailable
+        - sources_unavailable
+    ErrorDetail:
+      type: object
+      required: [field, problem]
+      properties:
+        field:
+          type: string
+          description: Where, as a dotted path (body.paddy.value, query.lat)
+        problem:
+          type: string
     EventContract:
       type: object
       required: [event_id, version, occurrence_time, correlation_id, event_name, payload]
