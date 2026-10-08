@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "contracts": "node packages/contracts/build.mjs && npx -y openapi-typescript@7.13.0 packages/contracts/openapi.yaml -o packages/contracts/types.ts",
+    "mock": "npx -y @stoplight/prism-cli@5.16.0 mock --host 127.0.0.1 --port 4010 packages/contracts/openapi.yaml"
   },
   "keywords": [],
   "author": "",
