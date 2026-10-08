@@ -112,4 +112,66 @@ describe("Contract Tests - API Handlers", () => {
       expect((fire as any).confidence_pct).toBeUndefined();
     }
   });
+
+  describe("Fires endpoint parameters validation", () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight\\n28.6,77.2,310.5,1.0,1.0,2026-10-08,0800,VIIRS,VIIRS,nominal,2.0,290.0,15.5,D"
+      });
+      process.env.NASA_FIRMS_MAP_KEY = "dummy";
+    });
+
+    it("1. bbox request succeeds", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?bbox=77.0,28.0,78.0,29.0");
+      const res = await getFires(req);
+      expect(res.status).toBe(200);
+    });
+
+    it("2. lat + lon + radius_km request succeeds", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lat=28.6139&lon=77.2090&radius_km=25");
+      const res = await getFires(req);
+      expect(res.status).toBe(200);
+    });
+
+    it("3. missing lon fails", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lat=28.6139&radius_km=25");
+      const res = await getFires(req);
+      expect(res.status).toBe(422);
+    });
+
+    it("4. missing lat fails", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lon=77.2090&radius_km=25");
+      const res = await getFires(req);
+      expect(res.status).toBe(422);
+    });
+
+    it("5. missing radius_km fails", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lat=28.6139&lon=77.2090");
+      const res = await getFires(req);
+      expect(res.status).toBe(422);
+    });
+
+    it("6. radius_km <= 0 fails", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lat=28.6139&lon=77.2090&radius_km=0");
+      const res = await getFires(req);
+      expect(res.status).toBe(422);
+      
+      const req2 = new Request("http://localhost:3000/v1/fires?lat=28.6139&lon=77.2090&radius_km=-5");
+      const res2 = await getFires(req2);
+      expect(res2.status).toBe(422);
+    });
+
+    it("7. invalid latitude fails", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lat=95&lon=77.2090&radius_km=25");
+      const res = await getFires(req);
+      expect(res.status).toBe(422);
+    });
+
+    it("8. invalid longitude fails", async () => {
+      const req = new Request("http://localhost:3000/v1/fires?lat=28.6139&lon=200&radius_km=25");
+      const res = await getFires(req);
+      expect(res.status).toBe(422);
+    });
+  });
 });
