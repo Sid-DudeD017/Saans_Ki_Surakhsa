@@ -1,0 +1,871 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Saans Shala API",
+    "version": "1.0.0",
+    "description": "School air-quality advisory, role-adaptive guidance, and alert subscription API for Saans Shala (P2). Follows Phase 4 CONVENTIONS.md: coordinates use lat/lon, timestamps use ISO 8601 with +05:30 offset, wire enums use lowercase snake_case codes, and demo story is centered in Sangrur, Punjab.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Root server"
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/v1/schools/{id}/advisory": {
+      "get": {
+        "summary": "Get school air quality advisory",
+        "operationId": "get_school_advisory_v1_schools__id__advisory_get",
+        "description": "Returns real-time air quality metrics, GRAP stage, school activity restrictions, and role-adaptive advisories (student, teacher, parent, principal) for a specific school campus.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier of the school campus (e.g. 'school_demo_001' or 'SCH-PB-SAN-001').",
+            "example": "school_demo_001"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "student",
+                "parent",
+                "teacher",
+                "principal",
+                "citizen",
+                "official"
+              ]
+            },
+            "description": "Optional user role to tailor or focus the advisory response."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolAdvisoryResponse"
+                },
+                "examples": {
+                  "sangrur_demo_poor_aqi": {
+                    "summary": "Sangrur Demo School — AQI 287 (Poor), Upwind Stubble Smoke Scenario",
+                    "value": {
+                      "school": {
+                        "id": "school_demo_001",
+                        "name": "Government Senior Secondary School — Sangrur Campus",
+                        "district": "Sangrur",
+                        "location": {
+                          "lat": 30.245,
+                          "lon": 75.842
+                        }
+                      },
+                      "aqi": 287,
+                      "category": "poor",
+                      "dominant_pollutant": "pm25",
+                      "grap_stage": "stage_2",
+                      "severity": "warning",
+                      "action_code": "suspend_outdoor_activities",
+                      "outdoor_activities_permitted": false,
+                      "assembly_permitted": false,
+                      "mask_recommended": true,
+                      "summary": "Biomass smoke transported by NW winds has elevated campus AQI to 287 (Poor). All outdoor sports, assemblies, and physical training are suspended. N95/FFP2 masks advised for all students and staff during transit.",
+                      "issued_at": "2026-10-08T09:30:00+05:30",
+                      "valid_until": "2026-10-08T18:00:00+05:30",
+                      "role_advisories": {
+                        "student": {
+                          "title": "Air Buddy Student Advisory",
+                          "summary": "Air feels dusty today. Keep classroom windows closed and play board games indoors during recess.",
+                          "mask_recommended": true,
+                          "outdoor_activities_permitted": false,
+                          "action_items": [
+                            "Wear mask when walking to school bus",
+                            "Drink plenty of water throughout the day",
+                            "Report burning smell or breathing difficulty to class teacher"
+                          ]
+                        },
+                        "teacher": {
+                          "title": "Teacher Classroom Advisory",
+                          "summary": "Relocate morning assembly and physical education periods to indoor auditorium or classrooms.",
+                          "mask_recommended": true,
+                          "outdoor_activities_permitted": false,
+                          "action_items": [
+                            "Keep classroom windows closed during peak traffic and smoke hours",
+                            "Monitor students with respiratory or asthma conditions",
+                            "Ensure hydration breaks every period"
+                          ]
+                        },
+                        "parent": {
+                          "title": "Parent Commute & Health Advisory",
+                          "summary": "AQI is Poor (287). Equip children with masks for daily commute and limit outdoor playtime after school.",
+                          "mask_recommended": true,
+                          "outdoor_activities_permitted": false,
+                          "action_items": [
+                            "Equip child with well-fitting protective mask for school bus commute",
+                            "Ensure prescribed asthma inhalers are packed in school bag",
+                            "Avoid outdoor play in the evening until AQI improves"
+                          ]
+                        },
+                        "principal": {
+                          "title": "Principal Executive Action & Go/No-Go Decision",
+                          "summary": "GRAP Stage II threshold triggered. Suspend all outdoor gatherings, enforce indoor physical training, and notify local block education officer.",
+                          "decision": "no_go",
+                          "assembly_permitted": false,
+                          "outdoor_activities_permitted": false,
+                          "mask_mandated": true,
+                          "action_items": [
+                            "Cancel outdoor morning assembly; broadcast morning announcement via PA system",
+                            "Suspend outdoor sports and physical training periods",
+                            "Issue automated SMS/WhatsApp advisory broadcast to parents",
+                            "Direct campus sanitation staff to suppress dust at school entrance"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "invalid_parameters",
+                  "detail": "Invalid role query parameter or school ID format."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "School Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "school_not_found",
+                  "detail": "School with id 'school_999' not registered in monitoring database."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/schools/{id}/alerts/subscribe": {
+      "post": {
+        "summary": "Subscribe to school air quality alerts",
+        "operationId": "subscribe_school_alerts_v1_schools__id__alerts_subscribe_post",
+        "description": "Registers an alert subscription for a student, parent, teacher, or school administrator to receive real-time notifications when air quality thresholds are breached or emergency advisories are issued.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier of the school campus.",
+            "example": "school_demo_001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Alert subscription parameters and delivery channel configuration.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertSubscriptionRequest"
+              },
+              "examples": {
+                "parent_sms_subscription": {
+                  "summary": "Parent SMS Alert Subscription",
+                  "value": {
+                    "subscriber_id": "usr_parent_98765",
+                    "role": "parent",
+                    "channel": "sms",
+                    "contact_value": "+919876543210",
+                    "alert_categories": [
+                      "aqi_threshold",
+                      "stubble_smoke",
+                      "emergency_closure"
+                    ],
+                    "min_aqi_threshold": 200,
+                    "enabled": true
+                  }
+                },
+                "principal_in_app_subscription": {
+                  "summary": "Principal Push & In-App Alert Subscription",
+                  "value": {
+                    "subscriber_id": "usr_principal_sangrur_01",
+                    "role": "principal",
+                    "channel": "in_app",
+                    "contact_value": "app_device_token_xyz987",
+                    "alert_categories": [
+                      "aqi_threshold",
+                      "stubble_smoke",
+                      "emergency_closure",
+                      "daily_briefing"
+                    ],
+                    "min_aqi_threshold": 200,
+                    "enabled": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription Created Successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSubscriptionResponse"
+                },
+                "examples": {
+                  "subscription_confirmed": {
+                    "summary": "Successful Alert Subscription Confirmation",
+                    "value": {
+                      "subscription_id": "sub_sch001_usr_parent_98765",
+                      "school_id": "school_demo_001",
+                      "subscriber_id": "usr_parent_98765",
+                      "role": "parent",
+                      "channel": "sms",
+                      "contact_value": "+919876543210",
+                      "alert_categories": [
+                        "aqi_threshold",
+                        "stubble_smoke",
+                        "emergency_closure"
+                      ],
+                      "min_aqi_threshold": 200,
+                      "enabled": true,
+                      "status": "active",
+                      "created_at": "2026-10-08T09:35:00+05:30",
+                      "updated_at": "2026-10-08T09:35:00+05:30",
+                      "message": "Alert subscription active for Government Senior Secondary School — Sangrur Campus."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "invalid_contact_channel",
+                  "detail": "Contact value '+919876543210' is invalid for selected delivery channel."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "School Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "school_not_found",
+                  "detail": "School with id 'school_demo_001' not found."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Location": {
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90.0,
+            "maximum": 90.0,
+            "description": "Latitude in decimal degrees."
+          },
+          "lon": {
+            "type": "number",
+            "minimum": -180.0,
+            "maximum": 180.0,
+            "description": "Longitude in decimal degrees. Always 'lon', never 'lng'."
+          }
+        },
+        "title": "Location",
+        "description": "Geographic coordinates strictly adhering to lat/lon format."
+      },
+      "SchoolIdentity": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "district",
+          "location"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique school campus identifier (e.g. 'school_demo_001' or 'SCH-PB-SAN-001')."
+          },
+          "name": {
+            "type": "string",
+            "description": "Full formal name of the school institution."
+          },
+          "district": {
+            "type": "string",
+            "description": "Administrative district (e.g. 'Sangrur')."
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          }
+        },
+        "title": "SchoolIdentity",
+        "description": "Institutional identification and geographical location of a school campus."
+      },
+      "AqiCategory": {
+        "type": "string",
+        "enum": [
+          "good",
+          "satisfactory",
+          "moderate",
+          "poor",
+          "very_poor",
+          "severe"
+        ],
+        "title": "AqiCategory",
+        "description": "Lowercase AQI category codes per CPCB National Air Quality Index bands: good (0-50), satisfactory (51-100), moderate (101-200), poor (201-300), very_poor (301-400), severe (401-500)."
+      },
+      "Pollutant": {
+        "type": "string",
+        "enum": [
+          "pm25",
+          "pm10",
+          "no2",
+          "so2",
+          "co",
+          "o3",
+          "nh3",
+          "pb"
+        ],
+        "title": "Pollutant",
+        "description": "Lowercase pollutant codes. Display labels resolved in UI: pm25='PM 2.5', pm10='PM 10', etc."
+      },
+      "GrapStage": {
+        "type": "string",
+        "enum": [
+          "none",
+          "stage_1",
+          "stage_2",
+          "stage_3",
+          "stage_4"
+        ],
+        "title": "GrapStage",
+        "description": "Graded Response Action Plan stage as lowercase codes: none (0-200), stage_1 (201-300), stage_2 (301-400), stage_3 (401-450), stage_4 (>450)."
+      },
+      "AdvisorySeverity": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "caution",
+          "warning",
+          "critical"
+        ],
+        "title": "AdvisorySeverity",
+        "description": "Severity level of the environmental health advisory."
+      },
+      "SchoolActionCode": {
+        "type": "string",
+        "enum": [
+          "normal_operations",
+          "limit_outdoor_exposure",
+          "suspend_outdoor_activities",
+          "mandatory_masks",
+          "close_school"
+        ],
+        "title": "SchoolActionCode",
+        "description": "Standardized school administrative protocol code."
+      },
+      "PrincipalDecision": {
+        "type": "string",
+        "enum": [
+          "go",
+          "caution",
+          "no_go"
+        ],
+        "title": "PrincipalDecision",
+        "description": "Executive go/no-go determination for outdoor school activities and assemblies."
+      },
+      "RoleAdvisoryItem": {
+        "type": "object",
+        "required": [
+          "title",
+          "summary",
+          "mask_recommended",
+          "outdoor_activities_permitted",
+          "action_items"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Role-specific advisory header."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Actionable guidance tailored to this persona."
+          },
+          "mask_recommended": {
+            "type": "boolean",
+            "description": "Whether face masks (N95/FFP2) are advised for this persona."
+          },
+          "outdoor_activities_permitted": {
+            "type": "boolean",
+            "description": "Whether outdoor activities and recess are permitted for this persona."
+          },
+          "action_items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of recommended practical steps."
+          }
+        },
+        "title": "RoleAdvisoryItem",
+        "description": "Role-specific structured advisory recommendations."
+      },
+      "PrincipalAdvisoryItem": {
+        "type": "object",
+        "required": [
+          "title",
+          "summary",
+          "decision",
+          "assembly_permitted",
+          "outdoor_activities_permitted",
+          "mask_mandated",
+          "action_items"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Executive advisory title."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Administrative overview and policy mandate."
+          },
+          "decision": {
+            "$ref": "#/components/schemas/PrincipalDecision"
+          },
+          "assembly_permitted": {
+            "type": "boolean",
+            "description": "Go/No-Go decision on holding morning prayer/assembly outdoors."
+          },
+          "outdoor_activities_permitted": {
+            "type": "boolean",
+            "description": "Go/No-Go decision on physical education, sports, and outdoor recess."
+          },
+          "mask_mandated": {
+            "type": "boolean",
+            "description": "Whether campus-wide mask wearing is mandated by school administration."
+          },
+          "action_items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Executive administrative protocol directives."
+          }
+        },
+        "title": "PrincipalAdvisoryItem",
+        "description": "Principal-specific structured executive decisions and administrative action items."
+      },
+      "RoleAdvisories": {
+        "type": "object",
+        "required": [
+          "student",
+          "teacher",
+          "parent",
+          "principal"
+        ],
+        "properties": {
+          "student": {
+            "$ref": "#/components/schemas/RoleAdvisoryItem"
+          },
+          "teacher": {
+            "$ref": "#/components/schemas/RoleAdvisoryItem"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/RoleAdvisoryItem"
+          },
+          "principal": {
+            "$ref": "#/components/schemas/PrincipalAdvisoryItem"
+          }
+        },
+        "title": "RoleAdvisories",
+        "description": "Structured role-adaptive guidance partitioned by school persona."
+      },
+      "SchoolAdvisoryResponse": {
+        "type": "object",
+        "required": [
+          "school",
+          "aqi",
+          "category",
+          "grap_stage",
+          "severity",
+          "action_code",
+          "outdoor_activities_permitted",
+          "assembly_permitted",
+          "mask_recommended",
+          "summary",
+          "issued_at",
+          "valid_until",
+          "role_advisories"
+        ],
+        "properties": {
+          "school": {
+            "$ref": "#/components/schemas/SchoolIdentity"
+          },
+          "aqi": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500,
+            "description": "Current CPCB National Air Quality Index at school location."
+          },
+          "category": {
+            "$ref": "#/components/schemas/AqiCategory"
+          },
+          "dominant_pollutant": {
+            "$ref": "#/components/schemas/Pollutant"
+          },
+          "grap_stage": {
+            "$ref": "#/components/schemas/GrapStage"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/AdvisorySeverity"
+          },
+          "action_code": {
+            "$ref": "#/components/schemas/SchoolActionCode"
+          },
+          "outdoor_activities_permitted": {
+            "type": "boolean",
+            "description": "Global restriction on outdoor play, sports, and recess."
+          },
+          "assembly_permitted": {
+            "type": "boolean",
+            "description": "Global restriction on outdoor morning assembly."
+          },
+          "mask_recommended": {
+            "type": "boolean",
+            "description": "General recommendation for protective mask usage."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Human-readable summary message for public/general display."
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Advisory issuance timestamp in ISO 8601 with +05:30 offset."
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Advisory expiration timestamp in ISO 8601 with +05:30 offset."
+          },
+          "role_advisories": {
+            "$ref": "#/components/schemas/RoleAdvisories"
+          }
+        },
+        "title": "SchoolAdvisoryResponse",
+        "description": "Complete school air quality status and role-adaptive advisory payload."
+      },
+      "SubscriberRole": {
+        "type": "string",
+        "enum": [
+          "student",
+          "parent",
+          "teacher",
+          "principal",
+          "community"
+        ],
+        "title": "SubscriberRole",
+        "description": "Role of the subscriber in the school community."
+      },
+      "AlertChannel": {
+        "type": "string",
+        "enum": [
+          "sms",
+          "whatsapp",
+          "push",
+          "in_app"
+        ],
+        "title": "AlertChannel",
+        "description": "Delivery channel for dispatching air quality alerts."
+      },
+      "AlertCategory": {
+        "type": "string",
+        "enum": [
+          "aqi_threshold",
+          "stubble_smoke",
+          "emergency_closure",
+          "daily_briefing"
+        ],
+        "title": "AlertCategory",
+        "description": "Specific trigger category for school notifications."
+      },
+      "SubscriptionStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "pending_verification",
+          "paused",
+          "cancelled"
+        ],
+        "title": "SubscriptionStatus",
+        "description": "Lifecycle state of the alert subscription."
+      },
+      "AlertSubscriptionRequest": {
+        "type": "object",
+        "required": [
+          "subscriber_id",
+          "role",
+          "channel",
+          "contact_value",
+          "alert_categories"
+        ],
+        "properties": {
+          "subscriber_id": {
+            "type": "string",
+            "description": "Unique identifier of the subscriber (e.g. user ID, guardian ID, phone identifier)."
+          },
+          "role": {
+            "$ref": "#/components/schemas/SubscriberRole"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/AlertChannel"
+          },
+          "contact_value": {
+            "type": "string",
+            "description": "Delivery destination: E.164 phone number for sms/whatsapp, device push token, or in-app account ID."
+          },
+          "alert_categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertCategory"
+            },
+            "description": "List of alert event categories the subscriber wishes to receive."
+          },
+          "min_aqi_threshold": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 500,
+            "default": 200,
+            "description": "Minimum AQI level to trigger threshold alerts."
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Subscription enabled flag."
+          }
+        },
+        "title": "AlertSubscriptionRequest",
+        "description": "Payload for subscribing to school environmental health notifications."
+      },
+      "AlertSubscriptionResponse": {
+        "type": "object",
+        "required": [
+          "subscription_id",
+          "school_id",
+          "subscriber_id",
+          "role",
+          "channel",
+          "contact_value",
+          "alert_categories",
+          "enabled",
+          "status",
+          "created_at",
+          "message"
+        ],
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "description": "Unique identifier for this alert subscription record."
+          },
+          "school_id": {
+            "type": "string",
+            "description": "School ID the subscription is registered with."
+          },
+          "subscriber_id": {
+            "type": "string",
+            "description": "Identifier of the subscribed individual."
+          },
+          "role": {
+            "$ref": "#/components/schemas/SubscriberRole"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/AlertChannel"
+          },
+          "contact_value": {
+            "type": "string",
+            "description": "Delivery destination."
+          },
+          "alert_categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertCategory"
+            },
+            "description": "Subscribed notification categories."
+          },
+          "min_aqi_threshold": {
+            "type": "integer",
+            "description": "Active AQI notification trigger threshold."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the subscription is currently active."
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubscriptionStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Subscription creation timestamp in ISO 8601 with +05:30 offset."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp in ISO 8601 with +05:30 offset."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable status confirmation message."
+          }
+        },
+        "title": "AlertSubscriptionResponse",
+        "description": "Confirmation response for a school alert subscription."
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error",
+          "detail"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error code."
+          },
+          "detail": {
+            "type": "string",
+            "description": "Human-readable explanation of the error."
+          }
+        },
+        "title": "ErrorResponse",
+        "description": "Standard error response schema."
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "properties": {
+          "loc": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "description": "Field path triggering the validation failure."
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message",
+            "description": "Validation failure reason."
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type",
+            "description": "Type classification of the validation error."
+          }
+        },
+        "title": "ValidationError",
+        "description": "Detailed field validation error description."
+      },
+      "HTTPValidationError": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "description": "List of validation errors."
+          }
+        },
+        "title": "HTTPValidationError",
+        "description": "Validation error envelope."
+      }
+    }
+  }
+}
