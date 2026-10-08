@@ -24,6 +24,7 @@ import httpx
 from agent_kisan.coverage import CAPACITY_ACRES_PER_DAY, CoverageResult, estimate_coverage
 from agent_kisan.filing import Filer, build_support_request
 from agent_kisan.guard import unsure as unsure_numbers
+from agent_kisan.notify import RequestStatus
 from agent_kisan.planner import Chc, Plan, find_chcs, plan_zero_burn
 from agent_kisan.readback import Readback, build as build_readback
 from agent_kisan.seed import load_districts, load_seed
@@ -86,6 +87,8 @@ class KisanSession:
     explicitly_set: set[str] = field(default_factory=set)
     farmer_id: str | None = None  # from sign-in (P4's Cognito), when the app sends it
     readback: Readback | None = None  # the card and spoken script from the last read-back
+    farmer_phone: str | None = None  # +91 mobile from sign-in, for SMS updates
+    status: RequestStatus = field(default_factory=RequestStatus)
     districts: dict[str, tuple[float, float]] | None = None  # None = load data/seed
     chcs: tuple[Chc, ...] | None = None  # None = load data/seed
     villages: dict[str, tuple[float, float]] | None = None

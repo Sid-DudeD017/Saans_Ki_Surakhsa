@@ -130,3 +130,23 @@ def test_audio_errors(client, monkeypatch):
     monkeypatch.setattr(api, "speaker_factory", no_torch)
     res = client.get(f"/v1/agent/kisan/sessions/{sid}/readback.wav")
     assert res.status_code == 503 and "aren't set up" in res.json()["detail"]
+
+
+def test_readback_audio_is_prepared_in_the_background(client, monkeypatch):
+    speaker = Speaker(voice_factory=FakeVoice)
+    monkeypatch.setattr(api, "speaker_factory", lambda: speaker)
+    res = client.post("/v1/agent/kisan/messages", json={"text": SAID}).json()
+    api._prewarmed[res["session_id"]].result(timeout=5)
+    assert len(speaker._cache) == 1  # spoken before anyone asked for it
+    assert client.get(res["readback"]["audio_url"]).status_code == 200
+    assert len(speaker._cache) == 1  # and not spoken again
+
+
+def test_background_audio_failure_does_not_break_the_reply(client, monkeypatch):
+    def no_torch():
+        raise ImportError("No module named 'torch'")
+
+    monkeypatch.setattr(api, "speaker_factory", no_torch)
+    res = client.post("/v1/agent/kisan/messages", json={"text": SAID})
+    assert res.status_code == 200
+    api._prewarmed[res.json()["session_id"]].result(timeout=5)

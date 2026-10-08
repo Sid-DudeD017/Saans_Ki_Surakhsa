@@ -7,6 +7,8 @@ dependencies = [
     "botocore[crt]>=1.43.109",
     "fastapi>=0.142.4",
     "httpx>=0.28.1",
+    "opencv-python-headless<5",
+    "pillow>=12.3.0",
     "python-multipart>=0.0.32",
     "strands-agents>=1.58.1",
     "uvicorn[standard]>=0.54.0",
