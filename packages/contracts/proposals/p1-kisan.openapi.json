@@ -3472,7 +3472,7 @@
             "$ref": "#/components/schemas/SupportRequest"
           },
           "help_request": {
-            "$ref": "#/components/schemas/HelpRequest"
+            "$ref": "#/components/schemas/KisanHelpRequest"
           }
         },
         "required": [
@@ -3592,7 +3592,7 @@
           }
         ]
       },
-      "HelpRequest": {
+      "KisanHelpRequest": {
         "description": "Saans Command's HelpRequestSchema (src/domain/schemas), plus extras for the officer's case view.",
         "properties": {
           "id": {
@@ -3722,7 +3722,7 @@
           "nearbyFires",
           "source"
         ],
-        "title": "HelpRequest",
+        "title": "KisanHelpRequest",
         "type": "object"
       },
       "Location": {

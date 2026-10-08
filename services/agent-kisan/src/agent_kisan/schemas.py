@@ -237,7 +237,7 @@ class SupportRequest(BaseModel):
     nearby_fires: NearbyFires | None = Field(description="The last satellite check around the farm, if any")
 
 
-class HelpRequest(BaseModel):
+class KisanHelpRequest(BaseModel):
     """Saans Command's HelpRequestSchema (src/domain/schemas), plus extras for the officer's case view."""
     id: str
     farmerId: str
@@ -264,4 +264,4 @@ class FarmerSupportComplaint(BaseModel):
     location: Location
     evidence: list[dict] = Field(default_factory=list, description="Kisan sends no evidence: a farmer asks for help")
     support_request: SupportRequest
-    help_request: HelpRequest
+    help_request: KisanHelpRequest
