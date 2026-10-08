@@ -20,6 +20,8 @@ uv run python scripts/smoke_gurpreet.py                   # scripted Punjabi con
   coverage after booking, what is still `unmet`, and `demo_data` while the CHC list is made up.
 - `GET /v1/chcs?village=…|lat=…&lon=…|district=…&machine=…`: CHCs within 15 km, nearest first, with
   price per acre after subsidy and phone.
+- `GET /v1/farm/fires?lat=…&lon=…&radius_km=5`: satellite fire points (NASA FIRMS, last day) within
+  `radius_km` (up to 25) of a farm, nearest first, through P3's `/v1/fires`; 503 if P3's service can't answer.
 - `POST /v1/agent/kisan/voice`: multipart `audio` (m4a, wav, ogg, mp3, up to 10 MB) plus optional
   `session_id` and `language` → the same reply as a message, with the `transcript`.
 - `POST /v1/agent/kisan/photo`: multipart `photo` (+ optional `session_id`) → location and time from the
@@ -35,7 +37,7 @@ uv run python scripts/smoke_gurpreet.py                   # scripted Punjabi con
 ## Agent
 
 Strands on Amazon Bedrock. Tools: `update_farm_profile`, `get_farm_profile`, `estimate_coverage`,
-`get_rain_days`, `find_chc`, `plan_zero_burn`, `prepare_readback`, `file_resource_gap_report`. The filing rules are enforced in `session.py`, not the
+`get_rain_days`, `find_chc`, `get_fires_near_farm`, `plan_zero_burn`, `prepare_readback`, `file_resource_gap_report`. The filing rules are enforced in `session.py`, not the
 prompt: a request is filed only after a read-back, a later reply from the farmer, and no changes since.
 
 Use the Saans AWS account, not your default profile: `aws configure --profile saans`, then run
@@ -47,9 +49,19 @@ everything with `AWS_PROFILE=saans`.
 | `KISAN_MODEL_ID` | `in.anthropic.claude-opus-5` (India-only inference) |
 | `KISAN_BEDROCK_REGION` | `ap-south-1` |
 | `KISAN_CHC_SEED` | `data/seed/chc_demo.json` (made-up CHCs, rates and bookings) |
-| `SAANS_API_URL` | unset: filed requests go to `.outbox/support_requests.jsonl` |
+| `SAANS_API_URL` | unset: filed requests go to `.outbox/support_requests.jsonl`. A base URL without `/v1` |
+| `SAANS_AQI_URL` | unset: no fire data. P3's service, locally the Next.js app at `http://localhost:3000` |
+
+Every setting, with what it does, is in the repo's `.env.example`.
 
 ## Filing to Saans Command
+
+With `SAANS_API_URL` set, Kisan posts to Command's `POST /v1/complaints` with an `Idempotency-Key`
+equal to the session id. The body is Command's `ComplaintInput` with `type: farmer_support`
+(`schemas.FarmerSupportComplaint`): the farm's `location`, an empty `evidence` list, the
+`support_request` (farm, coverage, `plan[]`, `unmet[]`, `nearby_fires`) and `help_request`. A farm
+with no location at all can't be sent to Command and stays an error for the agent to resolve.
+Timestamps are India time with `+05:30`.
 
 Each filed `support_request` carries `help_request`: the same request in Command's `HelpRequest`
 shape (`src/domain/schemas/index.ts`), built by `help_request.py`. It describes what is still short
@@ -62,6 +74,19 @@ The contract is tested on both sides: `python -m agent_kisan.contract_fixtures` 
 requests to `packages/contracts/fixtures/kisan-help-requests.json`, `src/__tests__/kisan-help-request.test.ts`
 parses them with Command's real `HelpRequestSchema` (`npx vitest run`), and a Python test fails
 if the fixture is out of date.
+
+## The contract
+
+`packages/contracts/proposals/p1-kisan.openapi.json` is generated from this API, so it can't drift:
+
+```bash
+uv run python -m agent_kisan.contract
+```
+
+Every route has a response model (`schemas.py`), so FastAPI checks each reply against the contract,
+and every JSON response in the file has an example made by calling the route on Gurpreet's demo
+story (a scripted conversation stands in for Bedrock). `tests/test_contract.py` fails if the file is
+out of date. Operation ids are the route functions' names.
 
 ## Deploying
 
@@ -141,6 +166,16 @@ tables need a native speaker's check.
 A day with 5 mm or more is a rain day, and a day of 20 mm or more also loses the next day: planning
 values to check with the KVK. Days past the forecast are assumed dry and the reply says so. If the
 forecast fails, the plan goes ahead as if dry. P3 owns the shared Open-Meteo client; swap it in later.
+
+## Fires near the farm
+
+`fires.py` asks P3's `GET /v1/fires` for the box around the farm, keeps the points inside the circle
+(5 km by default), nearest first, and normalises confidence (VIIRS l/n/h, MODIS 0–100) to low, nominal
+or high. It needs the phone's location or a known village: a district centre is too far off. Results are
+cached for 30 minutes. The last check is filed with the help request (`nearby_fires`, and `nearbyFires`
+in Command's HelpRequest) so the officer sees that fires are already being seen around the farm.
+A fire pixel is 375 m across and can be a neighbour's field, so the agent never suggests the farmer
+burned, and mentions fires only if the farmer asks about smoke.
 
 ## Zero-burn planner
 

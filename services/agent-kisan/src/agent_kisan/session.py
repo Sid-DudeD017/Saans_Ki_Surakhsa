@@ -23,6 +23,7 @@ import httpx
 
 from agent_kisan.coverage import CAPACITY_ACRES_PER_DAY, CoverageResult, estimate_coverage
 from agent_kisan.filing import Filer, build_support_request
+from agent_kisan.fires import DEFAULT_RADIUS_KM, FireSource, FiresUnavailable, default_fires
 from agent_kisan.guard import unsure as unsure_numbers
 from agent_kisan.notify import RequestStatus
 from agent_kisan.planner import Chc, Plan, find_chcs, plan_zero_burn
@@ -92,6 +93,9 @@ class KisanSession:
     districts: dict[str, tuple[float, float]] | None = None  # None = load data/seed
     chcs: tuple[Chc, ...] | None = None  # None = load data/seed
     villages: dict[str, tuple[float, float]] | None = None
+    # (lat, lon, radius_km) -> fires from P3's /v1/fires. None = no fire data (tests, offline).
+    fire_source: FireSource | None = default_fires
+    nearby_fires: dict | None = None  # the last fire check, filed with the help request
 
     def begin_turn(self, text: str | None = None, distrust: frozenset[float] = frozenset()) -> None:
         """distrust: numbers in this message that speech recognition wasn't sure it heard right."""
@@ -165,6 +169,21 @@ class KisanSession:
         note = "distances are from the district centre, so only rough" if source == "district" else None
         return {"chcs": found, "located_by": source, **({"note": note} if note else {})}
 
+    def fires_near(self, radius_km: float = DEFAULT_RADIUS_KM) -> dict:
+        """Satellite fire points around the farm in the last day, nearest first."""
+        where, source = self._located()
+        if where is None or source == "district":  # a district centre is tens of km from the farm
+            return {"error": "need the village or the phone's location to look for fires near the farm"}
+        if self.fire_source is None:
+            return {"error": "fire data isn't available here"}
+        try:
+            found = self.fire_source(where[0], where[1], radius_km).to_json()
+        except (FiresUnavailable, ValueError) as e:
+            return {"error": str(e)}
+        self.nearby_fires = {k: v for k, v in found.items() if k != "fires"} | {"located_by": source}
+        return {**found, "located_by": source,
+                "note": "a fire point is a 375 m satellite pixel and may be a neighbour's field"}
+
     def plan(self) -> dict:
         result = self._coverage()
         if isinstance(result, dict):
@@ -207,7 +226,7 @@ class KisanSession:
         where, source = self._located()
         request = build_support_request(
             self.session_id, self.profile, result, plan if isinstance(plan, Plan) else None, self.language,
-            location=where, location_source=source, farmer_id=self.farmer_id,
+            location=where, location_source=source, farmer_id=self.farmer_id, nearby_fires=self.nearby_fires,
         )
         receipt = self.filer.file(request)
         self.filed = {"request": request, "receipt": receipt}

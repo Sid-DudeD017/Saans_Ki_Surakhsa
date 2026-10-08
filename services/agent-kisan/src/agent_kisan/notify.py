@@ -13,9 +13,10 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
+
+from agent_kisan.schemas import india_now
 
 STATUSES = ("filed", "seen", "machine_assigned", "in_field", "action_taken", "closed")
 TEXTED = {"filed", "machine_assigned", "action_taken"}  # the rest only update the status page
@@ -112,4 +113,4 @@ def sms_text(status: str, language: str, **detail) -> str:
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
+    return india_now()
