@@ -51,6 +51,20 @@ describe('P2 API Client & Mock Backbone', () => {
     expect(response.ticket_id).toBeDefined();
     expect(response.ticket_id.startsWith('TKT-')).toBe(true);
   });
+
+  it('submits complaint with canonical lat/lon coordinates', async () => {
+    const response = await submitComplaint({
+      category: 'Dust',
+      description: 'Heavy construction dust near campus entrance',
+      lat: 30.245,
+      lon: 75.842,
+      reported_by_role: 'principal',
+      school_id: 'school_demo_001',
+    });
+    expect(response.status).toBe('received');
+    expect(response.ticket_id).toBeDefined();
+    expect(response.message).toContain('Report submitted successfully');
+  });
 });
 
 describe('P2 G2 Contract Specification (p2-shala.openapi.json)', () => {

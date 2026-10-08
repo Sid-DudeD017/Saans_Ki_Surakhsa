@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { AuthProvider } from '../lib/auth';
 import { LanguageProvider } from '../lib/i18n';
 import { Header } from '../components/Header';
+import { AQIHeader } from '../components/AQIHeader';
 import { ReportButton } from '../components/ReportButton';
 
 export const metadata: Metadata = {
@@ -30,6 +31,9 @@ export default function RootLayout({
             >
               {/* Shared App Shell Header */}
               <Header />
+
+              {/* Shared Regional AQI Status Header */}
+              <AQIHeader />
 
               {/* Main Module Content */}
               <main style={{ flex: 1 }}>{children}</main>
