@@ -22,6 +22,13 @@ uv run python scripts/smoke_gurpreet.py                   # scripted Punjabi con
   price per acre after subsidy and phone.
 - `POST /v1/agent/kisan/voice`: multipart `audio` (m4a, wav, ogg, mp3, up to 10 MB) plus optional
   `session_id` and `language` → the same reply as a message, with the `transcript`.
+- `POST /v1/agent/kisan/photo`: multipart `photo` (+ optional `session_id`) → location and time from the
+  photo, a stored copy with faces blurred and no metadata, and the machine it shows (Claude on Bedrock).
+- `GET /v1/agent/kisan/sessions/{id}/readback.wav`: the current read-back spoken in Punjabi or Hindi.
+- `GET /v1/agent/kisan/sessions/{id}/status`: the farmer's status page (filed, seen, machine assigned, done).
+- `POST /v1/agent/kisan/help-requests/{id}/status`: for Command, with `X-Saans-Service-Token`; texts the farmer.
+- `POST /v1/allocations`: for Command: shares CHC machines across open `HelpRequest`s
+  (earliest wheat deadline first, nearest machine first, one farm per machine per day).
 - `POST /v1/agent/kisan/messages`: `{session_id?, text, language}` → `{session_id, reply, missing, quick_replies, filed}`.
   Conversations are held in memory for now.
 
@@ -61,7 +68,8 @@ if the fixture is out of date.
 ```bash
 docker build -f services/agent-kisan/Dockerfile -t saans-agent-kisan .   # from the repo root
 AWS_PROFILE=saans services/agent-kisan/deploy/deploy.sh                   # ECR + App Runner, costs money
-aws cloudformation delete-stack --stack-name saans-agent-kisan --region ap-south-1   # tear down
+AWS_PROFILE=saans services/agent-kisan/deploy/teardown.sh                 # list what's running
+AWS_PROFILE=saans services/agent-kisan/deploy/teardown.sh --yes           # delete it all (Sunday)
 ```
 
 `deploy/apprunner.yaml` runs one instance (conversations are in memory), 1 vCPU / 2 GB, health check
@@ -91,6 +99,32 @@ leaves out. On a MacBook Air a short Hindi note takes about 7–8 s.
 Number words Whisper heard with low probability don't count as heard, so the farmer is asked to
 confirm them: this catches some speech mistakes, not only the model's. The word tables include
 Whisper's own Hindi spellings (एकर, ट्रक्तर, अक्तोबर, धाई for ढाई). Not yet tried on Punjabi audio.
+
+### Results
+
+<!-- EVAL RESULTS START -->
+Not run yet: the AWS account can't reach Bedrock. After a run: `uv run python scripts/eval_to_readme.py`.
+<!-- EVAL RESULTS END -->
+
+## Read-back card and voice
+
+When the agent reads the details back, the reply carries `readback`: a card (big digits, icon keys
+for P2's screens), the spoken script, and `audio_url`. `tts.py` speaks Punjabi and Hindi with Meta's
+MMS voices (CC-BY-NC), sentence by sentence, starting in the background as soon as the read-back
+exists, and caches it. On a laptop it takes ~2.5 s; on App Runner's 1 vCPU ~30 s, so the head start
+matters. One-word clips stitched together were tried first and dropped: unintelligible. The phrasing
+needs a native speaker's check.
+
+## SMS
+
+`notify.py` keeps each request's status history and texts the farmer (`farmer_phone`, +91) when it's
+filed, when Command assigns a machine and when the work is done: SNS with `KISAN_SMS=sns`
+(and `KISAN_SMS_SENDER_ID` once DLT-registered), else `.outbox/sms.jsonl`. Command's updates need
+`KISAN_SERVICE_TOKEN` set on both sides. The templates in `notify.py` are the ones to register for DLT.
+
+## Video
+
+`video/scene-0020-gurpreet.md`: shot list, lines and checklist for the 0:20–0:55 scene.
 
 ## Number guard
 
