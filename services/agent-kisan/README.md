@@ -56,6 +56,13 @@ Every setting, with what it does, is in the repo's `.env.example`.
 
 ## Filing to Saans Command
 
+With `SAANS_API_URL` set, Kisan posts to Command's `POST /v1/complaints` with an `Idempotency-Key`
+equal to the session id. The body is Command's `ComplaintInput` with `type: farmer_support`
+(`schemas.FarmerSupportComplaint`): the farm's `location`, an empty `evidence` list, the
+`support_request` (farm, coverage, `plan[]`, `unmet[]`, `nearby_fires`) and `help_request`. A farm
+with no location at all can't be sent to Command and stays an error for the agent to resolve.
+Timestamps are India time with `+05:30`.
+
 Each filed `support_request` carries `help_request`: the same request in Command's `HelpRequest`
 shape (`src/domain/schemas/index.ts`), built by `help_request.py`. It describes what is still short
 after the zero-burn plan (`coveragePercent`, `uncoveredAcres` after booking, `machineType` to send),
@@ -67,6 +74,19 @@ The contract is tested on both sides: `python -m agent_kisan.contract_fixtures` 
 requests to `packages/contracts/fixtures/kisan-help-requests.json`, `src/__tests__/kisan-help-request.test.ts`
 parses them with Command's real `HelpRequestSchema` (`npx vitest run`), and a Python test fails
 if the fixture is out of date.
+
+## The contract
+
+`packages/contracts/proposals/p1-kisan.openapi.json` is generated from this API, so it can't drift:
+
+```bash
+uv run python -m agent_kisan.contract
+```
+
+Every route has a response model (`schemas.py`), so FastAPI checks each reply against the contract,
+and every JSON response in the file has an example made by calling the route on Gurpreet's demo
+story (a scripted conversation stands in for Bedrock). `tests/test_contract.py` fails if the file is
+out of date. Operation ids are the route functions' names.
 
 ## Deploying
 

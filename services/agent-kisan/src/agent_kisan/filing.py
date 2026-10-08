@@ -1,18 +1,20 @@
 """Filing a farmer's help request with Saans Command (P4's POST /v1/complaints).
 
-Until P4's mock or API is reachable, requests go to a local outbox file instead.
-The support_request shape here is P1's proposal for the 14:00 contract check.
+The body is P4's ComplaintInput with type farmer_support: the farm's location, no evidence,
+the support_request (plan and unmet) and the same request as Command's HelpRequest
+(schemas.FarmerSupportComplaint). Until Command's API is reachable, requests go to a local
+outbox file instead.
 """
 
 import json
 import os
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import httpx
 
 from agent_kisan.help_request import NoLocation, to_help_request
+from agent_kisan.schemas import india_now
 
 if TYPE_CHECKING:
     from agent_kisan.coverage import CoverageResult
@@ -46,7 +48,7 @@ def build_support_request(
         "type": "support_request",
         "source": "kisan_saathi",
         "idempotency_key": session_id,
-        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "created_at": india_now(),
         "language": language,
         "farm": {
             "village": farm["village"],
@@ -80,6 +82,16 @@ def build_support_request(
     return request
 
 
+def to_complaint(request: dict) -> dict:
+    """The body for Command's POST /v1/complaints. Raises NoLocation: Command needs a place."""
+    if request.get("help_request") is None:
+        raise NoLocation(request.get("help_request_error") or "no farm location")
+    farm = request["farm"]
+    support = {k: v for k, v in request.items() if k not in ("help_request", "help_request_error")}
+    return {"type": "farmer_support", "location": {"lat": farm["lat"], "lon": farm["lon"]}, "evidence": [],
+            "support_request": support, "help_request": request["help_request"]}
+
+
 class HttpFiler:
     def __init__(self, base_url: str, timeout: float = 5.0):
         self.base_url = base_url.rstrip("/")
@@ -88,7 +100,7 @@ class HttpFiler:
     def file(self, request: dict) -> dict:
         res = httpx.post(
             f"{self.base_url}/v1/complaints",
-            json=request,
+            json=to_complaint(request),
             headers={"Idempotency-Key": request["idempotency_key"]},
             timeout=self.timeout,
         )

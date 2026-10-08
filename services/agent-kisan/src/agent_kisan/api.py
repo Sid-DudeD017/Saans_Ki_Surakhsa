@@ -24,13 +24,33 @@ from agent_kisan.coverage import (
 from agent_kisan.agent import KisanChat
 from agent_kisan.fires import DEFAULT_RADIUS_KM, MAX_RADIUS_KM, FireSource, FiresUnavailable, default_fires
 from agent_kisan.planner import DEFAULT_MAX_KM, find_chcs, plan_zero_burn
+from agent_kisan.schemas import (
+    AllocationResponse,
+    Booking,
+    ChcsResponse,
+    FiresNearResponse,
+    HelpRequestStatusResponse,
+    KisanStatusResponse,
+    PhotoResponse,
+    Unmet,
+)
 from agent_kisan.seed import load_seed
 from agent_kisan.units import to_acres
 from agent_kisan.weather import rain_forecast
 
 MachineType = Literal["happy_seeder", "super_seeder", "mulcher_rmb", "baler"]
 
-app = FastAPI(title="Kisan Saathi", version="0.1.0")
+# Operation ids are the function names, so generated clients read kisan_message(), not kisan_message_v1_….
+app = FastAPI(title="Kisan Saathi", version="1.0.0", generate_unique_id_function=lambda route: route.name)
+
+
+class Problem(BaseModel):
+    detail: str = Field(description="What went wrong, in words the app can show")
+
+
+def _errors(*codes: int) -> dict:
+    """OpenAPI entries for the HTTPExceptions a route raises."""
+    return {code: {"model": Problem} for code in codes}
 
 
 class Paddy(BaseModel):
@@ -104,7 +124,7 @@ def root() -> RedirectResponse:
     return RedirectResponse("/docs")
 
 
-@app.get("/healthz")
+@app.get("/healthz", include_in_schema=False)  # for the load balancer, not part of the contract
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
@@ -175,18 +195,18 @@ class PlanRequest(CoverageRequest):
 
 class PlanResponse(BaseModel):
     coverage: CoverageResponse
-    plan: list[dict]
+    plan: list[Booking]
     booked_acres: float
     cost_inr: int
     coverage_after_pct: int
-    unmet: list[dict]
+    unmet: list[Unmet]
     chcs_considered: list[str]
     rain_dates_used: list[date]
     rain_note: str | None = None
     demo_data: bool = Field(description="True while CHCs, rates and bookings are made-up demo data")
 
 
-@app.post("/v1/farm/plan")
+@app.post("/v1/farm/plan", responses=_errors(503))
 def farm_plan(req: PlanRequest) -> PlanResponse:
     try:
         chcs, villages, demo = load_seed()
@@ -222,7 +242,7 @@ def farm_plan(req: PlanRequest) -> PlanResponse:
                         rain_dates_used=sorted(rain), rain_note=rain_note, **plan)
 
 
-@app.get("/v1/chcs")
+@app.get("/v1/chcs", response_model=ChcsResponse, responses=_errors(503))
 def chcs_near(lat: float | None = None, lon: float | None = None, village: str | None = None,
               district: str | None = None, machine: str | None = None, max_km: float = DEFAULT_MAX_KM) -> dict:
     """CHCs within reach of a farm, nearest first (demo data until the KVK list comes in)."""
@@ -242,7 +262,7 @@ def chcs_near(lat: float | None = None, lon: float | None = None, village: str |
 fire_source: FireSource | None = None  # tests swap in a fake; None = P3's /v1/fires at SAANS_AQI_URL
 
 
-@app.get("/v1/farm/fires")
+@app.get("/v1/farm/fires", response_model=FiresNearResponse, responses=_errors(503))
 def farm_fires(lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180),
                radius_km: float = Query(default=DEFAULT_RADIUS_KM, gt=0, le=MAX_RADIUS_KM)) -> dict:
     """Satellite fire points around a farm in the last day, nearest first (NASA FIRMS through P3's /v1/fires)."""
@@ -273,7 +293,8 @@ def _session_for_help_request(help_request_id: str) -> KisanChat:
     return chat
 
 
-@app.post("/v1/agent/kisan/help-requests/{help_request_id}/status")
+@app.post("/v1/agent/kisan/help-requests/{help_request_id}/status", response_model=HelpRequestStatusResponse,
+          responses=_errors(401, 404, 503))
 def help_request_status(help_request_id: str, update: StatusUpdate,
                         x_saans_service_token: str | None = Header(default=None)) -> dict:
     """For Saans Command: progress on a help request. Texts the farmer when a machine is assigned or the
@@ -300,7 +321,7 @@ def help_request_status(help_request_id: str, update: StatusUpdate,
     return {"helpRequestId": help_request_id, "recorded": entry}
 
 
-@app.get("/v1/agent/kisan/sessions/{session_id}/status")
+@app.get("/v1/agent/kisan/sessions/{session_id}/status", response_model=KisanStatusResponse, responses=_errors(404))
 def kisan_status(session_id: str) -> dict:
     """The farmer's status page: filed, seen, machine assigned, done."""
     chat = _chats.get(session_id)
@@ -321,7 +342,7 @@ class AllocationRequest(BaseModel):
     today: date | None = Field(default=None, description="Days before it aren't booked; defaults to today")
 
 
-@app.post("/v1/allocations")
+@app.post("/v1/allocations", response_model=AllocationResponse)
 def allocations(req: AllocationRequest) -> dict:
     """Suggested machine for each open help request: earliest wheat deadline first, nearest machine first."""
     from agent_kisan.allocator import allocate
@@ -445,7 +466,7 @@ def _after_turn(chat: KisanChat) -> None:
         s.status.record("filed", s.language, s.farmer_phone, _notifier(), acres=f"{short:g}")
 
 
-@app.post("/v1/agent/kisan/messages")
+@app.post("/v1/agent/kisan/messages", responses=_errors(404, 409, 503))
 def kisan_message(req: MessageRequest) -> MessageResponse:
     sid, chat = _chat_for(req.session_id, req.language)
     if req.farmer_phone:
@@ -459,7 +480,8 @@ speaker_factory: Callable[[], object] | None = None  # tests swap in a fake; Non
 
 
 @app.get("/v1/agent/kisan/sessions/{session_id}/readback.wav", response_class=Response,
-         responses={200: {"content": {"audio/wav": {}}}})
+         responses={200: {"content": {"audio/wav": {"schema": {"type": "string", "format": "binary"}}},
+                          "description": "The read-back, spoken"}, **_errors(404, 503)})
 def kisan_readback_audio(session_id: str) -> Response:
     """The current read-back spoken aloud (Punjabi or Hindi). Cached, so replays are instant."""
     chat = _chats.get(session_id)
@@ -483,7 +505,7 @@ MAX_PHOTO_BYTES = 15 * 1024 * 1024
 machine_identifier: Callable[[bytes], dict] | None = None  # tests swap in a fake; None = Claude on Bedrock
 
 
-@app.post("/v1/agent/kisan/photo")
+@app.post("/v1/agent/kisan/photo", response_model=PhotoResponse, responses=_errors(404, 413))
 def kisan_photo(
     photo: UploadFile,
     session_id: str | None = Form(default=None),
@@ -531,7 +553,7 @@ def kisan_photo(
     return {"photo": info.to_json(), "stored_as": str(stored), "location": location, "machine": machine}
 
 
-@app.post("/v1/agent/kisan/voice")
+@app.post("/v1/agent/kisan/voice", responses=_errors(404, 409, 413, 422, 503))
 def kisan_voice(
     audio: UploadFile,
     session_id: str | None = Form(default=None),
