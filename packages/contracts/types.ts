@@ -342,8 +342,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get fires within a bounding box
-         * @description Returns active fire detections from NASA FIRMS within the requested bounding box.
+         * Get fires within a search area
+         * @description Returns active fire detections from NASA FIRMS. Clients MUST specify the search area using EITHER a bounding box (`bbox`) OR a point-radius (`lat`, `lon`, `radius_km`). Do not provide an incomplete point-radius query (e.g. lat without lon or radius_km).
          */
         get: operations["get_fires_v1_fires_get"];
         put?: never;
@@ -414,6 +414,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/schools/{id}/advisory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get school air quality advisory
+         * @description Returns real-time air quality metrics, GRAP stage, school activity restrictions, and role-adaptive advisories (student, teacher, parent, principal) for a specific school campus.
+         */
+        get: operations["get_school_advisory_v1_schools__id__advisory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/schools/{id}/alerts/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe to school air quality alerts
+         * @description Registers an alert subscription for a student, parent, teacher, or school administrator to receive real-time notifications when air quality thresholds are breached or emergency advisories are issued.
+         */
+        post: operations["subscribe_school_alerts_v1_schools__id__alerts_subscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads": {
         parameters: {
             query?: never;
@@ -438,6 +478,83 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AdvisorySeverity
+         * @description Severity level of the environmental health advisory.
+         * @enum {string}
+         */
+        AdvisorySeverity: "normal" | "caution" | "warning" | "critical";
+        /**
+         * AlertCategory
+         * @description Specific trigger category for school notifications.
+         * @enum {string}
+         */
+        AlertCategory: "aqi_threshold" | "stubble_smoke" | "emergency_closure" | "daily_briefing";
+        /**
+         * AlertChannel
+         * @description Delivery channel for dispatching air quality alerts.
+         * @enum {string}
+         */
+        AlertChannel: "sms" | "whatsapp" | "push" | "in_app";
+        /**
+         * AlertSubscriptionRequest
+         * @description Payload for subscribing to school environmental health notifications.
+         */
+        AlertSubscriptionRequest: {
+            /** @description Unique identifier of the subscriber (e.g. user ID, guardian ID, phone identifier). */
+            subscriber_id: string;
+            role: components["schemas"]["SubscriberRole"];
+            channel: components["schemas"]["AlertChannel"];
+            /** @description Delivery destination: E.164 phone number for sms/whatsapp, device push token, or in-app account ID. */
+            contact_value: string;
+            /** @description List of alert event categories the subscriber wishes to receive. */
+            alert_categories: components["schemas"]["AlertCategory"][];
+            /**
+             * @description Minimum AQI level to trigger threshold alerts.
+             * @default 200
+             */
+            min_aqi_threshold: number;
+            /**
+             * @description Subscription enabled flag.
+             * @default true
+             */
+            enabled: boolean;
+        };
+        /**
+         * AlertSubscriptionResponse
+         * @description Confirmation response for a school alert subscription.
+         */
+        AlertSubscriptionResponse: {
+            /** @description Unique identifier for this alert subscription record. */
+            subscription_id: string;
+            /** @description School ID the subscription is registered with. */
+            school_id: string;
+            /** @description Identifier of the subscribed individual. */
+            subscriber_id: string;
+            role: components["schemas"]["SubscriberRole"];
+            channel: components["schemas"]["AlertChannel"];
+            /** @description Delivery destination. */
+            contact_value: string;
+            /** @description Subscribed notification categories. */
+            alert_categories: components["schemas"]["AlertCategory"][];
+            /** @description Active AQI notification trigger threshold. */
+            min_aqi_threshold?: number;
+            /** @description Whether the subscription is currently active. */
+            enabled: boolean;
+            status: components["schemas"]["SubscriptionStatus"];
+            /**
+             * Format: date-time
+             * @description Subscription creation timestamp in ISO 8601 with +05:30 offset.
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Last update timestamp in ISO 8601 with +05:30 offset.
+             */
+            updated_at?: string;
+            /** @description Human-readable status confirmation message. */
+            message: string;
+        };
         /** Allocation */
         Allocation: {
             /** Helprequestid */
@@ -522,7 +639,7 @@ export interface components {
         };
         /**
          * AqiCategory
-         * @description Lowercase AQI category codes. Display labels: good='Good' (0-50), satisfactory='Satisfactory' (51-100), moderate='Moderately polluted' (101-200), poor='Poor' (201-300), very_poor='Very Poor' (301-400), severe='Severe' (401-500).
+         * @description Lowercase AQI category codes per CPCB National Air Quality Index bands: good (0-50), satisfactory (51-100), moderate (101-200), poor (201-300), very_poor (301-400), severe (401-500).
          * @enum {string}
          */
         AqiCategory: "good" | "satisfactory" | "moderate" | "poor" | "very_poor" | "severe";
@@ -548,15 +665,6 @@ export interface components {
             stale: boolean;
             wind: components["schemas"]["Wind"];
             weather: components["schemas"]["Weather"];
-        };
-        /** ValidationError */
-        AqiValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
         };
         /** Assumptions */
         Assumptions: {
@@ -856,18 +964,23 @@ export interface components {
             };
             assumptions: components["schemas"]["Assumptions"];
         };
+        /**
+         * @description Add new codes here, in lowercase.
+         * @enum {string}
+         */
+        ErrorCode: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "no_coverage" | "conflict" | "idempotency_conflict" | "version_conflict" | "payload_too_large" | "unavailable" | "sources_unavailable";
+        ErrorDetail: {
+            /** @description Where, as a dotted path (body.paddy.value, query.lat) */
+            field: string;
+            problem: string;
+        };
+        /** @description Every error from every Saans service has this body (CONVENTIONS.md). code is for programs; message is a sentence the app can show; details lists the fields that failed validation. */
         ErrorEnvelope: {
             error: {
-                code: string;
+                code: components["schemas"]["ErrorCode"];
                 message: string;
+                details?: components["schemas"]["ErrorDetail"][];
             };
-        };
-        /** ErrorResponse */
-        ErrorResponse: {
-            /** @description Machine-readable error code */
-            error: string;
-            /** @description Human-readable error description */
-            detail: string;
         };
         EventContract: {
             event_id: string;
@@ -1162,15 +1275,10 @@ export interface components {
         };
         /**
          * GrapStage
-         * @description GRAP (Graded Response Action Plan) stage as lowercase codes. Display labels: none='No GRAP action' (AQI 0-200), stage_1='Stage I — Poor' (AQI 201-300), stage_2='Stage II — Very Poor' (AQI 301-400), stage_3='Stage III — Severe' (AQI 401-450 VERIFY), stage_4='Stage IV — Severe+' (AQI >450 VERIFY). VERIFY against latest CAQM GRAP revisions.
+         * @description Graded Response Action Plan stage as lowercase codes: none (0-200), stage_1 (201-300), stage_2 (301-400), stage_3 (401-450), stage_4 (>450).
          * @enum {string}
          */
         GrapStage: "none" | "stage_1" | "stage_2" | "stage_3" | "stage_4";
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
         /** @description A farmer's shortfall after the zero-burn plan. Kisan sends extra fields for the case view (KisanHelpRequest in P1's proposal); they are allowed. */
         HelpRequest: {
             id: string;
@@ -1658,18 +1766,35 @@ export interface components {
         };
         /**
          * Pollutant
-         * @description Lowercase pollutant codes. Display labels: pm25='PM 2.5', pm10='PM 10', no2='Nitrogen Dioxide', so2='Sulphur Dioxide', co='Carbon Monoxide', o3='Ozone', nh3='Ammonia', pb='Lead'.
+         * @description Lowercase pollutant codes. Display labels resolved in UI: pm25='PM 2.5', pm10='PM 10', etc.
          * @enum {string}
          */
         Pollutant: "pm25" | "pm10" | "no2" | "so2" | "co" | "o3" | "nh3" | "pb";
-        /** Problem */
-        Problem: {
-            /**
-             * Detail
-             * @description What went wrong, in words the app can show
-             */
-            detail: string;
+        /**
+         * PrincipalAdvisoryItem
+         * @description Principal-specific structured executive decisions and administrative action items.
+         */
+        PrincipalAdvisoryItem: {
+            /** @description Executive advisory title. */
+            title: string;
+            /** @description Administrative overview and policy mandate. */
+            summary: string;
+            decision: components["schemas"]["PrincipalDecision"];
+            /** @description Go/No-Go decision on holding morning prayer/assembly outdoors. */
+            assembly_permitted: boolean;
+            /** @description Go/No-Go decision on physical education, sports, and outdoor recess. */
+            outdoor_activities_permitted: boolean;
+            /** @description Whether campus-wide mask wearing is mandated by school administration. */
+            mask_mandated: boolean;
+            /** @description Executive administrative protocol directives. */
+            action_items: string[];
         };
+        /**
+         * PrincipalDecision
+         * @description Executive go/no-go determination for outdoor school activities and assemblies.
+         * @enum {string}
+         */
+        PrincipalDecision: "go" | "caution" | "no_go";
         PublicBoard: {
             as_of: components["schemas"]["IndiaTimestamp"];
             /** @description Counts below this are null */
@@ -1698,6 +1823,32 @@ export interface components {
              * @description Send this as the next message's text when the farmer taps the button
              */
             send_text: string;
+        };
+        /**
+         * RoleAdvisories
+         * @description Structured role-adaptive guidance partitioned by school persona.
+         */
+        RoleAdvisories: {
+            student: components["schemas"]["RoleAdvisoryItem"];
+            teacher: components["schemas"]["RoleAdvisoryItem"];
+            parent: components["schemas"]["RoleAdvisoryItem"];
+            principal: components["schemas"]["PrincipalAdvisoryItem"];
+        };
+        /**
+         * RoleAdvisoryItem
+         * @description Role-specific structured advisory recommendations.
+         */
+        RoleAdvisoryItem: {
+            /** @description Role-specific advisory header. */
+            title: string;
+            /** @description Actionable guidance tailored to this persona. */
+            summary: string;
+            /** @description Whether face masks (N95/FFP2) are advised for this persona. */
+            mask_recommended: boolean;
+            /** @description Whether outdoor activities and recess are permitted for this persona. */
+            outdoor_activities_permitted: boolean;
+            /** @description List of recommended practical steps. */
+            action_items: string[];
         };
         /** Route */
         Route: {
@@ -1733,6 +1884,68 @@ export interface components {
             brightness: number;
             frp?: number;
             distanceFromReportMeters?: number;
+        };
+        /**
+         * SchoolActionCode
+         * @description Standardized school administrative protocol code.
+         * @enum {string}
+         */
+        SchoolActionCode: "normal_operations" | "limit_outdoor_exposure" | "suspend_outdoor_activities" | "mandatory_masks" | "close_school";
+        /**
+         * SchoolAdvisoryResponse
+         * @description Complete school air quality status and role-adaptive advisory payload.
+         */
+        SchoolAdvisoryResponse: {
+            school: components["schemas"]["SchoolIdentity"];
+            /** @description Current CPCB National Air Quality Index at school location. */
+            aqi: number;
+            category: components["schemas"]["AqiCategory"];
+            dominant_pollutant?: components["schemas"]["Pollutant"];
+            grap_stage: components["schemas"]["GrapStage"];
+            severity: components["schemas"]["AdvisorySeverity"];
+            action_code: components["schemas"]["SchoolActionCode"];
+            /** @description Global restriction on outdoor play, sports, and recess. */
+            outdoor_activities_permitted: boolean;
+            /** @description Global restriction on outdoor morning assembly. */
+            assembly_permitted: boolean;
+            /** @description General recommendation for protective mask usage. */
+            mask_recommended: boolean;
+            /** @description Human-readable summary message for public/general display. */
+            summary: string;
+            /**
+             * Format: date-time
+             * @description Advisory issuance timestamp in ISO 8601 with +05:30 offset.
+             */
+            issued_at: string;
+            /**
+             * Format: date-time
+             * @description Advisory expiration timestamp in ISO 8601 with +05:30 offset.
+             */
+            valid_until: string;
+            role_advisories: components["schemas"]["RoleAdvisories"];
+        };
+        /**
+         * SchoolIdentity
+         * @description Institutional identification and geographical location of a school campus.
+         */
+        SchoolIdentity: {
+            /** @description Unique school campus identifier (e.g. 'school_demo_001' or 'SCH-PB-SAN-001'). */
+            id: string;
+            /** @description Full formal name of the school institution. */
+            name: string;
+            /** @description Administrative district (e.g. 'Sangrur'). */
+            district: string;
+            location: components["schemas"]["ShalaLocation"];
+        };
+        /**
+         * Location
+         * @description Geographic coordinates strictly adhering to lat/lon format.
+         */
+        ShalaLocation: {
+            /** @description Latitude in decimal degrees. */
+            lat: number;
+            /** @description Longitude in decimal degrees. Always 'lon', never 'lng'. */
+            lon: number;
         };
         /** SmsReceipt */
         SmsReceipt: {
@@ -1805,6 +2018,18 @@ export interface components {
             /** @description Concentration unit: 'ug/m3' for all pollutants except CO which uses 'mg/m3' */
             unit: string;
         };
+        /**
+         * SubscriberRole
+         * @description Role of the subscriber in the school community.
+         * @enum {string}
+         */
+        SubscriberRole: "student" | "parent" | "teacher" | "principal" | "community";
+        /**
+         * SubscriptionStatus
+         * @description Lifecycle state of the alert subscription.
+         * @enum {string}
+         */
+        SubscriptionStatus: "active" | "pending_verification" | "paused" | "cancelled";
         /**
          * SupportRequest
          * @description Everything Kisan worked out for one farm.
@@ -1900,19 +2125,6 @@ export interface components {
             };
             expires_at: components["schemas"]["IndiaTimestamp"];
         };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
         /** Weather */
         Weather: {
             /** @description Ambient air temperature in degrees Celsius */
@@ -1941,7 +2153,13 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "code": "invalid_request",
-                 *         "message": "location.lat must be a number from -90 to 90"
+                 *         "message": "location.lat must be a number from -90 to 90",
+                 *         "details": [
+                 *           {
+                 *             "field": "body.location.lat",
+                 *             "problem": "must be a number from -90 to 90"
+                 *           }
+                 *         ]
                  *       }
                  *     }
                  */
@@ -2072,10 +2290,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "wrong or missing X-Saans-Service-Token"
+                     *       "error": {
+                     *         "code": "unauthorized",
+                     *         "message": "wrong or missing X-Saans-Service-Token"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Not Found */
@@ -2086,10 +2307,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "unknown session_id; omit it to start a new conversation"
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "no filed Kisan request with that id"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -2100,20 +2324,19 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "body.status: Input should be 'seen', 'machine_assigned', 'in_field', 'action_taken' or 'closed'",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.status",
+                     *             "problem": "Input should be 'seen', 'machine_assigned', 'in_field', 'action_taken' or 'closed'"
+                     *           }
+                     *         ]
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -2124,10 +2347,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "status updates are off: KISAN_SERVICE_TOKEN is not set"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2242,10 +2468,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "unknown session_id; omit it to start a new conversation"
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "unknown session_id; omit it to start a new conversation"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Conflict */
@@ -2256,10 +2485,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "still answering the previous message in this conversation"
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "still answering the previous message in this conversation"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -2270,20 +2502,19 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "body.text: String should have at least 1 character",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.text",
+                     *             "problem": "String should have at least 1 character"
+                     *           }
+                     *         ]
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -2294,10 +2525,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "the language model is unavailable: AccessDeniedException"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2352,10 +2586,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "unknown session_id; omit it to start a new conversation"
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "unknown session_id"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Request Entity Too Large */
@@ -2366,10 +2603,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "voice notes can be up to 10 MB"
+                     *       "error": {
+                     *         "code": "payload_too_large",
+                     *         "message": "photos can be up to 15 MB"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -2380,20 +2620,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "the photo is empty"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2426,34 +2659,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "unknown session_id; omit it to start a new conversation"
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "unknown session_id"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
-                     *     }
-                     */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -2464,10 +2676,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "spoken read-backs aren't set up here: No module named 'torch'"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2538,34 +2753,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "unknown session_id; omit it to start a new conversation"
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "unknown session_id"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
-                     *     }
-                     */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2679,10 +2873,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "unknown session_id; omit it to start a new conversation"
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "unknown session_id; omit it to start a new conversation"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Conflict */
@@ -2693,10 +2890,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "still answering the previous message in this conversation"
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "still answering the previous message in this conversation"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Request Entity Too Large */
@@ -2707,10 +2907,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "voice notes can be up to 10 MB"
+                     *       "error": {
+                     *         "code": "payload_too_large",
+                     *         "message": "voice notes can be up to 10 MB"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Unprocessable Entity */
@@ -2721,20 +2924,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "the voice note is empty"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -2745,10 +2941,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "speech recognition isn't set up here: No module named 'faster_whisper'"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2848,20 +3047,19 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "body.helpRequests: Field required",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.helpRequests",
+                     *             "problem": "Field required"
+                     *           }
+                     *         ]
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2896,11 +3094,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "no_coverage",
-                     *       "detail": "No monitoring stations found within interpolation radius of the requested coordinates."
+                     *       "error": {
+                     *         "code": "no_coverage",
+                     *         "message": "No monitoring stations found within interpolation radius of the requested coordinates."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -2909,7 +3109,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Missing lat or lon parameters",
+                     *         "details": [
+                     *           {
+                     *             "field": "query.lat",
+                     *             "problem": "required"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description All upstream data sources are unavailable */
@@ -2920,11 +3134,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "sources_unavailable",
-                     *       "detail": "All upstream AQI data sources (OpenAQ, CPCB, Open-Meteo) failed to respond. Retry after 60 seconds."
+                     *       "error": {
+                     *         "code": "sources_unavailable",
+                     *         "message": "All upstream AQI data sources (OpenAQ, CPCB, Open-Meteo) failed to respond. Retry after 60 seconds."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -2960,11 +3176,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "no_coverage",
-                     *       "detail": "Forecast data is not available for the requested coordinates."
+                     *       "error": {
+                     *         "code": "no_coverage",
+                     *         "message": "Forecast data is not available for the requested coordinates."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -2973,7 +3191,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Missing lat or lon parameters",
+                     *         "details": [
+                     *           {
+                     *             "field": "query.lat",
+                     *             "problem": "required"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Forecast data source is unavailable */
@@ -2984,11 +3216,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "sources_unavailable",
-                     *       "detail": "Forecast upstream (Open-Meteo CAMS) failed to respond. Retry after 60 seconds."
+                     *       "error": {
+                     *         "code": "sources_unavailable",
+                     *         "message": "Forecast upstream (Open-Meteo CAMS) failed to respond. Retry after 60 seconds."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -3297,20 +3531,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "give lat and lon, a known village, or a district"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -3321,10 +3548,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "CHC data unavailable: data/seed/chc_demo.json not found"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -3479,20 +3709,19 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "body.paddy.value: Input should be greater than or equal to 0",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.paddy.value",
+                     *             "problem": "Input should be greater than or equal to 0"
+                     *           }
+                     *         ]
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -3557,20 +3786,19 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "query.radius_km: Input should be less than or equal to 25",
+                     *         "details": [
+                     *           {
+                     *             "field": "query.radius_km",
+                     *             "problem": "Input should be less than or equal to 25"
+                     *           }
+                     *         ]
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -3581,10 +3809,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "fire data unavailable (ConnectError)"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -3707,20 +3938,19 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": [
-                     *         {
-                     *           "loc": [
-                     *             "body",
-                     *             "paddy",
-                     *             "value"
-                     *           ],
-                     *           "msg": "Input should be greater than or equal to 0",
-                     *           "type": "greater_than_equal"
-                     *         }
-                     *       ]
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "body.harvest_date: Field required",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.harvest_date",
+                     *             "problem": "Field required"
+                     *           }
+                     *         ]
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["HTTPValidationError"] | components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Service Unavailable */
@@ -3731,19 +3961,28 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "detail": "the language model is unavailable"
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "CHC data unavailable: data/seed/chc_demo.json not found"
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
     };
     get_fires_v1_fires_get: {
         parameters: {
-            query: {
-                /** @description Bounding box: minLon,minLat,maxLon,maxLat */
-                bbox: string;
+            query?: {
+                /** @description Bounding box: minLon,minLat,maxLon,maxLat. Mutually exclusive with point-radius parameters. */
+                bbox?: string;
+                /** @description Latitude of the center point. */
+                lat?: number;
+                /** @description Longitude of the center point. */
+                lon?: number;
+                /** @description Search radius in kilometres. */
+                radius_km?: number;
             };
             header?: never;
             path?: never;
@@ -3768,11 +4007,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "no_coverage",
-                     *       "detail": "Requested bounding box is outside the supported coverage area."
+                     *       "error": {
+                     *         "code": "no_coverage",
+                     *         "message": "Requested bounding box is outside the supported coverage area."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -3781,7 +4022,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Missing bbox or point-radius parameters",
+                     *         "details": [
+                     *           {
+                     *             "field": "query.bbox",
+                     *             "problem": "required unless lat, lon and radius_km are given"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description NASA FIRMS data source is unavailable */
@@ -3792,11 +4047,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "sources_unavailable",
-                     *       "detail": "NASA FIRMS API failed to respond. Retry after 60 seconds."
+                     *       "error": {
+                     *         "code": "sources_unavailable",
+                     *         "message": "NASA FIRMS API failed to respond. Retry after 60 seconds."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -3831,11 +4088,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "no_coverage",
-                     *       "detail": "No outdoor PM2.5 data available for the specified location to anchor the indoor model."
+                     *       "error": {
+                     *         "code": "no_coverage",
+                     *         "message": "No outdoor PM2.5 data available for the specified location to anchor the indoor model."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -3844,7 +4103,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Missing outdoor_pm25",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.outdoor_pm25",
+                     *             "problem": "required"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Upstream data sources are unavailable */
@@ -3855,11 +4128,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "sources_unavailable",
-                     *       "detail": "Outdoor AQI sources failed to respond. Retry after 60 seconds."
+                     *       "error": {
+                     *         "code": "sources_unavailable",
+                     *         "message": "Outdoor AQI sources failed to respond. Retry after 60 seconds."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -3957,11 +4232,13 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "no_coverage",
-                     *       "detail": "No routing or PM2.5 data available for the requested origin/destination."
+                     *       "error": {
+                     *         "code": "no_coverage",
+                     *         "message": "No routing or PM2.5 data available for the requested origin/destination."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */
@@ -3970,7 +4247,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Missing origin",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.origin",
+                     *             "problem": "required"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Routing or AQI data sources are unavailable */
@@ -3981,11 +4272,187 @@ export interface operations {
                 content: {
                     /**
                      * @example {
-                     *       "error": "sources_unavailable",
-                     *       "detail": "Routing or AQI upstream failed to respond. Retry after 60 seconds."
+                     *       "error": {
+                     *         "code": "sources_unavailable",
+                     *         "message": "Routing or AQI upstream failed to respond. Retry after 60 seconds."
+                     *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_school_advisory_v1_schools__id__advisory_get: {
+        parameters: {
+            query?: {
+                /** @description Optional user role to tailor or focus the advisory response. */
+                role?: "student" | "parent" | "teacher" | "principal" | "citizen" | "official";
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Unique identifier of the school campus (e.g. 'school_demo_001' or 'SCH-PB-SAN-001').
+                 * @example school_demo_001
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolAdvisoryResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Invalid role query parameter or school ID format."
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description School Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "School with id 'school_999' not registered in monitoring database."
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "role must be one of the listed roles",
+                     *         "details": [
+                     *           {
+                     *             "field": "query.role",
+                     *             "problem": "required"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    subscribe_school_alerts_v1_schools__id__alerts_subscribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Unique identifier of the school campus.
+                 * @example school_demo_001
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Alert subscription parameters and delivery channel configuration. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertSubscriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Subscription Created Successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSubscriptionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Contact value '+919876543210' is invalid for selected delivery channel."
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description School Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "School with id 'school_demo_001' not found."
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "contact_value is required",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.contact_value",
+                     *             "problem": "required"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

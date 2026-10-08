@@ -9,9 +9,10 @@
 // fails if either is out of date. Never edit openapi.yaml by hand.
 //
 // Rules: a path and method belongs to one proposal (two claiming it is an error), operation ids are
-// unique, and components with the same name must be identical. If they differ, the later proposal's
-// copy is renamed with its owner's prefix (a different Location from P3 would become AqiLocation) and its
-// $refs follow. A proposal can point at another's component with "./p1-kisan.openapi.json#/...".
+// unique, and components with the same name must mean the same: equal once their documentation
+// (description, title, examples) is set aside, in which case the first copy is kept. If they differ,
+// the later proposal's copy is renamed with its owner's prefix (P2's Location differs from P1's, so it
+// becomes ShalaLocation) and its $refs follow. A proposal can point at another's component with "./p1-kisan.openapi.json#/...".
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,6 +33,20 @@ const OWNERS = {
 };
 const KINDS = ["schemas", "responses", "parameters", "requestBodies", "headers", "examples", "securitySchemes"];
 const METHODS = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
+const DOCS = new Set(["description", "title", "summary", "example", "examples", "externalDocs"]);
+const NAME_MAPS = new Set(["properties", "patternProperties", "$defs", "definitions"]); // keys there are names, not keywords
+
+// What a component means, without its documentation: two proposals may describe the same codes differently.
+function meaning(node, keysAreNames = false) {
+  if (Array.isArray(node)) return node.map((x) => meaning(x));
+  if (!node || typeof node !== "object") return node;
+  const out = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (!keysAreNames && DOCS.has(key)) continue;
+    out[key] = meaning(value, !keysAreNames && NAME_MAPS.has(key));
+  }
+  return out;
+}
 
 function load() {
   const files = readdirSync(PROPOSALS)
@@ -46,7 +61,7 @@ function load() {
   });
 }
 
-// Decide every component's final name: shared when identical, prefixed when it differs.
+// Decide every component's final name: shared when it means the same, prefixed when it differs.
 function nameComponents(proposals) {
   const taken = {}; // kind -> name -> { value, from }
   for (const p of proposals) {
@@ -57,7 +72,7 @@ function nameComponents(proposals) {
         taken[kind] ??= {};
         const seen = taken[kind][name];
         let final = name;
-        if (seen && !isDeepStrictEqual(seen.value, value)) {
+        if (seen && !isDeepStrictEqual(meaning(seen.value), meaning(value))) {
           final = `${p.prefix}${name}`;
           if (taken[kind][final]) throw new Error(`${p.file}: can't rename ${kind}/${name}; ${final} is taken`);
         }
