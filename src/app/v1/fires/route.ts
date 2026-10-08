@@ -57,10 +57,12 @@ export async function GET(request: Request) {
       fires = fires.filter(f => getDistanceFromLatLonInKm(filterCenter!.lat, filterCenter!.lon, f.lat, f.lon) <= filterCenter!.radius);
     }
 
+    const localDate = new Date(Date.now() + 5.5 * 3600000);
+    const asOfIso = localDate.toISOString().replace("Z", "+05:30");
     return NextResponse.json({
       fires: fires,
       count: fires.length,
-      as_of: new Date().toISOString().replace("Z", "+05:30")
+      as_of: asOfIso
     });
   } catch (e) {
     return NextResponse.json({ 

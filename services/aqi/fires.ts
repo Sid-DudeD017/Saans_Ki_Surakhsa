@@ -19,7 +19,7 @@ export async function fetchFires(bbox: string, mapKey: string): Promise<FirePoin
   }
   
   const text = await res.text();
-  const lines = text.trim().split("\\n");
+  const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
   const headers = lines[0].split(",");
