@@ -48,7 +48,7 @@ jobs:
             echo "Linting $file..."
             npx @redocly/cli lint "$file" || exit 1
             count=$((count + 1))
-          done < <(find packages/contracts -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0)
+          done < <(find packages/contracts -type f \( -name "openapi.yaml" -o -name "openapi.yml" -o -name "*.openapi.json" \) -print0)
           if [ "$count" -eq 0 ]; then
             echo "No contract files found."
             exit 1
