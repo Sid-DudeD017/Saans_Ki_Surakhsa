@@ -87,7 +87,7 @@ def test_negative_acres():
 def test_bigha_without_state_explains_why():
     res = post({**GURPREET, "paddy": {"value": 10, "unit": "bigha"}})
     assert res.status_code == 422
-    assert "state" in res.json()["detail"]
+    assert "state" in res.json()["error"]["message"]
 
 
 def test_healthz():

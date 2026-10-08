@@ -221,7 +221,7 @@ def test_endpoint_when_p3_is_down(monkeypatch):
         raise FiresUnavailable("fire data unavailable (ConnectError)")
     monkeypatch.setattr(api, "fire_source", down)
     res = TestClient(api.app).get("/v1/farm/fires", params={"lat": FARM[0], "lon": FARM[1]})
-    assert res.status_code == 503 and "unavailable" in res.json()["detail"]
+    assert res.status_code == 503 and "unavailable" in res.json()["error"]["message"]
 
 
 @pytest.mark.parametrize("params", [{"lat": 30.2}, {"lat": 95, "lon": 76}, {"lat": 30.2, "lon": 76, "radius_km": 30}])

@@ -83,27 +83,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "body.paddy.value: Input should be greater than or equal to 0",
+                    "details": [
+                      {
+                        "field": "body.paddy.value",
+                        "problem": "Input should be greater than or equal to 0"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -225,10 +217,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "CHC data unavailable: data/seed/chc_demo.json not found"
+                  }
                 }
               }
             }
@@ -238,27 +233,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "body.harvest_date: Field required",
+                    "details": [
+                      {
+                        "field": "body.harvest_date",
+                        "problem": "Field required"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -422,10 +409,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "CHC data unavailable: data/seed/chc_demo.json not found"
+                  }
                 }
               }
             },
@@ -436,27 +426,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "give lat and lon, a known village, or a district"
+                  }
                 }
               }
             }
@@ -548,10 +524,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "fire data unavailable (ConnectError)"
+                  }
                 }
               }
             },
@@ -562,27 +541,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "query.radius_km: Input should be less than or equal to 25",
+                    "details": [
+                      {
+                        "field": "query.radius_km",
+                        "problem": "Input should be less than or equal to 25"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -672,10 +643,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "wrong or missing X-Saans-Service-Token"
+                  "error": {
+                    "code": "unauthorized",
+                    "message": "wrong or missing X-Saans-Service-Token"
+                  }
                 }
               }
             },
@@ -685,10 +659,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "unknown session_id; omit it to start a new conversation"
+                  "error": {
+                    "code": "not_found",
+                    "message": "no filed Kisan request with that id"
+                  }
                 }
               }
             },
@@ -698,10 +675,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "status updates are off: KISAN_SERVICE_TOKEN is not set"
+                  }
                 }
               }
             },
@@ -712,27 +692,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "body.status: Input should be 'seen', 'machine_assigned', 'in_field', 'action_taken' or 'closed'",
+                    "details": [
+                      {
+                        "field": "body.status",
+                        "problem": "Input should be 'seen', 'machine_assigned', 'in_field', 'action_taken' or 'closed'"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -807,44 +779,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "unknown session_id; omit it to start a new conversation"
+                  "error": {
+                    "code": "not_found",
+                    "message": "unknown session_id"
+                  }
                 }
               }
             },
             "description": "Not Found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
-                },
-                "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
-                }
-              }
-            }
           }
         }
       }
@@ -941,27 +886,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "body.helpRequests: Field required",
+                    "details": [
+                      {
+                        "field": "body.helpRequests",
+                        "problem": "Field required"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -1075,10 +1012,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "unknown session_id; omit it to start a new conversation"
+                  "error": {
+                    "code": "not_found",
+                    "message": "unknown session_id; omit it to start a new conversation"
+                  }
                 }
               }
             }
@@ -1088,10 +1028,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "still answering the previous message in this conversation"
+                  "error": {
+                    "code": "conflict",
+                    "message": "still answering the previous message in this conversation"
+                  }
                 }
               }
             }
@@ -1101,10 +1044,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "the language model is unavailable: AccessDeniedException"
+                  }
                 }
               }
             }
@@ -1114,27 +1060,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "body.text: String should have at least 1 character",
+                    "details": [
+                      {
+                        "field": "body.text",
+                        "problem": "String should have at least 1 character"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -1174,10 +1112,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "unknown session_id; omit it to start a new conversation"
+                  "error": {
+                    "code": "not_found",
+                    "message": "unknown session_id"
+                  }
                 }
               }
             },
@@ -1187,44 +1128,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "spoken read-backs aren't set up here: No module named 'torch'"
+                  }
                 }
               }
             },
             "description": "Service Unavailable"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
-                },
-                "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
-                }
-              }
-            }
           }
         }
       }
@@ -1278,10 +1192,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "unknown session_id; omit it to start a new conversation"
+                  "error": {
+                    "code": "not_found",
+                    "message": "unknown session_id"
+                  }
                 }
               }
             }
@@ -1291,10 +1208,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "voice notes can be up to 10 MB"
+                  "error": {
+                    "code": "payload_too_large",
+                    "message": "photos can be up to 15 MB"
+                  }
                 }
               }
             }
@@ -1304,27 +1224,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "the photo is empty"
+                  }
                 }
               }
             }
@@ -1440,10 +1346,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "unknown session_id; omit it to start a new conversation"
+                  "error": {
+                    "code": "not_found",
+                    "message": "unknown session_id; omit it to start a new conversation"
+                  }
                 }
               }
             }
@@ -1453,10 +1362,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "still answering the previous message in this conversation"
+                  "error": {
+                    "code": "conflict",
+                    "message": "still answering the previous message in this conversation"
+                  }
                 }
               }
             }
@@ -1466,10 +1378,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "voice notes can be up to 10 MB"
+                  "error": {
+                    "code": "payload_too_large",
+                    "message": "voice notes can be up to 10 MB"
+                  }
                 }
               }
             }
@@ -1479,27 +1394,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/HTTPValidationError"
-                    },
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    }
-                  ]
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": [
-                    {
-                      "loc": [
-                        "body",
-                        "paddy",
-                        "value"
-                      ],
-                      "msg": "Input should be greater than or equal to 0",
-                      "type": "greater_than_equal"
-                    }
-                  ]
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "the voice note is empty"
+                  }
                 }
               }
             }
@@ -1509,10 +1410,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "detail": "the language model is unavailable"
+                  "error": {
+                    "code": "unavailable",
+                    "message": "speech recognition isn't set up here: No module named 'faster_whisper'"
+                  }
                 }
               }
             }
@@ -2239,19 +2143,6 @@
         ],
         "title": "FiresNearResponse"
       },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
       "HelpRequestStatusResponse": {
         "properties": {
           "helpRequestId": {
@@ -2870,20 +2761,6 @@
         ],
         "title": "PlanResponse"
       },
-      "Problem": {
-        "properties": {
-          "detail": {
-            "type": "string",
-            "title": "Detail",
-            "description": "What went wrong, in words the app can show"
-          }
-        },
-        "type": "object",
-        "required": [
-          "detail"
-        ],
-        "title": "Problem"
-      },
       "QuickReply": {
         "properties": {
           "slot": {
@@ -3220,46 +3097,6 @@
         ],
         "title": "Unmet",
         "description": "What the plan couldn't book: this is what the department is asked for."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
       },
       "Coverage": {
         "properties": {

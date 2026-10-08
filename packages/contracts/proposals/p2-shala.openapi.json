@@ -144,11 +144,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "invalid_parameters",
-                  "detail": "Invalid role query parameter or school ID format."
+                  "error": { "code": "invalid_request", "message": "Invalid role query parameter or school ID format." }
                 }
               }
             }
@@ -158,11 +157,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "school_not_found",
-                  "detail": "School with id 'school_999' not registered in monitoring database."
+                  "error": { "code": "not_found", "message": "School with id 'school_999' not registered in monitoring database." }
                 }
               }
             }
@@ -172,8 +170,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
+                },
+                "example": { "error": { "code": "invalid_request", "message": "role must be one of the listed roles", "details": [{ "field": "query.role", "problem": "required" }] } }
               }
             }
           }
@@ -283,11 +282,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "invalid_contact_channel",
-                  "detail": "Contact value '+919876543210' is invalid for selected delivery channel."
+                  "error": { "code": "invalid_request", "message": "Contact value '+919876543210' is invalid for selected delivery channel." }
                 }
               }
             }
@@ -297,11 +295,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "school_not_found",
-                  "detail": "School with id 'school_demo_001' not found."
+                  "error": { "code": "not_found", "message": "School with id 'school_demo_001' not found." }
                 }
               }
             }
@@ -311,8 +308,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
+                },
+                "example": { "error": { "code": "invalid_request", "message": "contact_value is required", "details": [{ "field": "body.contact_value", "problem": "required" }] } }
               }
             }
           }
@@ -794,77 +792,6 @@
         },
         "title": "AlertSubscriptionResponse",
         "description": "Confirmation response for a school alert subscription."
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "required": [
-          "error",
-          "detail"
-        ],
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Machine-readable error code."
-          },
-          "detail": {
-            "type": "string",
-            "description": "Human-readable explanation of the error."
-          }
-        },
-        "title": "ErrorResponse",
-        "description": "Standard error response schema."
-      },
-      "ValidationError": {
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "properties": {
-          "loc": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "title": "Location",
-            "description": "Field path triggering the validation failure."
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message",
-            "description": "Validation failure reason."
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type",
-            "description": "Type classification of the validation error."
-          }
-        },
-        "title": "ValidationError",
-        "description": "Detailed field validation error description."
-      },
-      "HTTPValidationError": {
-        "type": "object",
-        "properties": {
-          "detail": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "title": "Detail",
-            "description": "List of validation errors."
-          }
-        },
-        "title": "HTTPValidationError",
-        "description": "Validation error envelope."
       }
     }
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchFires } from '../../../../services/aqi/fires';
+import { errorResponse } from '../../../../services/aqi/errors';
 import { getDistanceFromLatLonInKm } from '../../../../services/aqi/index';
 
 export async function GET(request: Request) {
@@ -17,15 +18,17 @@ export async function GET(request: Request) {
     // Valid as is
   } else if (latStr || lonStr || radiusStr) {
     if (!latStr || !lonStr || !radiusStr) {
-       return NextResponse.json({ error: "Missing complete point-radius parameters (lat, lon, radius_km)" }, { status: 422 });
+       return errorResponse(422, "invalid_request", "Missing complete point-radius parameters (lat, lon, radius_km)", [
+         ...(["lat", "lon", "radius_km"] as const).filter((k) => !searchParams.get(k)).map((k) => ({ field: `query.${k}`, problem: "required" })),
+       ]);
     }
     const lat = parseFloat(latStr);
     const lon = parseFloat(lonStr);
     const radius = parseFloat(radiusStr);
 
-    if (isNaN(lat) || lat < -90 || lat > 90) return NextResponse.json({ error: "Invalid lat" }, { status: 422 });
-    if (isNaN(lon) || lon < -180 || lon > 180) return NextResponse.json({ error: "Invalid lon" }, { status: 422 });
-    if (isNaN(radius) || radius <= 0) return NextResponse.json({ error: "Invalid radius_km" }, { status: 422 });
+    if (isNaN(lat) || lat < -90 || lat > 90) return errorResponse(422, "invalid_request", "Invalid lat", [{ field: "query.lat", problem: "must be a number from -90 to 90" }]);
+    if (isNaN(lon) || lon < -180 || lon > 180) return errorResponse(422, "invalid_request", "Invalid lon", [{ field: "query.lon", problem: "must be a number from -180 to 180" }]);
+    if (isNaN(radius) || radius <= 0) return errorResponse(422, "invalid_request", "Invalid radius_km", [{ field: "query.radius_km", problem: "must be a number above 0" }]);
 
     // Calculate approximate bounding box for FIRMS fetch
     const degLatKm = 111;
@@ -37,16 +40,13 @@ export async function GET(request: Request) {
 
     filterCenter = { lat, lon, radius };
   } else {
-    return NextResponse.json({ error: "Missing bbox or point-radius parameters" }, { status: 422 });
+    return errorResponse(422, "invalid_request", "Missing bbox or point-radius parameters", [{ field: "query.bbox", problem: "required unless lat, lon and radius_km are given" }]);
   }
 
   const mapKey = process.env.NASA_FIRMS_MAP_KEY;
   if (!mapKey) {
     console.warn("Missing keys: NASA_FIRMS_MAP_KEY");
-    return NextResponse.json({ 
-      error: "sources_unavailable",
-      detail: "NASA FIRMS API failed to respond. Retry after 60 seconds."
-    }, { status: 503 });
+    return errorResponse(503, "sources_unavailable", "NASA FIRMS API failed to respond. Retry after 60 seconds.");
   }
 
   try {
@@ -65,9 +65,6 @@ export async function GET(request: Request) {
       as_of: asOfIso
     });
   } catch (e) {
-    return NextResponse.json({ 
-      error: "sources_unavailable",
-      detail: "NASA FIRMS API failed to respond. Retry after 60 seconds." 
-    }, { status: 503 });
+    return errorResponse(503, "sources_unavailable", "NASA FIRMS API failed to respond. Retry after 60 seconds.");
   }
 }

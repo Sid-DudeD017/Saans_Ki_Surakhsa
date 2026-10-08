@@ -23,6 +23,28 @@ def india_now() -> IndiaTime:
     return datetime.now(IST).isoformat(timespec="seconds")
 
 
+# ---- errors: the one shape every Saans service uses (P4's ErrorEnvelope) ----
+
+ErrorCode = Literal["invalid_request", "unauthorized", "forbidden", "not_found", "no_coverage", "conflict",
+                    "idempotency_conflict", "version_conflict", "payload_too_large", "unavailable",
+                    "sources_unavailable"]
+
+
+class ErrorDetail(BaseModel):
+    field: str = Field(description="Where, as a dotted path (body.paddy.value, query.lat)")
+    problem: str
+
+
+class ErrorBody(BaseModel):
+    code: ErrorCode
+    message: str = Field(description="A sentence the app can show")
+    details: list[ErrorDetail] | None = None
+
+
+class ErrorEnvelope(BaseModel):
+    error: ErrorBody
+
+
 class Location(BaseModel):
     model_config = ConfigDict(extra="forbid")
     lat: float = Field(ge=-90, le=90)

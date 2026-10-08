@@ -68,6 +68,6 @@ def test_model_unavailable_is_a_503(client):
     api._chats[sid].raise_error = True
     res = client.post("/v1/agent/kisan/messages", json={"session_id": sid, "text": "again"})
     assert res.status_code == 503
-    assert "being verified" in res.json()["detail"]
+    assert "being verified" in res.json()["error"]["message"]
     api._chats[sid].raise_error = False
     assert client.post("/v1/agent/kisan/messages", json={"session_id": sid, "text": "ok"}).status_code == 200

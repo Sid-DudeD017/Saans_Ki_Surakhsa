@@ -83,6 +83,9 @@ if the fixture is out of date.
 uv run python -m agent_kisan.contract
 ```
 
+Errors are P4's `ErrorEnvelope` (`{"error": {"code", "message", "details"}}`), FastAPI's own validation
+errors included, and the proposal points every error response at P4's schema.
+
 Every route has a response model (`schemas.py`), so FastAPI checks each reply against the contract,
 and every JSON response in the file has an example made by calling the route on Gurpreet's demo
 story (a scripted conversation stands in for Bedrock). `tests/test_contract.py` fails if the file is

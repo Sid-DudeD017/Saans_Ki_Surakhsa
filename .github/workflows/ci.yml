@@ -48,11 +48,17 @@ jobs:
             echo "Linting $file..."
             npx @redocly/cli lint "$file" || exit 1
             count=$((count + 1))
-          done < <(find packages/contracts -type f \( -name "openapi.yaml" -o -name "openapi.yml" -o -name "*.openapi.json" \) -print0)
+          done < <(find packages/contracts -type f \( -name "openapi.yaml" -o -name "openapi.yml" -o -name "*.openapi.json" -o -name "*.openapi.yaml" \) -print0)
           if [ "$count" -eq 0 ]; then
             echo "No contract files found."
             exit 1
           fi
+
+      - name: Contracts are up to date
+        # openapi.yaml and types.ts are built from the proposals; if this fails, run `npm run contracts`.
+        run: |
+          npm run contracts
+          git diff --exit-code -- packages/contracts/openapi.yaml packages/contracts/types.ts
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
