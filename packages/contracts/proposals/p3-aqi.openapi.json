@@ -118,11 +118,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "no_coverage",
-                  "detail": "No monitoring stations found within interpolation radius of the requested coordinates."
+                  "error": { "code": "no_coverage", "message": "No monitoring stations found within interpolation radius of the requested coordinates." }
                 }
               }
             }
@@ -132,8 +131,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
+                },
+                "example": { "error": { "code": "invalid_request", "message": "Missing lat or lon parameters", "details": [{ "field": "query.lat", "problem": "required" }] } }
               }
             }
           },
@@ -142,11 +142,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "sources_unavailable",
-                  "detail": "All upstream AQI data sources (OpenAQ, CPCB, Open-Meteo) failed to respond. Retry after 60 seconds."
+                  "error": { "code": "sources_unavailable", "message": "All upstream AQI data sources (OpenAQ, CPCB, Open-Meteo) failed to respond. Retry after 60 seconds." }
                 }
               }
             }
@@ -243,11 +242,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "no_coverage",
-                  "detail": "Requested bounding box is outside the supported coverage area."
+                  "error": { "code": "no_coverage", "message": "Requested bounding box is outside the supported coverage area." }
                 }
               }
             }
@@ -257,8 +255,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
+                },
+                "example": { "error": { "code": "invalid_request", "message": "Missing bbox or point-radius parameters", "details": [{ "field": "query.bbox", "problem": "required unless lat, lon and radius_km are given" }] } }
               }
             }
           },
@@ -267,11 +266,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
-                  "error": "sources_unavailable",
-                  "detail": "NASA FIRMS API failed to respond. Retry after 60 seconds."
+                  "error": { "code": "sources_unavailable", "message": "NASA FIRMS API failed to respond. Retry after 60 seconds." }
                 }
               }
             }
@@ -337,10 +335,9 @@
             "description": "No forecast coverage for the requested location",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
                 "example": {
-                  "error": "no_coverage",
-                  "detail": "Forecast data is not available for the requested coordinates."
+                  "error": { "code": "no_coverage", "message": "Forecast data is not available for the requested coordinates." }
                 }
               }
             }
@@ -349,7 +346,8 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
+                "example": { "error": { "code": "invalid_request", "message": "Missing lat or lon parameters", "details": [{ "field": "query.lat", "problem": "required" }] } }
               }
             }
           },
@@ -357,10 +355,9 @@
             "description": "Forecast data source is unavailable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
                 "example": {
-                  "error": "sources_unavailable",
-                  "detail": "Forecast upstream (Open-Meteo CAMS) failed to respond. Retry after 60 seconds."
+                  "error": { "code": "sources_unavailable", "message": "Forecast upstream (Open-Meteo CAMS) failed to respond. Retry after 60 seconds." }
                 }
               }
             }
@@ -419,10 +416,9 @@
             "description": "No outdoor AQI data available for the location",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
                 "example": {
-                  "error": "no_coverage",
-                  "detail": "No outdoor PM2.5 data available for the specified location to anchor the indoor model."
+                  "error": { "code": "no_coverage", "message": "No outdoor PM2.5 data available for the specified location to anchor the indoor model." }
                 }
               }
             }
@@ -431,7 +427,8 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
+                "example": { "error": { "code": "invalid_request", "message": "Missing outdoor_pm25", "details": [{ "field": "body.outdoor_pm25", "problem": "required" }] } }
               }
             }
           },
@@ -439,10 +436,9 @@
             "description": "Upstream data sources are unavailable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
                 "example": {
-                  "error": "sources_unavailable",
-                  "detail": "Outdoor AQI sources failed to respond. Retry after 60 seconds."
+                  "error": { "code": "sources_unavailable", "message": "Outdoor AQI sources failed to respond. Retry after 60 seconds." }
                 }
               }
             }
@@ -539,10 +535,9 @@
             "description": "No route or AQI data available",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
                 "example": {
-                  "error": "no_coverage",
-                  "detail": "No routing or PM2.5 data available for the requested origin/destination."
+                  "error": { "code": "no_coverage", "message": "No routing or PM2.5 data available for the requested origin/destination." }
                 }
               }
             }
@@ -551,7 +546,8 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
+                "example": { "error": { "code": "invalid_request", "message": "Missing origin", "details": [{ "field": "body.origin", "problem": "required" }] } }
               }
             }
           },
@@ -559,10 +555,9 @@
             "description": "Routing or AQI data sources are unavailable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "schema": { "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope" },
                 "example": {
-                  "error": "sources_unavailable",
-                  "detail": "Routing or AQI upstream failed to respond. Retry after 60 seconds."
+                  "error": { "code": "sources_unavailable", "message": "Routing or AQI upstream failed to respond. Retry after 60 seconds." }
                 }
               }
             }
@@ -971,46 +966,6 @@
         },
         "required": ["fires", "count", "as_of"],
         "title": "FiresResponse"
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Machine-readable error code"
-          },
-          "detail": {
-            "type": "string",
-            "description": "Human-readable error description"
-          }
-        },
-        "required": ["error", "detail"],
-        "title": "ErrorResponse"
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": { "type": "string", "title": "Message" },
-          "type": { "type": "string", "title": "Error Type" }
-        },
-        "type": "object",
-        "required": ["loc", "msg", "type"],
-        "title": "ValidationError"
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": { "$ref": "#/components/schemas/ValidationError" },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
       }
     }
   }
