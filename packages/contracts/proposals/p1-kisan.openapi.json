@@ -1,0 +1,695 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Kisan Saathi",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/farm/coverage": {
+      "post": {
+        "summary": "Farm Coverage",
+        "operationId": "farm_coverage_v1_farm_coverage_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoverageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/farm/plan": {
+      "post": {
+        "summary": "Farm Plan",
+        "operationId": "farm_plan_v1_farm_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent/kisan/messages": {
+      "post": {
+        "summary": "Kisan Message",
+        "operationId": "kisan_message_v1_agent_kisan_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Assumptions": {
+        "properties": {
+          "capacity_acres_per_day": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Capacity Acres Per Day"
+          },
+          "decomposer_min_window_days": {
+            "type": "integer",
+            "title": "Decomposer Min Window Days"
+          },
+          "straw_t_per_acre": {
+            "type": "number",
+            "title": "Straw T Per Acre"
+          },
+          "pm25_g_per_kg_straw": {
+            "type": "number",
+            "title": "Pm25 G Per Kg Straw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capacity_acres_per_day",
+          "decomposer_min_window_days",
+          "straw_t_per_acre",
+          "pm25_g_per_kg_straw"
+        ],
+        "title": "Assumptions"
+      },
+      "CoverageRequest": {
+        "properties": {
+          "paddy": {
+            "$ref": "#/components/schemas/Paddy"
+          },
+          "window_days": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Days",
+            "description": "Days from harvest to the wheat deadline"
+          },
+          "harvest_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Harvest Date"
+          },
+          "wheat_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wheat Deadline"
+          },
+          "machines": {
+            "items": {
+              "$ref": "#/components/schemas/Machine"
+            },
+            "type": "array",
+            "title": "Machines",
+            "default": []
+          },
+          "tractors": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tractors",
+            "default": 1
+          },
+          "rain_days": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Rain Days",
+            "default": 0
+          },
+          "decomposer_acres": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Decomposer Acres",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "paddy"
+        ],
+        "title": "CoverageRequest"
+      },
+      "CoverageResponse": {
+        "properties": {
+          "paddy_acres": {
+            "type": "number",
+            "title": "Paddy Acres"
+          },
+          "covered_acres": {
+            "type": "number",
+            "title": "Covered Acres"
+          },
+          "gap_acres": {
+            "type": "number",
+            "title": "Gap Acres"
+          },
+          "coverage": {
+            "type": "number",
+            "title": "Coverage",
+            "description": "0 to 1"
+          },
+          "coverage_pct": {
+            "type": "integer",
+            "title": "Coverage Pct"
+          },
+          "straw_t": {
+            "type": "number",
+            "title": "Straw T"
+          },
+          "pm25_kg": {
+            "type": "number",
+            "title": "Pm25 Kg"
+          },
+          "window_days": {
+            "type": "number",
+            "title": "Window Days"
+          },
+          "work_days": {
+            "type": "number",
+            "title": "Work Days"
+          },
+          "tractor_days": {
+            "$ref": "#/components/schemas/TractorDays"
+          },
+          "machine_days_used": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Machine Days Used"
+          },
+          "assumptions": {
+            "$ref": "#/components/schemas/Assumptions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paddy_acres",
+          "covered_acres",
+          "gap_acres",
+          "coverage",
+          "coverage_pct",
+          "straw_t",
+          "pm25_kg",
+          "window_days",
+          "work_days",
+          "tractor_days",
+          "machine_days_used",
+          "assumptions"
+        ],
+        "title": "CoverageResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Machine": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "happy_seeder",
+              "super_seeder",
+              "mulcher_rmb",
+              "baler"
+            ],
+            "title": "Type"
+          },
+          "days": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Days",
+            "description": "Days the farmer can use it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "days"
+        ],
+        "title": "Machine"
+      },
+      "MessageRequest": {
+        "properties": {
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "Omit to start a new conversation"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "pa",
+              "hi",
+              "en"
+            ],
+            "title": "Language",
+            "default": "pa"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "MessageRequest"
+      },
+      "MessageResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "reply": {
+            "type": "string",
+            "title": "Reply"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "filed": {
+            "type": "boolean",
+            "title": "Filed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "reply",
+          "missing",
+          "filed"
+        ],
+        "title": "MessageResponse"
+      },
+      "Paddy": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Value",
+            "examples": [
+              18
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "acre",
+              "killa",
+              "hectare",
+              "bigha"
+            ],
+            "title": "Unit",
+            "default": "acre"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State",
+            "description": "Needed for bigha, whose size differs by state"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "Paddy"
+      },
+      "PlanRequest": {
+        "properties": {
+          "paddy": {
+            "$ref": "#/components/schemas/Paddy"
+          },
+          "window_days": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Days",
+            "description": "Days from harvest to the wheat deadline"
+          },
+          "harvest_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Harvest Date"
+          },
+          "wheat_deadline": {
+            "type": "string",
+            "format": "date",
+            "title": "Wheat Deadline"
+          },
+          "machines": {
+            "items": {
+              "$ref": "#/components/schemas/Machine"
+            },
+            "type": "array",
+            "title": "Machines",
+            "default": []
+          },
+          "tractors": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tractors",
+            "default": 1
+          },
+          "rain_days": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Rain Days",
+            "default": 0
+          },
+          "decomposer_acres": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Decomposer Acres",
+            "default": 0
+          },
+          "village": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Village"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lon": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lon"
+          },
+          "rain_dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Rain Dates",
+            "description": "Forecast rain days; machines don't run on them",
+            "default": []
+          },
+          "max_km": {
+            "type": "number",
+            "maximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Km",
+            "default": 15.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "paddy",
+          "harvest_date",
+          "wheat_deadline"
+        ],
+        "title": "PlanRequest"
+      },
+      "PlanResponse": {
+        "properties": {
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageResponse"
+          },
+          "plan": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Plan"
+          },
+          "booked_acres": {
+            "type": "number",
+            "title": "Booked Acres"
+          },
+          "cost_inr": {
+            "type": "integer",
+            "title": "Cost Inr"
+          },
+          "coverage_after_pct": {
+            "type": "integer",
+            "title": "Coverage After Pct"
+          },
+          "unmet": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Unmet"
+          },
+          "chcs_considered": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Chcs Considered"
+          },
+          "demo_data": {
+            "type": "boolean",
+            "title": "Demo Data",
+            "description": "True while CHCs, rates and bookings are made-up demo data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "coverage",
+          "plan",
+          "booked_acres",
+          "cost_inr",
+          "coverage_after_pct",
+          "unmet",
+          "chcs_considered",
+          "demo_data"
+        ],
+        "title": "PlanResponse"
+      },
+      "TractorDays": {
+        "properties": {
+          "available": {
+            "type": "number",
+            "title": "Available"
+          },
+          "used": {
+            "type": "number",
+            "title": "Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "used"
+        ],
+        "title": "TractorDays"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

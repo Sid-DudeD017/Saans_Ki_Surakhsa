@@ -68,3 +68,10 @@ temp/
 *.tmp
 *.bak
 
+
+# Kisan Saathi (P1)
+*.wav
+*.mp3
+*.m4a
+.outbox/
+services/agent-kisan/evals/results/
