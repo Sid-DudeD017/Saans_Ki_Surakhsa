@@ -99,8 +99,8 @@ def test_radius_limits(radius):
 
 def test_stand_in_answers_in_p3s_contract_shape():
     spec = json.loads((repo_root() / "packages/contracts/proposals/p3-aqi.openapi.json").read_text())
-    params = spec["paths"]["/v1/fires"]["get"]["parameters"]
-    assert [(p["name"], p["required"]) for p in params] == [("bbox", True)]
+    params = {p["name"]: p for p in spec["paths"]["/v1/fires"]["get"]["parameters"]}
+    assert "bbox" in params  # what Kisan sends; P3 also takes lat, lon and radius_km instead
     schemas = spec["components"]["schemas"]
     client, _ = stand_in()
     body = client.get("http://p3.test/v1/fires", params={"bbox": bbox(*FARM, 5)}).json()
