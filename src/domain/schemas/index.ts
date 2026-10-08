@@ -1,13 +1,20 @@
 import { z } from "zod";
 
+export const IndiaTimestampSchema = z
+  .string()
+  .datetime({ offset: true })
+  .refine((val) => val.endsWith("+05:30"), {
+    message: "Timestamp must explicitly use the +05:30 offset",
+  });
+
 export const LocationSchema = z.object({
   lat: z.number(),
-  lng: z.number(),
-});
+  lon: z.number(),
+}).strict();
 
 export const IncidentReportSchema = z.object({
   id: z.string(),
-  reportedAt: z.string().datetime(),
+  reportedAt: IndiaTimestampSchema,
   reporterId: z.string(),
   location: LocationSchema,
   description: z.string(),
@@ -20,7 +27,7 @@ export type IncidentReport = z.infer<typeof IncidentReportSchema>;
 export const SatelliteObservationSchema = z.object({
   id: z.string(),
   source: z.enum(["NASA_FIRMS", "SEED"]),
-  observedAt: z.string().datetime(),
+  observedAt: IndiaTimestampSchema,
   location: LocationSchema,
   confidence: z.number(),
   brightness: z.number(),
@@ -37,8 +44,8 @@ export const HelpRequestSchema = z.object({
   crop: z.string(),
   acreage: z.number(),
   machineType: z.string(),
-  requiredFrom: z.string().datetime(),
-  requiredUntil: z.string().datetime(),
+  requiredFrom: IndiaTimestampSchema,
+  requiredUntil: IndiaTimestampSchema,
   coveragePercent: z.number(),
   uncoveredAcres: z.number(),
   status: z.enum(["OPEN", "MATCHED", "FULFILLED", "EXPIRED"]),
@@ -51,8 +58,8 @@ export const MachineAssetSchema = z.object({
   chcName: z.string(),
   location: LocationSchema,
   machineType: z.string(),
-  availableFrom: z.string().datetime(),
-  availableUntil: z.string().datetime(),
+  availableFrom: IndiaTimestampSchema,
+  availableUntil: IndiaTimestampSchema,
   status: z.enum(["AVAILABLE", "IN_USE", "MAINTENANCE"]),
   capacityAcresPerDay: z.number().optional(),
 });
@@ -74,8 +81,8 @@ export const CommandCaseSchema = z.object({
   recommendationReason: z.string().optional(),
   status: z.enum(["OPEN", "ACTION_APPROVED", "ACTION_CHANGED", "CLOSED"]),
   version: z.number(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: IndiaTimestampSchema,
+  updatedAt: IndiaTimestampSchema,
 });
 export type CommandCase = z.infer<typeof CommandCaseSchema>;
 
@@ -86,7 +93,7 @@ export const OfficerDecisionSchema = z.object({
   action: z.enum(["APPROVE", "CHANGE", "REJECT"]),
   selectedMachineId: z.string().optional(),
   reason: z.string().min(1),
-  createdAt: z.string().datetime(),
+  createdAt: IndiaTimestampSchema,
   previousCaseVersion: z.number(),
 });
 export type OfficerDecision = z.infer<typeof OfficerDecisionSchema>;

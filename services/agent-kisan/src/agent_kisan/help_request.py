@@ -1,6 +1,6 @@
 """Converts Kisan's support_request into Saans Command's HelpRequest (P4's src/domain/schemas, zod).
 
-    HelpRequest = { id, farmerId, farmLocation: {lat, lng}, district, crop, acreage, machineType,
+    HelpRequest = { id, farmerId, farmLocation: {lat, lon}, district, crop, acreage, machineType,
                     requiredFrom, requiredUntil, coveragePercent, uncoveredAcres,
                     status: OPEN | MATCHED | FULFILLED | EXPIRED }
 
@@ -29,7 +29,7 @@ def to_help_request(request: dict, farmer_id: str) -> dict:
     return {
         "id": f"kisan-{request['idempotency_key']}",
         "farmerId": farmer_id,
-        "farmLocation": {"lat": farm["lat"], "lng": farm["lon"]},
+        "farmLocation": {"lat": farm["lat"], "lon": farm["lon"]},
         "district": farm["district"],
         "crop": "Paddy",
         "acreage": paddy,
@@ -48,4 +48,4 @@ def to_help_request(request: dict, farmer_id: str) -> dict:
 
 
 def _datetime(day: str) -> str:
-    return f"{day}T00:00:00Z"
+    return f"{day}T00:00:00+05:30"

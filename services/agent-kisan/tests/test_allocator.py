@@ -13,7 +13,7 @@ BASE = (30.3398, 76.3869)  # P4's Patiala demo point
 
 
 def at(km_north):
-    return {"lat": BASE[0] + km_north / 111.2, "lng": BASE[1]}
+    return {"lat": BASE[0] + km_north / 111.2, "lon": BASE[1]}
 
 
 def request(id, acres, until, machine="Happy Seeder", start="2026-10-20", km=0.0, status="OPEN"):

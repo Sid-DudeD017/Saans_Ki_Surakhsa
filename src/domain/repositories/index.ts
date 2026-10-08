@@ -15,7 +15,7 @@ export interface ICommandCaseRepository {
 
 export interface IHelpRequestRepository {
   findOpenNear(
-    location: { lat: number; lng: number },
+    location: { lat: number; lon: number },
     maxDistanceMeters: number,
   ): Promise<HelpRequest[]>;
 }
@@ -27,7 +27,7 @@ export interface IIncidentReportRepository {
 export interface IMachineAssetRepository {
   findAvailableNear(location: {
     lat: number;
-    lng: number;
+    lon: number;
   }): Promise<MachineAsset[]>;
 }
 
@@ -37,7 +37,7 @@ export interface IOfficerDecisionRepository {
 
 export interface ISatelliteObservationRepository {
   findNear(
-    location: { lat: number; lng: number },
+    location: { lat: number; lon: number },
     maxDistanceMeters: number,
   ): Promise<SatelliteObservation[]>;
 }

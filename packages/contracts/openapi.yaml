@@ -1,0 +1,265 @@
+openapi: 3.1.0
+info:
+  title: Saans Ki Surakhsa API
+  version: 1.0.0-draft
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+paths:
+  /v1/routes/clean:
+    post:
+      summary: Calculate a cleaner route
+      operationId: calculateCleanRoute
+      security: []
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /v1/complaints:
+    post:
+      summary: Submit a new complaint
+      operationId: submitComplaint
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: |
+            Client-generated unique identifier. Repeated requests with the same key and payload will return the original response without creating a duplicate record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComplaintInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplaintResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /v1/cases/{id}/actions:
+    post:
+      summary: Take action on a case
+      operationId: takeCaseAction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ComplaintInput:
+      type: object
+      required:
+        - type
+        - location
+        - evidence
+      properties:
+        type:
+          type: string
+          enum: [farm_fire, garbage, vehicle, firecrackers, farmer_support]
+        location:
+          type: object
+          required:
+            - lat
+            - lon
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+            lon:
+              type: number
+              minimum: -180
+              maximum: 180
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceMetadata'
+    EvidenceMetadata:
+      type: object
+      required:
+        - object_key
+        - media_type
+        - hash
+        - captured_timestamp
+      properties:
+        object_key:
+          type: string
+        media_type:
+          type: string
+        hash:
+          type: string
+        captured_timestamp:
+          type: string
+          format: date-time
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lon:
+              type: number
+    ComplaintResponse:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    EventContract:
+      type: object
+      required:
+        - event_id
+        - version
+        - occurrence_time
+        - correlation_id
+        - event_name
+        - payload
+      properties:
+        event_id:
+          type: string
+        version:
+          type: string
+        occurrence_time:
+          type: string
+          format: date-time
+        correlation_id:
+          type: string
+        event_name:
+          type: string
+          enum:
+            - complaint_received
+            - complaint_triaged
+            - case_assigned
+            - case_escalated
+            - action_taken
+            - case_closed
+            - reporter_notified
+        payload:
+          type: object
+          discriminator:
+            propertyName: event_name
+    PayloadComplaintReceived:
+      type: object
+      required: [complaint_id, reporter_id]
+      properties:
+        complaint_id:
+          type: string
+        reporter_id:
+          type: string
+    PayloadComplaintTriaged:
+      type: object
+      required: [complaint_id, priority]
+      properties:
+        complaint_id:
+          type: string
+        priority:
+          type: string
+    PayloadCaseAssigned:
+      type: object
+      required: [complaint_id, assignee_id, deadline]
+      properties:
+        complaint_id:
+          type: string
+        assignee_id:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+    PayloadCaseEscalated:
+      type: object
+      required: [complaint_id, new_assignee_id, reason]
+      properties:
+        complaint_id:
+          type: string
+        new_assignee_id:
+          type: string
+        reason:
+          type: string
+    PayloadActionTaken:
+      type: object
+      required: [complaint_id, action_description]
+      properties:
+        complaint_id:
+          type: string
+        action_description:
+          type: string
+    PayloadCaseClosed:
+      type: object
+      required: [complaint_id, resolution_status]
+      properties:
+        complaint_id:
+          type: string
+        resolution_status:
+          type: string
+    PayloadReporterNotified:
+      type: object
+      required: [complaint_id, notification_type]
+      properties:
+        complaint_id:
+          type: string
+        notification_type:
+          type: string
