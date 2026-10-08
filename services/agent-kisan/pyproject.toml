@@ -1,0 +1,28 @@
+[project]
+name = "agent-kisan"
+version = "0.1.0"
+description = "Kisan Saathi: farmer intake agent and stubble coverage engine"
+requires-python = ">=3.12"
+dependencies = [
+    "botocore[crt]>=1.43.109",
+    "fastapi>=0.142.4",
+    "httpx>=0.28.1",
+    "strands-agents>=1.58.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_kisan"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

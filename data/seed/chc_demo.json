@@ -1,0 +1,93 @@
+{
+  "demo": true,
+  "note": "Made-up CHCs, rates, subsidies and bookings for the demo story. Not real availability. Replace with the CHC list and rates collected from the KVK.",
+  "districts": [
+    {
+      "name": "Sangrur",
+      "lat": 30.2458,
+      "lon": 75.8421
+    },
+    {
+      "name": "Patiala",
+      "lat": 30.3398,
+      "lon": 76.3869
+    }
+  ],
+  "villages": [
+    {
+      "name": "Bhawanigarh",
+      "district": "Sangrur",
+      "lat": 30.266,
+      "lon": 76.04
+    }
+  ],
+  "chcs": [
+    {
+      "id": "demo-chc-a",
+      "name": "Demo CHC A (Bhawanigarh)",
+      "village": "Bhawanigarh",
+      "district": "Sangrur",
+      "lat": 30.284,
+      "lon": 76.04,
+      "phone": "+91 00000 00001",
+      "subsidy_fraction": 0.5,
+      "machines": [
+        {
+          "type": "super_seeder",
+          "units": 1,
+          "rate_per_acre_inr": 2000,
+          "booked": [
+            "2026-10-20/2026-11-01",
+            "2026-11-03/2026-11-08"
+          ]
+        },
+        {
+          "type": "happy_seeder",
+          "units": 1,
+          "rate_per_acre_inr": 1500,
+          "booked": [
+            "2026-10-20/2026-11-08"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "demo-chc-b",
+      "name": "Demo CHC B",
+      "village": "Demo village B",
+      "district": "Sangrur",
+      "lat": 30.266,
+      "lon": 76.102,
+      "phone": "+91 00000 00002",
+      "subsidy_fraction": 0.5,
+      "machines": [
+        {
+          "type": "happy_seeder",
+          "units": 1,
+          "rate_per_acre_inr": 1500,
+          "booked": [
+            "2026-10-20/2026-11-08"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "demo-chc-c",
+      "name": "Demo CHC C (25 km away)",
+      "village": "Demo village C",
+      "district": "Sangrur",
+      "lat": 30.041,
+      "lon": 76.04,
+      "phone": "+91 00000 00003",
+      "subsidy_fraction": 0.5,
+      "machines": [
+        {
+          "type": "happy_seeder",
+          "units": 2,
+          "rate_per_acre_inr": 1500,
+          "booked": []
+        }
+      ]
+    }
+  ]
+}
