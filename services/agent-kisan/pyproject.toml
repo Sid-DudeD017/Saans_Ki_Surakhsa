@@ -21,6 +21,10 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=8",
 ]
+tts = [
+    "torch>=2.14.1",
+    "transformers>=5.19.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -30,8 +34,17 @@ build-backend = "hatchling.build"
 packages = ["src/agent_kisan"]
 
 [tool.uv]
-# asr = local Whisper for development; the deployed image leaves it out (speech runs on SageMaker).
-default-groups = ["dev", "asr"]
+# asr = local Whisper (development only). tts = the read-back voices, also built into the deployed image.
+default-groups = ["dev", "asr", "tts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# On Linux (the deployed image) take the CPU-only PyTorch build; the default one carries GBs of GPU libraries.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

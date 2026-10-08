@@ -95,6 +95,35 @@ def _table(*blocks: str) -> dict[str, float]:
 
 
 WORDS = _table(_GURMUKHI, _DEVANAGARI, _ROMAN)
+
+
+def _first_spellings(block: str) -> dict[float, str]:
+    out = {}
+    for entry in block.replace("\n", "|").split("|"):
+        if entry.strip():
+            value, first, *_ = entry.split()
+            out[float(value)] = first
+    return out
+
+
+# The way to say each number, for read-back audio and labels (as written, not normalised).
+SPOKEN = {"pa": _first_spellings(_GURMUKHI), "hi": _first_spellings(_DEVANAGARI)}
+_HALVES = {"pa": {0.5: "ਅੱਧਾ", 1.5: "ਡੇਢ", 2.5: "ਢਾਈ", "prefix": "ਸਾਢੇ"},
+           "hi": {0.5: "आधा", 1.5: "डेढ़", 2.5: "ढाई", "prefix": "साढ़े"}}
+
+
+def spoken(value: float, language: str) -> str | None:
+    """Number words for a value in Punjabi or Hindi, or None if the tables can't say it exactly."""
+    words, halves = SPOKEN.get(language), _HALVES.get(language)
+    if words is None:
+        return None
+    if float(value).is_integer():
+        return words.get(float(value))
+    if value in halves:
+        return halves[value]
+    if (value * 2).is_integer() and value > 3 and float(value - 0.5) in words:
+        return f"{halves['prefix']} {words[float(value - 0.5)]}"
+    return None
 FRACTIONS = {normalize(k): v for k, v in _FRACTIONS.items()}
 PREFIXES = {normalize(k): v for k, v in _PREFIXES.items()}
 MULTIPLIERS = {normalize(k): v for k, v in _MULTIPLIERS.items()}

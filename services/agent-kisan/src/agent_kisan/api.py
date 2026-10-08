@@ -9,7 +9,7 @@ from typing import Literal, Self
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, Form, HTTPException, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field, model_validator
 
 from agent_kisan.coverage import (
@@ -258,6 +258,8 @@ class MessageResponse(BaseModel):
     quick_replies: list[QuickReply] = Field(description="Numbers the farmer hasn't said yet, to confirm by tapping")
     filed: bool
     transcript: dict | None = Field(default=None, description="For voice notes: what speech recognition heard")
+    readback: dict | None = Field(default=None, description="When the agent reads the details back: a card for "
+                                  "the screen, the spoken script, and audio_url to play it")
 
 
 # In memory, so one App Runner instance holds every conversation. Move to DynamoDB before scaling out.
@@ -291,10 +293,14 @@ def _one_at_a_time(sid: str, turn: Callable):
 
 
 def _response(sid: str, chat: KisanChat, reply: str, transcript: dict | None = None) -> MessageResponse:
+    s = chat.session
+    rb = s.current_readback() if s.readback_turn == s.turn and s.filed is None else None
     return MessageResponse(
-        session_id=sid, reply=reply, missing=chat.session.profile.missing(),
-        quick_replies=[QuickReply(**q) for q in chat.session.unsure()], filed=chat.session.filed is not None,
-        transcript=transcript,
+        session_id=sid, reply=reply, missing=s.profile.missing(),
+        quick_replies=[QuickReply(**q) for q in s.unsure()], filed=s.filed is not None, transcript=transcript,
+        readback=None if rb is None else {
+            "card": rb.card, "text": rb.text,
+            "audio_url": f"/v1/agent/kisan/sessions/{sid}/readback.wav" if rb.sentences else None},
     )
 
 
@@ -302,6 +308,31 @@ def _response(sid: str, chat: KisanChat, reply: str, transcript: dict | None = N
 def kisan_message(req: MessageRequest) -> MessageResponse:
     sid, chat = _chat_for(req.session_id, req.language)
     return _response(sid, chat, _one_at_a_time(sid, lambda: chat.send(req.text)))
+
+
+speaker_factory: Callable[[], object] | None = None  # tests swap in a fake; None = MMS voices
+
+
+@app.get("/v1/agent/kisan/sessions/{session_id}/readback.wav", response_class=Response,
+         responses={200: {"content": {"audio/wav": {}}}})
+def kisan_readback_audio(session_id: str) -> Response:
+    """The current read-back spoken aloud (Punjabi or Hindi). Cached, so replays are instant."""
+    chat = _chats.get(session_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="unknown session_id")
+    rb = chat.session.current_readback()
+    if rb is None:
+        raise HTTPException(status_code=404, detail="no current read-back; the details changed or none was made yet")
+    if not rb.sentences:
+        raise HTTPException(status_code=404, detail="read-backs are spoken in Punjabi and Hindi only")
+    try:
+        from agent_kisan.tts import default_speaker
+
+        speaker = speaker_factory() if speaker_factory else default_speaker()
+        audio = speaker.speak(rb.sentences, chat.session.language)
+    except ImportError as e:  # the voices need PyTorch, which only images built with them have
+        raise HTTPException(status_code=503, detail=f"spoken read-backs aren't set up here: {e}") from e
+    return Response(audio, media_type="audio/wav", headers={"Cache-Control": "private, max-age=600"})
 
 
 @app.post("/v1/agent/kisan/voice")
