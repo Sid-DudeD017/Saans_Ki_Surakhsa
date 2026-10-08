@@ -342,8 +342,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get fires within a bounding box
-         * @description Returns active fire detections from NASA FIRMS within the requested bounding box.
+         * Get fires within a search area
+         * @description Returns active fire detections from NASA FIRMS. Clients MUST specify the search area using EITHER a bounding box (`bbox`) OR a point-radius (`lat`, `lon`, `radius_km`). Do not provide an incomplete point-radius query (e.g. lat without lon or radius_km).
          */
         get: operations["get_fires_v1_fires_get"];
         put?: never;
@@ -414,6 +414,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/schools/{id}/advisory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get school air quality advisory
+         * @description Returns real-time air quality metrics, GRAP stage, school activity restrictions, and role-adaptive advisories (student, teacher, parent, principal) for a specific school campus.
+         */
+        get: operations["get_school_advisory_v1_schools__id__advisory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/schools/{id}/alerts/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe to school air quality alerts
+         * @description Registers an alert subscription for a student, parent, teacher, or school administrator to receive real-time notifications when air quality thresholds are breached or emergency advisories are issued.
+         */
+        post: operations["subscribe_school_alerts_v1_schools__id__alerts_subscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads": {
         parameters: {
             query?: never;
@@ -438,6 +478,83 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AdvisorySeverity
+         * @description Severity level of the environmental health advisory.
+         * @enum {string}
+         */
+        AdvisorySeverity: "normal" | "caution" | "warning" | "critical";
+        /**
+         * AlertCategory
+         * @description Specific trigger category for school notifications.
+         * @enum {string}
+         */
+        AlertCategory: "aqi_threshold" | "stubble_smoke" | "emergency_closure" | "daily_briefing";
+        /**
+         * AlertChannel
+         * @description Delivery channel for dispatching air quality alerts.
+         * @enum {string}
+         */
+        AlertChannel: "sms" | "whatsapp" | "push" | "in_app";
+        /**
+         * AlertSubscriptionRequest
+         * @description Payload for subscribing to school environmental health notifications.
+         */
+        AlertSubscriptionRequest: {
+            /** @description Unique identifier of the subscriber (e.g. user ID, guardian ID, phone identifier). */
+            subscriber_id: string;
+            role: components["schemas"]["SubscriberRole"];
+            channel: components["schemas"]["AlertChannel"];
+            /** @description Delivery destination: E.164 phone number for sms/whatsapp, device push token, or in-app account ID. */
+            contact_value: string;
+            /** @description List of alert event categories the subscriber wishes to receive. */
+            alert_categories: components["schemas"]["AlertCategory"][];
+            /**
+             * @description Minimum AQI level to trigger threshold alerts.
+             * @default 200
+             */
+            min_aqi_threshold: number;
+            /**
+             * @description Subscription enabled flag.
+             * @default true
+             */
+            enabled: boolean;
+        };
+        /**
+         * AlertSubscriptionResponse
+         * @description Confirmation response for a school alert subscription.
+         */
+        AlertSubscriptionResponse: {
+            /** @description Unique identifier for this alert subscription record. */
+            subscription_id: string;
+            /** @description School ID the subscription is registered with. */
+            school_id: string;
+            /** @description Identifier of the subscribed individual. */
+            subscriber_id: string;
+            role: components["schemas"]["SubscriberRole"];
+            channel: components["schemas"]["AlertChannel"];
+            /** @description Delivery destination. */
+            contact_value: string;
+            /** @description Subscribed notification categories. */
+            alert_categories: components["schemas"]["AlertCategory"][];
+            /** @description Active AQI notification trigger threshold. */
+            min_aqi_threshold?: number;
+            /** @description Whether the subscription is currently active. */
+            enabled: boolean;
+            status: components["schemas"]["SubscriptionStatus"];
+            /**
+             * Format: date-time
+             * @description Subscription creation timestamp in ISO 8601 with +05:30 offset.
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Last update timestamp in ISO 8601 with +05:30 offset.
+             */
+            updated_at?: string;
+            /** @description Human-readable status confirmation message. */
+            message: string;
+        };
         /** Allocation */
         Allocation: {
             /** Helprequestid */
@@ -525,18 +642,43 @@ export interface components {
          * @description Lowercase AQI category codes. Display labels: good='Good' (0-50), satisfactory='Satisfactory' (51-100), moderate='Moderately polluted' (101-200), poor='Poor' (201-300), very_poor='Very Poor' (301-400), severe='Severe' (401-500).
          * @enum {string}
          */
+        AqiAqiCategory: "good" | "satisfactory" | "moderate" | "poor" | "very_poor" | "severe";
+        /**
+         * AqiCategory
+         * @description Lowercase AQI category codes per CPCB National Air Quality Index bands: good (0-50), satisfactory (51-100), moderate (101-200), poor (201-300), very_poor (301-400), severe (401-500).
+         * @enum {string}
+         */
         AqiCategory: "good" | "satisfactory" | "moderate" | "poor" | "very_poor" | "severe";
+        /** ErrorResponse */
+        AqiErrorResponse: {
+            /** @description Machine-readable error code */
+            error: string;
+            /** @description Human-readable error description */
+            detail: string;
+        };
+        /**
+         * GrapStage
+         * @description GRAP (Graded Response Action Plan) stage as lowercase codes. Display labels: none='No GRAP action' (AQI 0-200), stage_1='Stage I — Poor' (AQI 201-300), stage_2='Stage II — Very Poor' (AQI 301-400), stage_3='Stage III — Severe' (AQI 401-450 VERIFY), stage_4='Stage IV — Severe+' (AQI >450 VERIFY). VERIFY against latest CAQM GRAP revisions.
+         * @enum {string}
+         */
+        AqiGrapStage: "none" | "stage_1" | "stage_2" | "stage_3" | "stage_4";
+        /**
+         * Pollutant
+         * @description Lowercase pollutant codes. Display labels: pm25='PM 2.5', pm10='PM 10', no2='Nitrogen Dioxide', so2='Sulphur Dioxide', co='Carbon Monoxide', o3='Ozone', nh3='Ammonia', pb='Lead'.
+         * @enum {string}
+         */
+        AqiPollutant: "pm25" | "pm10" | "no2" | "so2" | "co" | "o3" | "nh3" | "pb";
         /** AqiResponse */
         AqiResponse: {
             /** @description Overall AQI: the maximum sub-index across all reported pollutants. Requires >= 3 pollutants with at least one being PM2.5 or PM10 (VERIFY: CPCB National AQI document). */
             aqi: number;
-            category: components["schemas"]["AqiCategory"];
-            dominant_pollutant: components["schemas"]["Pollutant"];
+            category: components["schemas"]["AqiAqiCategory"];
+            dominant_pollutant: components["schemas"]["AqiPollutant"];
             /** @description Map of pollutant code to its sub-index, concentration, and unit */
             sub_indices: {
                 [key: string]: components["schemas"]["SubIndex"];
             };
-            grap_stage: components["schemas"]["GrapStage"];
+            grap_stage: components["schemas"]["AqiGrapStage"];
             /** @description Number of monitoring stations used in the IDW interpolation */
             station_count: number;
             /**
@@ -862,11 +1004,14 @@ export interface components {
                 message: string;
             };
         };
-        /** ErrorResponse */
+        /**
+         * ErrorResponse
+         * @description Standard error response schema.
+         */
         ErrorResponse: {
-            /** @description Machine-readable error code */
+            /** @description Machine-readable error code. */
             error: string;
-            /** @description Human-readable error description */
+            /** @description Human-readable explanation of the error. */
             detail: string;
         };
         EventContract: {
@@ -1138,7 +1283,7 @@ export interface components {
             pm25_ug_m3: number;
             /** @description Predicted AQI (PM2.5 sub-index) */
             aqi: number;
-            category: components["schemas"]["AqiCategory"];
+            category: components["schemas"]["AqiAqiCategory"];
         };
         /** ForecastResponse */
         ForecastResponse: {
@@ -1162,7 +1307,7 @@ export interface components {
         };
         /**
          * GrapStage
-         * @description GRAP (Graded Response Action Plan) stage as lowercase codes. Display labels: none='No GRAP action' (AQI 0-200), stage_1='Stage I — Poor' (AQI 201-300), stage_2='Stage II — Very Poor' (AQI 301-400), stage_3='Stage III — Severe' (AQI 401-450 VERIFY), stage_4='Stage IV — Severe+' (AQI >450 VERIFY). VERIFY against latest CAQM GRAP revisions.
+         * @description Graded Response Action Plan stage as lowercase codes: none (0-200), stage_1 (201-300), stage_2 (301-400), stage_3 (401-450), stage_4 (>450).
          * @enum {string}
          */
         GrapStage: "none" | "stage_1" | "stage_2" | "stage_3" | "stage_4";
@@ -1658,10 +1803,35 @@ export interface components {
         };
         /**
          * Pollutant
-         * @description Lowercase pollutant codes. Display labels: pm25='PM 2.5', pm10='PM 10', no2='Nitrogen Dioxide', so2='Sulphur Dioxide', co='Carbon Monoxide', o3='Ozone', nh3='Ammonia', pb='Lead'.
+         * @description Lowercase pollutant codes. Display labels resolved in UI: pm25='PM 2.5', pm10='PM 10', etc.
          * @enum {string}
          */
         Pollutant: "pm25" | "pm10" | "no2" | "so2" | "co" | "o3" | "nh3" | "pb";
+        /**
+         * PrincipalAdvisoryItem
+         * @description Principal-specific structured executive decisions and administrative action items.
+         */
+        PrincipalAdvisoryItem: {
+            /** @description Executive advisory title. */
+            title: string;
+            /** @description Administrative overview and policy mandate. */
+            summary: string;
+            decision: components["schemas"]["PrincipalDecision"];
+            /** @description Go/No-Go decision on holding morning prayer/assembly outdoors. */
+            assembly_permitted: boolean;
+            /** @description Go/No-Go decision on physical education, sports, and outdoor recess. */
+            outdoor_activities_permitted: boolean;
+            /** @description Whether campus-wide mask wearing is mandated by school administration. */
+            mask_mandated: boolean;
+            /** @description Executive administrative protocol directives. */
+            action_items: string[];
+        };
+        /**
+         * PrincipalDecision
+         * @description Executive go/no-go determination for outdoor school activities and assemblies.
+         * @enum {string}
+         */
+        PrincipalDecision: "go" | "caution" | "no_go";
         /** Problem */
         Problem: {
             /**
@@ -1699,6 +1869,32 @@ export interface components {
              */
             send_text: string;
         };
+        /**
+         * RoleAdvisories
+         * @description Structured role-adaptive guidance partitioned by school persona.
+         */
+        RoleAdvisories: {
+            student: components["schemas"]["RoleAdvisoryItem"];
+            teacher: components["schemas"]["RoleAdvisoryItem"];
+            parent: components["schemas"]["RoleAdvisoryItem"];
+            principal: components["schemas"]["PrincipalAdvisoryItem"];
+        };
+        /**
+         * RoleAdvisoryItem
+         * @description Role-specific structured advisory recommendations.
+         */
+        RoleAdvisoryItem: {
+            /** @description Role-specific advisory header. */
+            title: string;
+            /** @description Actionable guidance tailored to this persona. */
+            summary: string;
+            /** @description Whether face masks (N95/FFP2) are advised for this persona. */
+            mask_recommended: boolean;
+            /** @description Whether outdoor activities and recess are permitted for this persona. */
+            outdoor_activities_permitted: boolean;
+            /** @description List of recommended practical steps. */
+            action_items: string[];
+        };
         /** Route */
         Route: {
             route_id: string;
@@ -1733,6 +1929,100 @@ export interface components {
             brightness: number;
             frp?: number;
             distanceFromReportMeters?: number;
+        };
+        /**
+         * SchoolActionCode
+         * @description Standardized school administrative protocol code.
+         * @enum {string}
+         */
+        SchoolActionCode: "normal_operations" | "limit_outdoor_exposure" | "suspend_outdoor_activities" | "mandatory_masks" | "close_school";
+        /**
+         * SchoolAdvisoryResponse
+         * @description Complete school air quality status and role-adaptive advisory payload.
+         */
+        SchoolAdvisoryResponse: {
+            school: components["schemas"]["SchoolIdentity"];
+            /** @description Current CPCB National Air Quality Index at school location. */
+            aqi: number;
+            category: components["schemas"]["AqiCategory"];
+            dominant_pollutant?: components["schemas"]["Pollutant"];
+            grap_stage: components["schemas"]["GrapStage"];
+            severity: components["schemas"]["AdvisorySeverity"];
+            action_code: components["schemas"]["SchoolActionCode"];
+            /** @description Global restriction on outdoor play, sports, and recess. */
+            outdoor_activities_permitted: boolean;
+            /** @description Global restriction on outdoor morning assembly. */
+            assembly_permitted: boolean;
+            /** @description General recommendation for protective mask usage. */
+            mask_recommended: boolean;
+            /** @description Human-readable summary message for public/general display. */
+            summary: string;
+            /**
+             * Format: date-time
+             * @description Advisory issuance timestamp in ISO 8601 with +05:30 offset.
+             */
+            issued_at: string;
+            /**
+             * Format: date-time
+             * @description Advisory expiration timestamp in ISO 8601 with +05:30 offset.
+             */
+            valid_until: string;
+            role_advisories: components["schemas"]["RoleAdvisories"];
+        };
+        /**
+         * SchoolIdentity
+         * @description Institutional identification and geographical location of a school campus.
+         */
+        SchoolIdentity: {
+            /** @description Unique school campus identifier (e.g. 'school_demo_001' or 'SCH-PB-SAN-001'). */
+            id: string;
+            /** @description Full formal name of the school institution. */
+            name: string;
+            /** @description Administrative district (e.g. 'Sangrur'). */
+            district: string;
+            location: components["schemas"]["ShalaLocation"];
+        };
+        /**
+         * HTTPValidationError
+         * @description Validation error envelope.
+         */
+        ShalaHTTPValidationError: {
+            /**
+             * Detail
+             * @description List of validation errors.
+             */
+            detail?: components["schemas"]["ShalaValidationError"][];
+        };
+        /**
+         * Location
+         * @description Geographic coordinates strictly adhering to lat/lon format.
+         */
+        ShalaLocation: {
+            /** @description Latitude in decimal degrees. */
+            lat: number;
+            /** @description Longitude in decimal degrees. Always 'lon', never 'lng'. */
+            lon: number;
+        };
+        /**
+         * ValidationError
+         * @description Detailed field validation error description.
+         */
+        ShalaValidationError: {
+            /**
+             * Location
+             * @description Field path triggering the validation failure.
+             */
+            loc: (string | number)[];
+            /**
+             * Message
+             * @description Validation failure reason.
+             */
+            msg: string;
+            /**
+             * Error Type
+             * @description Type classification of the validation error.
+             */
+            type: string;
         };
         /** SmsReceipt */
         SmsReceipt: {
@@ -1805,6 +2095,18 @@ export interface components {
             /** @description Concentration unit: 'ug/m3' for all pollutants except CO which uses 'mg/m3' */
             unit: string;
         };
+        /**
+         * SubscriberRole
+         * @description Role of the subscriber in the school community.
+         * @enum {string}
+         */
+        SubscriberRole: "student" | "parent" | "teacher" | "principal" | "community";
+        /**
+         * SubscriptionStatus
+         * @description Lifecycle state of the alert subscription.
+         * @enum {string}
+         */
+        SubscriptionStatus: "active" | "pending_verification" | "paused" | "cancelled";
         /**
          * SupportRequest
          * @description Everything Kisan worked out for one farm.
@@ -2900,7 +3202,7 @@ export interface operations {
                      *       "detail": "No monitoring stations found within interpolation radius of the requested coordinates."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2924,7 +3226,7 @@ export interface operations {
                      *       "detail": "All upstream AQI data sources (OpenAQ, CPCB, Open-Meteo) failed to respond. Retry after 60 seconds."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
         };
@@ -2964,7 +3266,7 @@ export interface operations {
                      *       "detail": "Forecast data is not available for the requested coordinates."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2988,7 +3290,7 @@ export interface operations {
                      *       "detail": "Forecast upstream (Open-Meteo CAMS) failed to respond. Retry after 60 seconds."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
         };
@@ -3741,9 +4043,15 @@ export interface operations {
     };
     get_fires_v1_fires_get: {
         parameters: {
-            query: {
-                /** @description Bounding box: minLon,minLat,maxLon,maxLat */
-                bbox: string;
+            query?: {
+                /** @description Bounding box: minLon,minLat,maxLon,maxLat. Mutually exclusive with point-radius parameters. */
+                bbox?: string;
+                /** @description Latitude of the center point. */
+                lat?: number;
+                /** @description Longitude of the center point. */
+                lon?: number;
+                /** @description Search radius in kilometres. */
+                radius_km?: number;
             };
             header?: never;
             path?: never;
@@ -3772,7 +4080,7 @@ export interface operations {
                      *       "detail": "Requested bounding box is outside the supported coverage area."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3796,7 +4104,7 @@ export interface operations {
                      *       "detail": "NASA FIRMS API failed to respond. Retry after 60 seconds."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
         };
@@ -3835,7 +4143,7 @@ export interface operations {
                      *       "detail": "No outdoor PM2.5 data available for the specified location to anchor the indoor model."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3859,7 +4167,7 @@ export interface operations {
                      *       "detail": "Outdoor AQI sources failed to respond. Retry after 60 seconds."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
         };
@@ -3961,7 +4269,7 @@ export interface operations {
                      *       "detail": "No routing or PM2.5 data available for the requested origin/destination."
                      *     }
                      */
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["AqiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3985,7 +4293,145 @@ export interface operations {
                      *       "detail": "Routing or AQI upstream failed to respond. Retry after 60 seconds."
                      *     }
                      */
+                    "application/json": components["schemas"]["AqiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_school_advisory_v1_schools__id__advisory_get: {
+        parameters: {
+            query?: {
+                /** @description Optional user role to tailor or focus the advisory response. */
+                role?: "student" | "parent" | "teacher" | "principal" | "citizen" | "official";
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Unique identifier of the school campus (e.g. 'school_demo_001' or 'SCH-PB-SAN-001').
+                 * @example school_demo_001
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolAdvisoryResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": "invalid_parameters",
+                     *       "detail": "Invalid role query parameter or school ID format."
+                     *     }
+                     */
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description School Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": "school_not_found",
+                     *       "detail": "School with id 'school_999' not registered in monitoring database."
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShalaHTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscribe_school_alerts_v1_schools__id__alerts_subscribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Unique identifier of the school campus.
+                 * @example school_demo_001
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Alert subscription parameters and delivery channel configuration. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertSubscriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Subscription Created Successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSubscriptionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": "invalid_contact_channel",
+                     *       "detail": "Contact value '+919876543210' is invalid for selected delivery channel."
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description School Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": "school_not_found",
+                     *       "detail": "School with id 'school_demo_001' not found."
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShalaHTTPValidationError"];
                 };
             };
         };
