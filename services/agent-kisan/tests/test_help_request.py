@@ -10,7 +10,7 @@ GURPREET = dict(
     harvest_date="2026-10-20", wheat_deadline="2026-11-09", tractors=1, machines={"super_seeder": 2},
 )
 SAID = "Bhawanigarh, Sangrur. 18 killa. Harvest 20 October, wheat by 9 November. 1 tractor, Super Seeder 2 din."
-ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")  # what zod's .datetime() accepts by default
+ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+05:30$")  # what zod's .datetime() accepts by default
 
 
 class ListFiler:
@@ -38,7 +38,7 @@ def file_for(said=SAID, **changes):
 def assert_matches_p4_schema(h):
     """Mirrors HelpRequestSchema field by field."""
     assert isinstance(h["id"], str) and isinstance(h["farmerId"], str)
-    assert set(h["farmLocation"]) == {"lat", "lng"} and all(isinstance(v, float) for v in h["farmLocation"].values())
+    assert set(h["farmLocation"]) == {"lat", "lon"} and all(isinstance(v, float) for v in h["farmLocation"].values())
     assert isinstance(h["district"], str) and isinstance(h["crop"], str) and isinstance(h["machineType"], str)
     for k in ("acreage", "coveragePercent", "uncoveredAcres"):
         assert isinstance(h[k], (int, float)) and not isinstance(h[k], bool)
@@ -49,10 +49,10 @@ def assert_matches_p4_schema(h):
 def test_gurpreet_as_a_help_request():
     h = file_for()["help_request"]
     assert_matches_p4_schema(h)
-    assert h["farmLocation"] == {"lat": 30.266, "lng": 76.04} and h["locationSource"] == "village"
+    assert h["farmLocation"] == {"lat": 30.266, "lon": 76.04} and h["locationSource"] == "village"
     assert (h["district"], h["crop"], h["acreage"]) == ("Sangrur", "Paddy", 18)
     assert h["machineType"] == "Happy Seeder"
-    assert (h["requiredFrom"], h["requiredUntil"]) == ("2026-10-20T00:00:00Z", "2026-11-09T00:00:00Z")
+    assert (h["requiredFrom"], h["requiredUntil"]) == ("2026-10-20T00:00:00+05:30", "2026-11-09T00:00:00+05:30")
     assert (h["coveragePercent"], h["uncoveredAcres"], h["ownCoveragePercent"]) == (92, 1.5, 61)
     assert h["status"] == "OPEN"
     assert h["plannedBookings"][0]["machine"] == "Super Seeder"
@@ -65,12 +65,12 @@ def test_farmer_id_comes_from_sign_in_when_there_is_one():
 def test_gps_beats_village():
     req = file_for(profile={"lat": 30.27, "lon": 76.05})
     assert req["help_request"]["locationSource"] == "gps"
-    assert req["help_request"]["farmLocation"] == {"lat": 30.27, "lng": 76.05}
+    assert req["help_request"]["farmLocation"] == {"lat": 30.27, "lon": 76.05}
 
 
 def test_unknown_village_falls_back_to_the_district_centre():
     h = file_for(profile={"village": "Somewhere new"})["help_request"]
-    assert h["locationSource"] == "district" and h["farmLocation"] == {"lat": 30.2458, "lng": 75.8421}
+    assert h["locationSource"] == "district" and h["farmLocation"] == {"lat": 30.2458, "lon": 75.8421}
 
 
 def test_fully_booked_plan_is_matched():

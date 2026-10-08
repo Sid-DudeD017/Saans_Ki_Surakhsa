@@ -59,12 +59,12 @@ def allocate(help_requests: Iterable[dict], machine_assets: Iterable[dict], *, m
         end = _day(r["requiredUntil"])  # the deadline itself: wheat must be sown by then
         wanted = r["machineType"]
         allowed = None if wanted == "Any" else [wanted, *SUBSTITUTES.get(wanted, [])]
-        farm = (r["farmLocation"]["lat"], r["farmLocation"]["lng"])
+        farm = (r["farmLocation"]["lat"], r["farmLocation"]["lon"])
         slots = []
         for m in assets:
             if allowed is not None and m["machineType"] not in allowed:
                 continue
-            dist = haversine_km(farm, (m["location"]["lat"], m["location"]["lng"]))
+            dist = haversine_km(farm, (m["location"]["lat"], m["location"]["lon"]))
             if dist > max_km:
                 continue
             first, last = max(start, _day(m["availableFrom"])), min(end, _day(m["availableUntil"]))

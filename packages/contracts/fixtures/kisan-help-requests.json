@@ -4,14 +4,14 @@
     "farmerId": "kisan-farmer-gurpreet-ope",
     "farmLocation": {
       "lat": 30.266,
-      "lng": 76.04
+      "lon": 76.04
     },
     "district": "Sangrur",
     "crop": "Paddy",
     "acreage": 18.0,
     "machineType": "Happy Seeder",
-    "requiredFrom": "2026-10-20T00:00:00Z",
-    "requiredUntil": "2026-11-09T00:00:00Z",
+    "requiredFrom": "2026-10-20T00:00:00+05:30",
+    "requiredUntil": "2026-11-09T00:00:00+05:30",
     "coveragePercent": 92,
     "uncoveredAcres": 1.5,
     "status": "OPEN",
@@ -35,14 +35,14 @@
     "farmerId": "kisan-farmer-fully-booked",
     "farmLocation": {
       "lat": 30.266,
-      "lng": 76.04
+      "lon": 76.04
     },
     "district": "Sangrur",
     "crop": "Paddy",
     "acreage": 18.0,
     "machineType": "Any",
-    "requiredFrom": "2026-10-20T00:00:00Z",
-    "requiredUntil": "2026-11-09T00:00:00Z",
+    "requiredFrom": "2026-10-20T00:00:00+05:30",
+    "requiredUntil": "2026-11-09T00:00:00+05:30",
     "coveragePercent": 100,
     "uncoveredAcres": 0,
     "status": "MATCHED",
@@ -66,14 +66,14 @@
     "farmerId": "kisan-farmer-district-cen",
     "farmLocation": {
       "lat": 30.2458,
-      "lng": 75.8421
+      "lon": 75.8421
     },
     "district": "Sangrur",
     "crop": "Paddy",
     "acreage": 18.0,
     "machineType": "Any",
-    "requiredFrom": "2026-10-20T00:00:00Z",
-    "requiredUntil": "2026-11-09T00:00:00Z",
+    "requiredFrom": "2026-10-20T00:00:00+05:30",
+    "requiredUntil": "2026-11-09T00:00:00+05:30",
     "coveragePercent": 100,
     "uncoveredAcres": 0,
     "status": "MATCHED",

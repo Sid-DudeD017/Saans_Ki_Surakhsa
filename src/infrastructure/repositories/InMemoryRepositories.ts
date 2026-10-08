@@ -30,7 +30,7 @@ export class InMemorySatelliteObservationRepository implements ISatelliteObserva
   private data: SatelliteObservation[] = [...initialSeedData.observations];
 
   async findNear(
-    location: { lat: number; lng: number },
+    location: { lat: number; lon: number },
     maxDistanceMeters: number,
   ): Promise<SatelliteObservation[]> {
     // For Stage 1, we just return the seed data. In a real impl, we'd filter by distance.
@@ -42,7 +42,7 @@ export class InMemoryHelpRequestRepository implements IHelpRequestRepository {
   private data: HelpRequest[] = [...initialSeedData.helpRequests];
 
   async findOpenNear(
-    location: { lat: number; lng: number },
+    location: { lat: number; lon: number },
     maxDistanceMeters: number,
   ): Promise<HelpRequest[]> {
     return this.data.filter((r) => r.status === "OPEN");
@@ -54,7 +54,7 @@ export class InMemoryMachineAssetRepository implements IMachineAssetRepository {
 
   async findAvailableNear(location: {
     lat: number;
-    lng: number;
+    lon: number;
   }): Promise<MachineAsset[]> {
     return this.data.filter((m) => m.status === "AVAILABLE");
   }
