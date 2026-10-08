@@ -74,3 +74,48 @@ jobs:
       - name: Run Python tests (Agent Kisan)
         working-directory: services/agent-kisan
         run: uv run pytest
+
+  command-intake:
+    # G5: complaint intake on real PostGIS and LocalStack S3 (services/command-api/intake.stack.test.ts).
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: saans
+          POSTGRES_PASSWORD: saans
+          POSTGRES_DB: saans
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U saans -d saans"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      localstack:
+        # The last LocalStack release that runs without an account token; see infra/compose.yaml.
+        image: localstack/localstack:4.14.0
+        env:
+          SERVICES: s3
+          AWS_DEFAULT_REGION: ap-south-1
+          S3_SKIP_SIGNATURE_VALIDATION: "0"
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd "curl -sf http://127.0.0.1:4566/_localstack/health"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Intake on PostGIS + LocalStack
+        env:
+          SAANS_DATABASE_URL: postgres://saans:saans@127.0.0.1:5433/saans
+        run: npx vitest run services/command-api/intake.stack.test.ts

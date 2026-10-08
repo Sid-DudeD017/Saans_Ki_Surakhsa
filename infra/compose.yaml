@@ -1,0 +1,44 @@
+# The local stack for Saans Command (G5): PostGIS for complaints and cases, LocalStack for S3.
+#   npm run stack        start both and wait until they're healthy
+#   npm run stack:down   stop them (the data is kept in the saans-pg volume)
+# Ports are on 127.0.0.1 only. The user, password and database are local fixtures, not secrets.
+name: saans
+
+services:
+  postgis:
+    # Official PostGIS images are amd64 only; on Apple silicon Docker runs this one under emulation.
+    image: postgis/postgis:17-3.5
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: saans
+      POSTGRES_PASSWORD: saans
+      POSTGRES_DB: saans
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - saans-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saans -d saans"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  localstack:
+    # 4.14.0 is the last LocalStack release that runs without an account auth token (from 2026.03 on,
+    # every image needs one). It's frozen, which is fine for local S3 and P3's DynamoDB.
+    image: localstack/localstack:4.14.0
+    environment:
+      SERVICES: s3,dynamodb
+      # Check presigned URLs' signatures and expiry, as S3 does (LocalStack skips it by default).
+      S3_SKIP_SIGNATURE_VALIDATION: "0"
+      AWS_DEFAULT_REGION: ap-south-1
+    ports:
+      - "127.0.0.1:4566:4566"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:4566/_localstack/health | grep -q '\"s3\": \"\\(available\\|running\\)\"'"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  saans-pg:

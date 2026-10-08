@@ -1,0 +1,28 @@
+{
+  "$comment": "Who a complaint goes to and how long they have (demo configuration, PHASE_4_IMPLEMENTATION_PLAN.md). Read by the triage step; change it here, not in code. A farmer_support request is help, never a penalty.",
+  "farm_fire": {
+    "authorities": ["SDM", "District Agriculture Officer"],
+    "deadlineHours": 4,
+    "penalty": true
+  },
+  "garbage": {
+    "authorities": ["Municipal SWM"],
+    "deadlineHours": 12,
+    "penalty": true
+  },
+  "vehicle": {
+    "authorities": ["Traffic police"],
+    "deadlineHours": 24,
+    "penalty": true
+  },
+  "firecrackers": {
+    "authorities": ["Local police"],
+    "deadlineHours": 2,
+    "penalty": true
+  },
+  "farmer_support": {
+    "authorities": ["Agriculture department", "CHC"],
+    "deadlineHours": 72,
+    "penalty": false
+  }
+}
