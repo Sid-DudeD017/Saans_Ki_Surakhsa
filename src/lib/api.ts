@@ -50,8 +50,10 @@ export interface SchoolAdvisoryData {
 export interface ComplaintPayload {
   category: string;
   description: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lon?: number;
   photo?: string;
   school_id?: string;
   reported_by_role?: string;

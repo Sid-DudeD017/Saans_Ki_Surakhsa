@@ -3,15 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth, UserRole } from '../lib/auth';
 import { useLanguage } from '../lib/i18n';
 import { getAqi, AqiData } from '../lib/api';
-import { LanguageSwitcher, Badge } from './ui';
+import { LanguageSwitcher, RolePicker } from './ui';
 import { NotificationCenter } from './NotificationCenter';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
-  const { role, setRole } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -130,32 +128,7 @@ export const Header: React.FC = () => {
             )}
 
             {/* Role dropdown */}
-            <div>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                title="Active Persona / Role"
-                aria-label="Active Persona / Role"
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '0.375rem',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#f8fafc',
-                  color: '#1e293b',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                <option value="student">🎒 Student</option>
-                <option value="parent">🏡 Parent</option>
-                <option value="teacher">📚 Teacher</option>
-                <option value="principal">🏛️ Principal</option>
-                <option value="citizen">👤 Citizen</option>
-                <option value="official">🏢 Official</option>
-              </select>
-            </div>
+            <RolePicker size="sm" />
 
             {/* Language Switcher */}
             <LanguageSwitcher
