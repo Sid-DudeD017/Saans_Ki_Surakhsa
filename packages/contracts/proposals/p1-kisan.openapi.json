@@ -222,7 +222,7 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "CHC data unavailable: data/seed/chc_demo.json not found"
                   }
                 }
               }
@@ -238,11 +238,11 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
+                    "message": "body.harvest_date: Field required",
                     "details": [
                       {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
+                        "field": "body.harvest_date",
+                        "problem": "Field required"
                       }
                     ]
                   }
@@ -414,7 +414,7 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "CHC data unavailable: data/seed/chc_demo.json not found"
                   }
                 }
               }
@@ -431,13 +431,7 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
-                    "details": [
-                      {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
-                      }
-                    ]
+                    "message": "give lat and lon, a known village, or a district"
                   }
                 }
               }
@@ -535,7 +529,7 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "fire data unavailable (ConnectError)"
                   }
                 }
               }
@@ -552,11 +546,11 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
+                    "message": "query.radius_km: Input should be less than or equal to 25",
                     "details": [
                       {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
+                        "field": "query.radius_km",
+                        "problem": "Input should be less than or equal to 25"
                       }
                     ]
                   }
@@ -670,7 +664,7 @@
                 "example": {
                   "error": {
                     "code": "not_found",
-                    "message": "unknown session_id; omit it to start a new conversation"
+                    "message": "no filed Kisan request with that id"
                   }
                 }
               }
@@ -686,7 +680,7 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "status updates are off: KISAN_SERVICE_TOKEN is not set"
                   }
                 }
               }
@@ -703,11 +697,11 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
+                    "message": "body.status: Input should be 'seen', 'machine_assigned', 'in_field', 'action_taken' or 'closed'",
                     "details": [
                       {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
+                        "field": "body.status",
+                        "problem": "Input should be 'seen', 'machine_assigned', 'in_field', 'action_taken' or 'closed'"
                       }
                     ]
                   }
@@ -790,34 +784,12 @@
                 "example": {
                   "error": {
                     "code": "not_found",
-                    "message": "unknown session_id; omit it to start a new conversation"
+                    "message": "unknown session_id"
                   }
                 }
               }
             },
             "description": "Not Found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
-                },
-                "example": {
-                  "error": {
-                    "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
-                    "details": [
-                      {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -919,11 +891,11 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
+                    "message": "body.helpRequests: Field required",
                     "details": [
                       {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
+                        "field": "body.helpRequests",
+                        "problem": "Field required"
                       }
                     ]
                   }
@@ -1077,7 +1049,7 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "the language model is unavailable: AccessDeniedException"
                   }
                 }
               }
@@ -1093,11 +1065,11 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
+                    "message": "body.text: String should have at least 1 character",
                     "details": [
                       {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
+                        "field": "body.text",
+                        "problem": "String should have at least 1 character"
                       }
                     ]
                   }
@@ -1145,7 +1117,7 @@
                 "example": {
                   "error": {
                     "code": "not_found",
-                    "message": "unknown session_id; omit it to start a new conversation"
+                    "message": "unknown session_id"
                   }
                 }
               }
@@ -1161,34 +1133,12 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "spoken read-backs aren't set up here: No module named 'torch'"
                   }
                 }
               }
             },
             "description": "Service Unavailable"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"
-                },
-                "example": {
-                  "error": {
-                    "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
-                    "details": [
-                      {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -1247,7 +1197,7 @@
                 "example": {
                   "error": {
                     "code": "not_found",
-                    "message": "unknown session_id; omit it to start a new conversation"
+                    "message": "unknown session_id"
                   }
                 }
               }
@@ -1263,7 +1213,7 @@
                 "example": {
                   "error": {
                     "code": "payload_too_large",
-                    "message": "voice notes can be up to 10 MB"
+                    "message": "photos can be up to 15 MB"
                   }
                 }
               }
@@ -1279,13 +1229,7 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
-                    "details": [
-                      {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
-                      }
-                    ]
+                    "message": "the photo is empty"
                   }
                 }
               }
@@ -1455,13 +1399,7 @@
                 "example": {
                   "error": {
                     "code": "invalid_request",
-                    "message": "body.paddy.value: Input should be greater than or equal to 0",
-                    "details": [
-                      {
-                        "field": "body.paddy.value",
-                        "problem": "Input should be greater than or equal to 0"
-                      }
-                    ]
+                    "message": "the voice note is empty"
                   }
                 }
               }
@@ -1477,7 +1415,7 @@
                 "example": {
                   "error": {
                     "code": "unavailable",
-                    "message": "the language model is unavailable"
+                    "message": "speech recognition isn't set up here: No module named 'faster_whisper'"
                   }
                 }
               }

@@ -63,12 +63,22 @@ REQUEST_EXAMPLES = {
         "chcPhone": "+91 00000 00002", "date": "2026-11-02"},
 }
 P4_ERROR = "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"  # one error shape for every service
-ERROR_MESSAGES = {  # written with the same error_body() the API uses
-    "401": "wrong or missing X-Saans-Service-Token",
-    "404": "unknown session_id; omit it to start a new conversation",
-    "409": "still answering the previous message in this conversation",
-    "413": "voice notes can be up to 10 MB",
-    "503": "the language model is unavailable",
+# Errors a call on the demo story can't trigger (no Bedrock, a full seed): each route's real message,
+# written with the same error_body() the API uses. The rest come from real bad requests below.
+KISAN = "/v1/agent/kisan"
+# FastAPI lists a 422 on every route with a parameter, but a string session id can't fail validation.
+NO_422 = {(f"{KISAN}/sessions/{{session_id}}/status", "get"), (f"{KISAN}/sessions/{{session_id}}/readback.wav", "get")}
+HAND_ERRORS = {
+    ("/v1/farm/plan", "post", "503"): "CHC data unavailable: data/seed/chc_demo.json not found",
+    ("/v1/chcs", "get", "503"): "CHC data unavailable: data/seed/chc_demo.json not found",
+    (f"{KISAN}/messages", "post", "409"): "still answering the previous message in this conversation",
+    (f"{KISAN}/messages", "post", "503"): "the language model is unavailable: AccessDeniedException",
+    (f"{KISAN}/voice", "post", "409"): "still answering the previous message in this conversation",
+    (f"{KISAN}/voice", "post", "413"): "voice notes can be up to 10 MB",
+    (f"{KISAN}/voice", "post", "503"): "speech recognition isn't set up here: No module named 'faster_whisper'",
+    (f"{KISAN}/photo", "post", "413"): "photos can be up to 15 MB",
+    (f"{KISAN}/sessions/{{session_id}}/readback.wav", "get", "503"):
+        "spoken read-backs aren't set up here: No module named 'torch'",
 }
 
 
@@ -151,8 +161,17 @@ def _stable(value):
     return value
 
 
-def _live_examples() -> dict[tuple[str, str], object]:
-    """Call every JSON route on the demo story."""
+def _fires_down(lat: float, lon: float, radius_km: float) -> FiresNear:
+    from agent_kisan.fires import FiresUnavailable
+
+    raise FiresUnavailable("fire data unavailable (ConnectError)")
+
+
+def _live_examples() -> tuple[dict, dict]:
+    """Call every JSON route on the demo story, and each route's errors with real bad requests.
+
+    Returns (200 examples by (path, method), error examples by (path, method, status)).
+    """
     import os
     import tempfile
 
@@ -166,15 +185,15 @@ def _live_examples() -> dict[tuple[str, str], object]:
     api.machine_identifier = lambda jpeg: {"machine": "super_seeder", "confidence": 0.86,
                                            "why": "A rotor in front of the seed drill, behind a tractor."}
     _ScriptedChat.ids = iter(["3f9c2a", "7d41b0", "c09e55"])
-    token = "contract-example"
+    token, k = "contract-example", KISAN
     photos = tempfile.TemporaryDirectory()
     os.environ.update(KISAN_SERVICE_TOKEN=token, KISAN_PHOTOS=photos.name)
     try:
         client = TestClient(api.app)
-        said = REQUEST_EXAMPLES[("/v1/agent/kisan/messages", "post")]
-        first = client.post("/v1/agent/kisan/messages", json=said)
+        said = REQUEST_EXAMPLES[(f"{k}/messages", "post")]
+        first = client.post(f"{k}/messages", json=said)
         sid = first.json()["session_id"]
-        client.post("/v1/agent/kisan/messages", json={"session_id": sid, "text": "ਹਾਂ ਜੀ"})
+        client.post(f"{k}/messages", json={"session_id": sid, "text": "ਹਾਂ ਜੀ"})
         calls = {
             ("/v1/farm/coverage", "post"): client.post("/v1/farm/coverage", json=GURPREET_COVERAGE),
             ("/v1/farm/plan", "post"): client.post("/v1/farm/plan", json=GURPREET_PLAN),
@@ -182,34 +201,65 @@ def _live_examples() -> dict[tuple[str, str], object]:
             ("/v1/farm/fires", "get"): client.get("/v1/farm/fires", params={"lat": 30.266, "lon": 76.04}),
             ("/v1/allocations", "post"): client.post("/v1/allocations",
                                                      json=REQUEST_EXAMPLES[("/v1/allocations", "post")]),
-            ("/v1/agent/kisan/messages", "post"): first,
-            ("/v1/agent/kisan/help-requests/{help_request_id}/status", "post"): client.post(
-                f"/v1/agent/kisan/help-requests/kisan-{sid}/status", headers={"X-Saans-Service-Token": token},
-                json=REQUEST_EXAMPLES[("/v1/agent/kisan/help-requests/{help_request_id}/status", "post")]),
-            ("/v1/agent/kisan/sessions/{session_id}/status", "get"): client.get(
-                f"/v1/agent/kisan/sessions/{sid}/status"),
-            ("/v1/agent/kisan/voice", "post"): client.post("/v1/agent/kisan/voice", data={"language": "pa"},
-                                                           files={"audio": ("note.m4a", b"audio", "audio/mp4")}),
-            "422": client.post("/v1/farm/coverage", json={**GURPREET_COVERAGE, "paddy": {"value": -1, "unit": "killa"}}),
-            ("/v1/agent/kisan/photo", "post"): client.post("/v1/agent/kisan/photo", data={"session_id": sid},
-                                                           files={"photo": ("farm.jpg", _photo(), "image/jpeg")}),
+            (f"{k}/messages", "post"): first,
+            (f"{k}/help-requests/{{help_request_id}}/status", "post"): client.post(
+                f"{k}/help-requests/kisan-{sid}/status", headers={"X-Saans-Service-Token": token},
+                json=REQUEST_EXAMPLES[(f"{k}/help-requests/{{help_request_id}}/status", "post")]),
+            (f"{k}/sessions/{{session_id}}/status", "get"): client.get(f"{k}/sessions/{sid}/status"),
+            (f"{k}/voice", "post"): client.post(f"{k}/voice", data={"language": "pa"},
+                                                files={"audio": ("note.m4a", b"audio", "audio/mp4")}),
+            (f"{k}/photo", "post"): client.post(f"{k}/photo", data={"session_id": sid},
+                                                files={"photo": ("farm.jpg", _photo(), "image/jpeg")}),
         }
+        status_url = f"{k}/help-requests/{{help_request_id}}/status"
+        bad = {
+            ("/v1/farm/coverage", "post", "422"): client.post(
+                "/v1/farm/coverage", json={**GURPREET_COVERAGE, "paddy": {"value": -1, "unit": "killa"}}),
+            ("/v1/farm/plan", "post", "422"): client.post(
+                "/v1/farm/plan", json={key: v for key, v in GURPREET_PLAN.items() if key != "harvest_date"}),
+            ("/v1/chcs", "get", "422"): client.get("/v1/chcs", params={"village": "Nowhere"}),
+            ("/v1/farm/fires", "get", "422"): client.get("/v1/farm/fires",
+                                                         params={"lat": 30.266, "lon": 76.04, "radius_km": 40}),
+            ("/v1/allocations", "post", "422"): client.post("/v1/allocations", json={"machineAssets": []}),
+            (status_url, "post", "401"): client.post(f"{k}/help-requests/kisan-{sid}/status", json={"status": "seen"}),
+            (status_url, "post", "404"): client.post(f"{k}/help-requests/kisan-nope/status", json={"status": "seen"},
+                                                     headers={"X-Saans-Service-Token": token}),
+            (status_url, "post", "422"): client.post(f"{k}/help-requests/kisan-{sid}/status", json={"status": "lost"},
+                                                     headers={"X-Saans-Service-Token": token}),
+            (f"{k}/sessions/{{session_id}}/status", "get", "404"): client.get(f"{k}/sessions/nope/status"),
+            (f"{k}/messages", "post", "404"): client.post(f"{k}/messages", json={"session_id": "nope", "text": "ਹਾਂ"}),
+            (f"{k}/messages", "post", "422"): client.post(f"{k}/messages", json={"text": ""}),
+            (f"{k}/sessions/{{session_id}}/readback.wav", "get", "404"): client.get(f"{k}/sessions/nope/readback.wav"),
+            (f"{k}/photo", "post", "404"): client.post(f"{k}/photo", data={"session_id": "nope"},
+                                                     files={"photo": ("farm.jpg", _photo(), "image/jpeg")}),
+            (f"{k}/photo", "post", "422"): client.post(f"{k}/photo", files={"photo": ("farm.jpg", b"", "image/jpeg")}),
+            (f"{k}/voice", "post", "404"): client.post(f"{k}/voice", data={"session_id": "nope"},
+                                                     files={"audio": ("note.m4a", b"audio", "audio/mp4")}),
+            (f"{k}/voice", "post", "422"): client.post(f"{k}/voice", files={"audio": ("note.m4a", b"", "audio/mp4")}),
+        }
+        del os.environ["KISAN_SERVICE_TOKEN"]  # status updates switched off
+        bad[(status_url, "post", "503")] = client.post(f"{k}/help-requests/kisan-{sid}/status",
+                                                       json={"status": "seen"}, headers={"X-Saans-Service-Token": token})
+        api.fire_source = _fires_down  # P3's /v1/fires not answering
+        bad[("/v1/farm/fires", "get", "503")] = client.get("/v1/farm/fires", params={"lat": 30.266, "lon": 76.04})
     finally:
         for h, v in saved.items():
             setattr(api, h, v)
-        for k, v in saved_env.items():
-            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+        for name, v in saved_env.items():
+            os.environ.pop(name, None) if v is None else os.environ.__setitem__(name, v)
         for s in ("3f9c2a", "7d41b0", "c09e55"):
             api._chats.pop(s, None)
             api._locks.pop(s, None)
         photos.cleanup()
-    invalid = calls.pop("422")
-    if invalid.status_code != 422:
-        raise RuntimeError(f"expected a 422 example, got {invalid.status_code}")
+    for key, res in bad.items():
+        if res.status_code != int(key[2]):
+            raise RuntimeError(f"{key[1].upper()} {key[0]}: expected {key[2]}, got {res.status_code}: {res.text}")
     for (path, method), res in calls.items():
         if res.status_code != 200:
             raise RuntimeError(f"{method.upper()} {path} answered {res.status_code}: {res.text}")
-    return {**{k: _stable(res.json()) for k, res in calls.items()}, "422": invalid.json()}
+    errors = {key: res.json() for key, res in bad.items()}
+    errors.update({key: api.error_body(int(key[2]), message) for key, message in HAND_ERRORS.items()})
+    return {key: _stable(res.json()) for key, res in calls.items()}, errors
 
 
 def _complaint_example() -> dict:
@@ -246,12 +296,14 @@ def build() -> dict:
     spec["servers"] = [{"url": "http://localhost:8010", "description": "Kisan Saathi on a laptop"}]
     spec["security"] = []
 
-    examples = _live_examples()
+    examples, errors = _live_examples()
     for path, methods in spec["paths"].items():
         for method, op in methods.items():
             if (path, method) in REQUEST_EXAMPLES:
                 media = op["requestBody"]["content"]["application/json"]
                 media["example"] = REQUEST_EXAMPLES[(path, method)]
+            if (path, method) in NO_422:
+                del op["responses"]["422"]
             for code, response in op["responses"].items():
                 media = response.get("content", {}).get("application/json")
                 if media is None:
@@ -262,8 +314,9 @@ def build() -> dict:
                     media["example"] = examples[(path, method)]
                 else:
                     media["schema"] = {"$ref": P4_ERROR}
-                    media["example"] = examples["422"] if code == "422" else api.error_body(
-                        int(code), ERROR_MESSAGES[code])
+                    if (path, method, code) not in errors:
+                        raise RuntimeError(f"no example for {method.upper()} {path} {code}")
+                    media["example"] = errors[(path, method, code)]
     for name in ("ErrorEnvelope", "ErrorBody", "ErrorDetail", "HTTPValidationError", "ValidationError"):
         spec["components"]["schemas"].pop(name, None)  # P4's ErrorEnvelope replaces them
 
