@@ -81,7 +81,7 @@ describe("Contract Tests - API Handlers", () => {
   it("validates /v1/fires output matches FiresResponse schema", async () => {
     process.env.NASA_FIRMS_MAP_KEY = "dummy";
     
-    const csvData = "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight\\n28.6,77.2,310.5,1.0,1.0,2026-10-08,0800,VIIRS,VIIRS,nominal,2.0,290.0,15.5,D";
+    const csvData = "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight\n28.6,77.2,310.5,1.0,1.0,2026-10-08,0800,VIIRS,VIIRS,nominal,2.0,290.0,15.5,D\n28.7,77.3,312.5,1.0,1.0,2026-10-08,0815,VIIRS,VIIRS,high,2.0,295.0,20.0,D\n";
     
     mockFetch.mockResolvedValue({
       ok: true,
@@ -94,8 +94,10 @@ describe("Contract Tests - API Handlers", () => {
 
     const data = await res.json();
     expect(typeof data.count).toBe("number");
+    expect(data.count).toBe(2);
     expect(typeof data.as_of).toBe("string");
     expect(Array.isArray(data.fires)).toBe(true);
+    expect(data.fires.length).toBe(2);
 
     if (data.fires.length > 0) {
       const fire = data.fires[0];
@@ -117,7 +119,7 @@ describe("Contract Tests - API Handlers", () => {
     beforeEach(() => {
       mockFetch.mockResolvedValue({
         ok: true,
-        text: async () => "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight\\n28.6,77.2,310.5,1.0,1.0,2026-10-08,0800,VIIRS,VIIRS,nominal,2.0,290.0,15.5,D"
+        text: async () => "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight\n28.6,77.2,310.5,1.0,1.0,2026-10-08,0800,VIIRS,VIIRS,nominal,2.0,290.0,15.5,D"
       });
       process.env.NASA_FIRMS_MAP_KEY = "dummy";
     });
