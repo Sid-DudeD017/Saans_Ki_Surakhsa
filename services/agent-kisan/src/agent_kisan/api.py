@@ -9,6 +9,7 @@ from typing import Literal, Self
 import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, model_validator
 
 from agent_kisan.coverage import (
@@ -93,6 +94,11 @@ class CoverageResponse(BaseModel):
     tractor_days: TractorDays
     machine_days_used: dict[str, float]
     assumptions: Assumptions
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse("/docs")
 
 
 @app.get("/healthz")
