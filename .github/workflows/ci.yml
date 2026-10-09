@@ -115,7 +115,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Intake on PostGIS + LocalStack
+      - name: Intake and cases on PostGIS + LocalStack
         env:
           SAANS_DATABASE_URL: postgres://saans:saans@127.0.0.1:5433/saans
-        run: npx vitest run services/command-api/intake.stack.test.ts
+        run: npx vitest run services/command-api/intake.stack.test.ts services/command-api/cases.stack.test.ts

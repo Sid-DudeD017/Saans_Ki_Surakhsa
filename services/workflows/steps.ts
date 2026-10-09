@@ -139,6 +139,40 @@ function summary(e: NonNullable<IntakeState["evidence"]>) {
   return `${e.files} file${e.files === 1 ? "" : "s"}: ${parts.join(", ")}`;
 }
 
+export interface HelpLink {
+  help_request_id: string;
+  distance_m: number;
+  /** Another open request within the tie tolerance of this distance: the officer should check which farm. */
+  ambiguous: boolean;
+  other_help_request_id?: string;
+  district: string | null;
+}
+
+/**
+ * Help before penalty: the open help request nearest a fire report, within helpRequestMaxDistanceM. Only
+ * OPEN requests count; Kisan files MATCHED when the farmer's own plan covers every acre.
+ */
+export async function nearestOpenHelpRequest(deps: IntakeDeps, complaintId: string): Promise<HelpLink | null> {
+  const { rows } = await deps.db.query<{ id: string; district: string | null; distance_m: number }>(
+    `SELECT h.id, h.district, ST_Distance(h.location, c.location) AS distance_m
+       FROM complaints c JOIN help_requests h ON ST_DWithin(h.location, c.location, $2)
+      WHERE c.id = $1 AND h.status = 'OPEN'
+      ORDER BY distance_m, h.created_at
+      LIMIT 2`,
+    [complaintId, deps.config.helpRequestMaxDistanceM],
+  );
+  const [near, next] = rows;
+  if (!near) return null;
+  const ambiguous = !!next && Number(next.distance_m) - Number(near.distance_m) <= deps.config.helpRequestTieToleranceM;
+  return {
+    help_request_id: near.id,
+    distance_m: Math.round(Number(near.distance_m)),
+    ambiguous,
+    ...(ambiguous ? { other_help_request_id: next.id } : {}),
+    district: near.district,
+  };
+}
+
 export async function assign(deps: IntakeDeps, input: IntakeState): Promise<IntakeState> {
   return guarded(async () => {
     const { complaint, received_at } = await load(deps, input.complaintId);
@@ -147,6 +181,11 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
     const needsReview = evidence.mismatched > 0 || evidence.missing > 0;
 
     let helpRequestId: string | null = null;
+    let helpLink: HelpLink | null = null;
+    if (complaint.type === "farm_fire") {
+      helpLink = await nearestOpenHelpRequest(deps, input.complaintId);
+      helpRequestId = helpLink?.help_request_id ?? null;
+    }
     if (complaint.type === "farmer_support") {
       const help = complaint.help_request;
       helpRequestId = help.id;
@@ -161,12 +200,12 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
     const deadline = new Date(received_at.getTime() + t.deadlineHours * 3600_000);
     await deps.db.query(
       `INSERT INTO cases (id, complaint_id, type, district, location, authorities, penalty, deadline,
-                          verification_status, help_request_id, evidence_summary, created_at, updated_at)
-       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $10
+                          verification_status, help_request_id, help_link, evidence_summary, created_at, updated_at)
+       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $11
          FROM complaints c WHERE c.id = $2
        ON CONFLICT (complaint_id) DO NOTHING`,
-      [deps.newId("case"), input.complaintId, t.district, t.authorities, t.penalty, deadline,
-       needsReview ? "NEEDS_REVIEW" : "UNVERIFIED", helpRequestId, summary(evidence), deps.now()],
+      [deps.newId("case"), input.complaintId, t.district ?? helpLink?.district ?? null, t.authorities, t.penalty, deadline,
+       needsReview ? "NEEDS_REVIEW" : "UNVERIFIED", helpRequestId, helpLink && JSON.stringify(helpLink), summary(evidence), deps.now()],
     );
     const { rows } = await deps.db.query<{ id: string }>("SELECT id FROM cases WHERE complaint_id = $1", [input.complaintId]);
     await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);

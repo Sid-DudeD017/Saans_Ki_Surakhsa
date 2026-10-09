@@ -748,6 +748,17 @@ export interface components {
             helpRequest?: components["schemas"]["HelpRequest"];
             recommendedMachine?: components["schemas"]["MachineAsset"];
             decisions: components["schemas"]["OfficerDecision"][];
+            /** @enum {string} */
+            type?: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "farmer_support";
+            penalty?: boolean;
+            authorities?: string[];
+            deadline?: components["schemas"]["IndiaTimestamp"];
+            /** @description How a fire report was linked to the nearest open help request (within 5 km). ambiguous: another open request was within 100 m of the same distance, so the officer should check which farm. */
+            helpLink?: {
+                distanceMeters: number;
+                ambiguous: boolean;
+                otherHelpRequestId?: string;
+            };
         };
         CaseList: {
             cases: components["schemas"]["CaseSummary"][];
@@ -756,12 +767,15 @@ export interface components {
         CaseSummary: {
             case: components["schemas"]["CommandCase"];
             /** @enum {string} */
-            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers";
+            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "farmer_support";
             district: string;
             location: components["schemas"]["GeoPoint"];
             deadline: components["schemas"]["IndiaTimestamp"];
             /** @description The farm has an open help request, shown before any penalty */
             hasHelpRequest: boolean;
+            /** @description Whether routing.json allows a penalty for this type (never for farmer_support) */
+            penalty?: boolean;
+            authorities?: string[];
         };
         /** Chc */
         Chc: {
@@ -1613,7 +1627,7 @@ export interface components {
             caseId: string;
             officerId: string;
             /** @enum {string} */
-            action: "APPROVE" | "CHANGE" | "REJECT";
+            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE";
             selectedMachineId?: string;
             reason: string;
             createdAt: components["schemas"]["IndiaTimestamp"];
@@ -3498,7 +3512,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description The case changed since previousCaseVersion */
+            /** @description The case changed since previousCaseVersion (version_conflict), or is closed (conflict) */
             409: {
                 headers: {
                     [name: string]: unknown;

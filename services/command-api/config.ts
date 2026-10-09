@@ -11,6 +11,10 @@ export interface CommandConfig {
   /** LocalStack's endpoint; unset on AWS. */
   s3Endpoint?: string;
   uploadTtlSeconds: number;
+  /** Help before penalty: a fire report links to the nearest open help request this close. */
+  helpRequestMaxDistanceM: number;
+  /** Two open help requests this close to the same distance make the link ambiguous; the officer checks. */
+  helpRequestTieToleranceM: number;
 }
 
 export function commandConfig(env: Record<string, string | undefined> = process.env): CommandConfig {
@@ -20,6 +24,8 @@ export function commandConfig(env: Record<string, string | undefined> = process.
     region: env.AWS_REGION || "ap-south-1",
     s3Endpoint: env.SAANS_S3_ENDPOINT ?? (env.LOCALSTACK_URL || "http://127.0.0.1:4566"),
     uploadTtlSeconds: 15 * 60,
+    helpRequestMaxDistanceM: Number(env.HELP_REQUEST_MAX_DISTANCE_METERS) || 5000,
+    helpRequestTieToleranceM: Number(env.HELP_REQUEST_TIE_TOLERANCE_METERS) || 100,
   };
 }
 

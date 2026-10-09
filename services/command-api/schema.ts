@@ -73,6 +73,22 @@ CREATE TABLE IF NOT EXISTS cases (
   updated_at           timestamptz NOT NULL DEFAULT now()
 );
 
+-- How a fire report's case was linked to a farmer's open help request: distance, and whether another
+-- request was about as close. Added after G5, so it is an ALTER that is safe to repeat.
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS help_link jsonb;
+
+-- Every action an officer took on a case. previous_case_version is the version they acted on.
+CREATE TABLE IF NOT EXISTS case_decisions (
+  id                     text PRIMARY KEY,
+  case_id                text NOT NULL REFERENCES cases(id),
+  officer_id             text NOT NULL,
+  action                 text NOT NULL,
+  selected_machine_id    text,
+  reason                 text NOT NULL,
+  previous_case_version  integer NOT NULL,
+  created_at             timestamptz NOT NULL DEFAULT now()
+);
+
 -- Every state the intake workflow entered, left or failed in, so both paths can be seen.
 CREATE TABLE IF NOT EXISTS workflow_events (
   id            bigserial PRIMARY KEY,
@@ -87,5 +103,7 @@ CREATE TABLE IF NOT EXISTS workflow_events (
 CREATE INDEX IF NOT EXISTS complaints_location ON complaints USING gist (location);
 CREATE INDEX IF NOT EXISTS cases_location ON cases USING gist (location);
 CREATE INDEX IF NOT EXISTS help_requests_location ON help_requests USING gist (location);
+CREATE INDEX IF NOT EXISTS case_decisions_case ON case_decisions (case_id, created_at);
+CREATE INDEX IF NOT EXISTS cases_deadline ON cases (deadline, id);
 CREATE INDEX IF NOT EXISTS workflow_events_complaint ON workflow_events (complaint_id, id);
 `;
