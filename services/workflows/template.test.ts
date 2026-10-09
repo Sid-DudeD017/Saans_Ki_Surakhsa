@@ -81,6 +81,12 @@ describe("template.yaml structural checks (migrated)", () => {
     expect(doc.Resources.Api.Properties.CorsConfiguration.AllowOrigins).toContainEqual({ Ref: "CorsAllowedOrigin" });
   });
 
+  it("keeps Lambda outside the VPC for the short-lived public-RDS demo", () => {
+    expect(doc.Globals.Function.VpcConfig).toBeUndefined();
+    expect(doc.Parameters.VpcSubnetIds).toBeUndefined();
+    expect(doc.Parameters.LambdaSecurityGroupIds).toBeUndefined();
+  });
+
   it("contains valid outputs", () => {
     expect(doc.Outputs.ApiUrl).toBeDefined();
     expect(doc.Outputs.EvidenceBucketName).toBeDefined();

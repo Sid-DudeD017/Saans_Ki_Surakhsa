@@ -6,8 +6,8 @@ This runbook describes the deployment of the Saans Command module, its Cognito i
 Before deploying, the team must confirm:
 - Target AWS account ID and Stack Name.
 - The region must be exactly **ap-south-1**.
-- A private RDS instance, its Secrets Manager secret (`databaseUrl` key), private subnet IDs,
-  and a Lambda security group allowed to reach the database are provisioned.
+- A short-lived public RDS instance and its Secrets Manager secret (`databaseUrl` key) are
+  provisioned. Require TLS, use a strong unique password, and delete the instance after the demo.
 - The Cognito callback/logout URLs are approved.
 - The SMS delivery backend is chosen (AWS End User Messaging SMS or `outbox` fallback).
 
@@ -23,7 +23,8 @@ Verify the default region is set to `ap-south-1` in your `~/.aws/config`.
 ### Secure Database URL Handling
 Pass only the Secrets Manager ARN as `DatabaseSecretArn`; never pass the database URL to SAM.
 The workload template resolves the secret and grants only `secretsmanager:GetSecretValue` on that ARN.
-Pass the private subnet IDs and Lambda security group IDs when guided deployment prompts for them.
+For the isolated hackathon deployment, Lambda runs outside the VPC and connects to the temporary
+public RDS endpoint over TLS. Do not reuse this design for a shared or production deployment.
 
 ### Local Validation
 Run these commands to ensure the codebase is clean:
@@ -82,7 +83,56 @@ If SMS is chosen over the `outbox` fallback, you must configure Indian DLT param
 - Note: Real SMS cannot be marked complete until a physical phone receives it.
 - If DLT registration is pending, explicitly approve the `outbox` fallback.
 
-## 8. Billing Alerts
+### India local-route registration checklist
+
+Real Indian local-route SMS is blocked until the organization completes all of the following:
+
+1. Register as a Principal Entity on a TRAI-approved DLT portal using the organization's legal
+   documents (as applicable: PAN, TAN, GSTIN, CIN, and an authorization letter).
+2. Register a 3–6 letter transactional sender ID/header.
+3. Register these two transactional content templates. The DLT portal's variable syntax must be
+   substituted for the placeholders, while all fixed text, spaces, punctuation, and case must remain
+   exact:
+
+   - `You have been assigned case {CASE_ID}`
+   - `Action taken on case {CASE_ID}: {ACTION_TEXT}`
+
+4. Create the required telemarketer chains in the DLT portal. Follow the current AWS India sender-ID
+   documentation for the provider names and IDs; these values can change and must not be copied from
+   stale project documentation.
+5. In AWS End User Messaging SMS in `ap-south-1`, submit an India transactional sender-ID
+   registration using the approved Principal Entity ID, chain IDs, sender ID, template IDs, company
+   details, contact details, use case, and message samples.
+6. Wait until the AWS registration status is `Complete`. Submitted or reviewing is not sufficient.
+7. Deploy with the approved values mapped as follows:
+
+   - `SmsOriginationIdentity` = approved transactional sender ID
+   - `SmsEntityId` = approved Principal Entity/Entity ID
+   - `SmsAssignmentTemplateId` = ID for the assignment template
+   - `SmsActionTakenTemplateId` = ID for the action-taken template
+
+8. Send to an explicitly authorized Indian test number in E.164 format (`+91...`) and retain
+   non-sensitive delivery evidence. Never commit recipient numbers or registration documents.
+
+The application uses `TRANSACTIONAL` messages and supplies `IN_ENTITY_ID` and `IN_TEMPLATE_ID` to
+AWS. Carriers can reject a message when its fixed text differs from the registered DLT template, even
+by punctuation, whitespace, or letter case.
+
+## 8. Access-control decision
+
+The initial deployment uses one `officer` role and two district groups:
+
+- `officer` + exactly one of `district-sangrur` or `district-patiala` is required.
+- Officers may list, view, assign, update, and close cases only in their own district.
+- Cross-district access is denied, including aggregate counts and map results.
+- Membership in both district groups, or neither district group, is denied.
+- Closed-case transition restrictions remain enforced by the command API.
+- Field-officer and state-centre roles are deferred until the team agrees their permissions.
+
+This is the approved access model for the isolated development deployment. Revisit it before a
+shared or production deployment.
+
+## 9. Billing Alerts
 Billing metrics exist only in `us-east-1`, so deploy the separate account-level template there:
 ```bash
 aws cloudformation deploy --profile saans --region us-east-1 \
@@ -92,7 +142,7 @@ aws cloudformation deploy --profile saans --region us-east-1 \
 ```
 Confirm the SNS email subscription; an unconfirmed subscription cannot deliver the alarm.
 
-## 9. Rollback, Teardown, and Cost Warnings
+## 10. Rollback, Teardown, and Cost Warnings
 To destroy the stack:
 ```bash
 sam delete

@@ -1,5 +1,5 @@
 # Saans Command on AWS (SAM). G5 defines complaint intake; G7 deploys it to ap-south-1 and adds sign-in
-# (Cognito), the database (RDS PostGIS) and the alarms. Intrinsics are written in long form (Fn::Sub,
+# (Cognito), a short-lived public RDS PostGIS database and the alarms. Intrinsics are written in long form (Fn::Sub,
 # Ref) so the file is plain YAML that tests can read.
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
@@ -20,13 +20,6 @@ Parameters:
   DatabaseSecretArn:
     Type: String
     Description: ARN of a Secrets Manager secret whose databaseUrl field contains the PostgreSQL URL
-  VpcSubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: Private subnet IDs that can reach RDS
-  LambdaSecurityGroupIds:
-    Type: List<AWS::EC2::SecurityGroup::Id>
-    Description: Lambda security groups allowed to connect to RDS
-
   CorsAllowedOrigin:
     Type: String
     Default: "https://saans.local"
@@ -57,11 +50,6 @@ Globals:
     Architectures: [arm64]
     MemorySize: 512
     Timeout: 15
-    VpcConfig:
-      SecurityGroupIds:
-        Ref: LambdaSecurityGroupIds
-      SubnetIds:
-        Ref: VpcSubnetIds
     Environment:
       Variables:
         SAANS_DATABASE_URL:

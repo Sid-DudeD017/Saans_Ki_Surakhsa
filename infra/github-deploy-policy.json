@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DeploySamResources",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:*",
+        "cloudformation:*",
+        "cloudwatch:*",
+        "cognito-idp:*",
+        "lambda:*",
+        "logs:*",
+        "s3:*",
+        "sqs:*",
+        "states:*",
+        "verifiedpermissions:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadDatabaseSecret",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:ap-south-1:054266242578:secret:saans/dev/database-*"
+    },
+    {
+      "Sid": "ManageSaansExecutionRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:PassRole",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::054266242578:role/saans-dev-*"
+    }
+  ]
+}
