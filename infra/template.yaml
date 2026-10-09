@@ -587,6 +587,28 @@ Resources:
         EntryPoints: [services/command-api/cases.ts]
         Target: node22
 
+  DatabaseMigrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/migration.handler
+      CodeUri: ../
+      Timeout: 60
+      Policies:
+        - *DatabaseSecretPolicy
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/migration.ts]
+        Target: node22
+
+  DatabaseMigration:
+    Type: Custom::DatabaseMigration
+    Properties:
+      ServiceToken:
+        Fn::GetAtt: [DatabaseMigrationFunction, Arn]
+      # Increment when a future schema change must be applied to an existing stack.
+      SchemaVersion: 1
+
   NotificationFailureDLQ:
     Type: AWS::SQS::Queue
     Properties:

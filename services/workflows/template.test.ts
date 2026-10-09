@@ -13,6 +13,7 @@ import * as healthHandlers from "../command-api/health";
 import * as authHandlers from "../command-api/authorizer";
 import * as whoamiHandlers from "../command-api/whoami";
 import * as caseHandlers from "../command-api/cases";
+import * as migrationHandlers from "../command-api/migration";
 import * as stepHandlers from "./lambda";
 
 const root = join(__dirname, "../..");
@@ -25,13 +26,14 @@ const modules: Record<string, Record<string, unknown>> = {
   "services/command-api/authorizer": authHandlers as any,
   "services/command-api/whoami": whoamiHandlers as any,
   "services/command-api/cases": caseHandlers as any,
+  "services/command-api/migration": migrationHandlers as any,
   "services/workflows/lambda": stepHandlers,
 };
 
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(11);
+    expect(functions.length).toBe(12);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -106,6 +108,18 @@ describe("template.yaml structural checks (migrated)", () => {
     expect(client.Properties.GenerateSecret).toBe(false);
     expect(client.Properties.AllowedOAuthFlows).toContain("code");
     expect(client.Properties.CallbackURLs).toContainEqual({ Ref: "AppCallbackUrl" });
+  });
+
+  it("runs the idempotent database migration as part of deployment", () => {
+    const migrationFunction = doc.Resources.DatabaseMigrationFunction;
+    const migration = doc.Resources.DatabaseMigration;
+
+    expect(migrationFunction.Type).toBe("AWS::Serverless::Function");
+    expect(migrationFunction.Properties.Handler).toBe("services/command-api/migration.handler");
+    expect(migration.Type).toBe("Custom::DatabaseMigration");
+    expect(migration.Properties.ServiceToken).toEqual({
+      "Fn::GetAtt": ["DatabaseMigrationFunction", "Arn"],
+    });
   });
 
   it("contains Authorizer configuration on WhoamiFunction", () => {
