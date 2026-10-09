@@ -14,6 +14,10 @@ export async function getIndoorEstimate(room: IndoorRequest): Promise<IndoorEsti
     body: JSON.stringify(room),
   });
   const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error?.message ?? res.statusText);
+  if (!res.ok) {
+    const err = new Error(body?.error?.message ?? res.statusText);
+    (err as any).code = body?.error?.code;
+    throw err;
+  }
   return body as IndoorEstimate;
 }

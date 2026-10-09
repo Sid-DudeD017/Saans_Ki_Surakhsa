@@ -11,7 +11,7 @@ import { getAqi, type AqiData } from '../../lib/api';
 import { useLanguage } from '../../lib/i18n';
 import { CATEGORY_LABELS, CATEGORY_COLORS, getPm25Category } from './labels';
 import type { components } from '../../../packages/contracts/types';
-import { loadHomeState, saveHomeState, type RoomState, type HomeState, DEFAULT_HOME } from './homeState';
+import { loadHomeState, saveHomeState, addRoomToState, removeRoomFromState, updateRoomState, type RoomState, type HomeState, DEFAULT_HOME } from './homeState';
 import { LocationBar } from './LocationBar';
 
 const D = INDOOR_DEFAULTS;
@@ -43,6 +43,8 @@ type AqiWireResponse = components['schemas']['AqiResponse'];
 export function GharIndoor() {
   const { t } = useLanguage();
   
+  const { location, saveLocation, isReady: locationReady } = useLocation();
+
   // Initialise from localStorage
   const [home, setHome] = useState<HomeState>(() => loadHomeState());
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -60,6 +62,22 @@ export function GharIndoor() {
       setSelectedRoomId(home.rooms[0].id);
     }
   }, [home.rooms, selectedRoomId]);
+
+  // Sync location to all rooms whenever it changes
+  useEffect(() => {
+    if (!locationReady) return;
+    setHome(prev => {
+      let changed = false;
+      const updated = prev.rooms.map(r => {
+        if (r.request.lat !== location.lat || r.request.lon !== location.lon) {
+          changed = true;
+          return { ...r, request: { ...r.request, lat: location.lat, lon: location.lon } };
+        }
+        return r;
+      });
+      return changed ? { ...prev, rooms: updated } : prev;
+    });
+  }, [location.lat, location.lon, locationReady]);
 
   const [aqiResult, setAqiResult] = useState<{ data?: AqiWireResponse; error?: string; loading?: boolean; empty?: boolean; stale?: boolean }>({ loading: true });
 
@@ -119,15 +137,11 @@ export function GharIndoor() {
   };
 
   const addRoom = () => {
-    const bedroom = home.rooms.find(r => r.id === 'master_bedroom') || home.rooms[0];
-    if (!bedroom) return;
-    const newRoom: RoomState = {
-      id: 'room_' + Date.now(),
-      name: 'New Room',
-      request: { ...bedroom.request },
-    };
-    setHome(prev => ({ ...prev, rooms: [...prev.rooms, newRoom] }));
-    setSelectedRoomId(newRoom.id);
+    const { state: nextState, addedId } = addRoomToState(home);
+    if (addedId) {
+      setHome(nextState);
+      setSelectedRoomId(addedId);
+    }
   };
 
   const removeRoom = (id: string) => {
@@ -136,13 +150,15 @@ export function GharIndoor() {
 
   const resetToDefault = () => {
     setHome(DEFAULT_HOME);
+    saveLocation(EXAMPLE_LOCATION);
     setSelectedRoomId('kitchen');
   };
 
+  if (!locationReady) return null;
+
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
-      <LocationBar />
-      <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>Showing an example home in Noida</p>
+      <LocationBar location={location} onSave={saveLocation} />
 
       {/* Outside Air */}
       <Card padding="lg">
@@ -173,6 +189,7 @@ export function GharIndoor() {
               onRename={(name) => updateRoom(room.id, { name })}
               onRemove={() => removeRoom(room.id)}
               onEstimate={(est) => setEstimates(prev => ({ ...prev, [room.id]: est }))}
+              onUseExample={() => saveLocation(EXAMPLE_LOCATION)}
               t={t}
             />
           ))}
@@ -221,52 +238,106 @@ function OutdoorDisplay({ aqiResult, t, estimates }: { aqiResult: any; t: any; e
   );
 }
 
-function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEstimate, t }: { room: RoomState, selected: boolean, onSelect: () => void, onUpdate: (r: Partial<IndoorRequest>) => void, onRename: (n: string) => void, onRemove: () => void, onEstimate: (est: any) => void, t: any }) {
-  const [result, setResult] = useState<{ estimate?: IndoorEstimate; error?: string; isFetching: boolean }>({ isFetching: true });
+const ROOM_SIZES: Record<string, number> = { small: 10, medium: 15, large: 20 };
+
+function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEstimate, onUseExample, t }: { room: RoomState, selected: boolean, onSelect: () => void, onUpdate: (r: Partial<RoomState>) => void, onRename: (n: string) => void, onRemove: () => void, onEstimate: (est: any) => void, onUseExample: () => void, t: any }) {
+  const [result, setResult] = useState<{ estimate?: IndoorEstimate; error?: string; errorCode?: string; isFetching: boolean; lastSuccessTime?: number; retryTick?: number }>({ isFetching: true });
 
   useEffect(() => {
     let on = true;
-    setResult(prev => ({ ...prev, isFetching: true }));
+    setResult(prev => ({ ...prev, isFetching: true, error: undefined, errorCode: undefined }));
     const timer = setTimeout(() => {
       getIndoorEstimate(room.request).then(
         (estimate) => { 
           if (on) { 
-            setResult({ estimate, isFetching: false });
+            setResult({ estimate, isFetching: false, lastSuccessTime: Date.now(), retryTick: undefined });
             onEstimate({ estimate, isFetching: false });
           } 
         },
         (error) => { 
           if (on) { 
-            setResult({ error: error.message, isFetching: false });
+            setResult(prev => ({ ...prev, error: error.message, errorCode: error.code, isFetching: false }));
             onEstimate({ error: error.message, isFetching: false });
+            
+            if (error.code === 'sources_unavailable') {
+              setTimeout(() => {
+                if (on) setResult(p => ({ ...p, retryTick: Date.now() }));
+              }, 60000);
+            }
           } 
         }
       );
     }, 250);
     return () => { on = false; clearTimeout(timer); };
-  }, [room.request]); // Re-run only when THIS room's request changes
+  }, [room.request, result.retryTick]);
 
   const e = result.estimate;
-
-  // The summary view when not selected or selected
   const pm25 = e?.indoor_pm25_now_ug_m3;
   const cat = pm25 !== undefined ? getPm25Category(pm25) : null;
   const color = cat ? CATEGORY_COLORS[cat] : '#94a3b8';
   const rec = e?.plan[0]?.text || 'No plan available';
 
+  const ui = room.ui;
+
+  const updateUi = (newUi: Partial<typeof ui>) => {
+    const nextRoom = updateRoomState(room, newUi);
+    onUpdate({ ui: nextRoom.ui, request: nextRoom.request });
+  };
+
+  const isKitchen = room.id.includes('kitchen');
+  const isBedroom = room.id.includes('bedroom');
+  const isLiving = room.id.includes('living');
+
+  if (!selected) {
+    return (
+      <div onClick={onSelect} style={{ padding: '1rem', border: '1px solid #cbd5e1', borderRadius: '0.5rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1rem' }}>{room.name}</h3>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>{Math.round(room.request.room_area_m2)} m² • {room.request.windows} window{room.request.windows !== 1 ? 's' : ''}</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          {result.isFetching && !e ? (
+            <span style={{ color: '#94a3b8' }}>Loading...</span>
+          ) : result.errorCode === 'no_coverage' ? (
+            <span style={{ color: '#b91c1c', fontSize: '0.85rem' }}>Unsupported location</span>
+          ) : result.errorCode === 'sources_unavailable' && !e ? (
+            <span style={{ color: '#b45309', fontSize: '0.85rem' }}>Data unavailable</span>
+          ) : pm25 !== undefined ? (
+            <>
+              <span style={{ fontSize: '1.25rem', fontWeight: 600, color }}>{Math.round(pm25)}</span>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '0.25rem' }}>µg/m³</span>
+            </>
+          ) : (
+            <span style={{ color: '#ef4444' }}>Error</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (result.errorCode === 'no_coverage') {
+    return (
+      <Card padding="md" style={{ border: `2px solid #cbd5e1`, position: 'relative' }}>
+        <h3 style={{ margin: '0 0 1rem' }}>{room.name}</h3>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '1rem', borderRadius: '0.5rem' }}>
+          <p style={{ color: '#b91c1c', margin: '0 0 1rem' }}>Room estimates are available for Punjab and Delhi NCR for now.</p>
+          <Button onClick={onUseExample}>Use Example Home</Button>
+        </div>
+      </Card>
+    );
+  }
+
+  const is503 = result.errorCode === 'sources_unavailable';
+
   return (
-    <div style={{ border: selected ? `2px solid #0284c7` : '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1rem', background: selected ? '#f0f9ff' : '#fff', cursor: selected ? 'default' : 'pointer' }} onClick={!selected ? onSelect : undefined}>
+    <div style={{ border: `2px solid #0284c7`, borderRadius: '0.75rem', padding: '1rem', background: '#f0f9ff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        {selected ? (
-          <input 
-            type="text" 
-            value={room.name} 
-            onChange={(ev) => onRename(ev.target.value)} 
-            style={{ fontWeight: 'bold', fontSize: '1.1rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', padding: '0.25rem 0.5rem', background: '#fff' }}
-          />
-        ) : (
-          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>{room.name}</h3>
-        )}
+        <input 
+          type="text" 
+          value={room.name} 
+          onChange={(ev) => onRename(ev.target.value)} 
+          style={{ fontWeight: 'bold', fontSize: '1.1rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', padding: '0.25rem 0.5rem', background: '#fff', minHeight: '44px' }}
+        />
         
         {pm25 !== undefined ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -277,47 +348,157 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
           <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Loading...</span>
         )}
       </div>
-      
-      {!selected && (
-        <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>{rec}</p>
+
+      {is503 && (
+        <div style={{ background: '#fffbeb', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', border: '1px solid #fde68a' }}>
+          <p style={{ margin: 0, color: '#b45309', fontSize: '0.9rem' }}>
+            Outdoor AQI sources failed to respond. Retry after 60 seconds.
+            {result.estimate && result.lastSuccessTime ? ` Showing last estimate from ${new Date(result.lastSuccessTime).toLocaleTimeString()}.` : ' No previous estimate available.'}
+          </p>
+        </div>
       )}
 
-      {selected && (
-        <div style={{ marginTop: '1rem', opacity: result.isFetching ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-          <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#0369a1', fontWeight: '500' }}>
+      <div style={{ marginTop: '1rem', opacity: result.isFetching ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+          <p style={{ margin: '0 0 1.5rem', fontSize: '0.9rem', color: '#0369a1', fontWeight: '500' }}>
             We started with a typical room. Change it to match yours.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-            <label style={label}>
-              Floor area, m²
-              <input style={input} type="number" min={1} step={0.5} value={room.request.room_area_m2} onChange={(ev) => onUpdate({ room_area_m2: Number(ev.target.value) || 1 })} />
-            </label>
-            <label style={label}>
-              Windows
-              <input style={input} type="number" min={0} step={1} value={room.request.windows} onChange={(ev) => onUpdate({ windows: Math.round(Number(ev.target.value)) || 0 })} />
-            </label>
-            <label style={label}>
-              Purifier CADR, m³/h (0 = none)
-              <input style={input} type="number" min={0} step={10} value={room.request.purifier_cadr_m3_h} onChange={(ev) => onUpdate({ purifier_cadr_m3_h: Number(ev.target.value) || 0 })} />
-            </label>
-            <label style={label}>
-              Cooking in this room
-              <select style={input} value={room.request.cooking_fuel} onChange={(ev) => onUpdate({ cooking_fuel: ev.target.value as IndoorRequest['cooking_fuel'] })}>
-                {FUELS.map(([v, name]) => (
-                  <option key={v} value={v}>{name}</option>
-                ))}
-              </select>
-            </label>
-            <label style={label}>
-              Smokers
-              <input style={input} type="number" min={0} step={1} value={room.request.smokers} onChange={(ev) => onUpdate({ smokers: Math.round(Number(ev.target.value)) || 0 })} />
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-            <label style={check}><input type="checkbox" checked={room.request.windows_open} onChange={(ev) => onUpdate({ windows_open: ev.target.checked })} /> Windows open now</label>
-            <label style={check}><input type="checkbox" checked={room.request.incense} onChange={(ev) => onUpdate({ incense: ev.target.checked })} /> Incense</label>
-            <label style={check}><input type="checkbox" checked={room.request.mosquito_coils} onChange={(ev) => onUpdate({ mosquito_coils: ev.target.checked })} /> Mosquito coil at night</label>
+          <div style={{ display: 'grid', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            {/* Room Size */}
+            <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+              <legend style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Room Size</legend>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <select style={{ ...input, minHeight: '44px' }} value={ui.sizeMode} onChange={(e) => updateUi({ sizeMode: e.target.value as any })}>
+                  <option value="small">Small (~10 m²)</option>
+                  <option value="medium">Medium (~15 m²)</option>
+                  <option value="large">Large (~20 m²)</option>
+                  <option value="custom_m">Custom (metres)</option>
+                  <option value="custom_ft">Custom (feet)</option>
+                </select>
+                {(ui.sizeMode === 'custom_m' || ui.sizeMode === 'custom_ft') && (
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input style={{ ...input, width: '4rem', minHeight: '44px' }} type="number" value={ui.customLength} onChange={(e) => updateUi({ customLength: Number(e.target.value) || 0 })} />
+                    <span>×</span>
+                    <input style={{ ...input, width: '4rem', minHeight: '44px' }} type="number" value={ui.customWidth} onChange={(e) => updateUi({ customWidth: Number(e.target.value) || 0 })} />
+                    <span>{ui.sizeMode === 'custom_m' ? 'm' : 'ft'}</span>
+                  </div>
+                )}
+              </div>
+            </fieldset>
+
+            {/* Windows */}
+            <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+              <legend style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Windows</legend>
+              <label style={{ ...label, marginBottom: '0.5rem' }}>
+                Number of windows
+                <input style={{ ...input, width: '5rem', minHeight: '44px' }} type="number" min={0} value={room.request.windows} onChange={(e) => onUpdate({ request: { ...room.request, windows: Math.round(Number(e.target.value)) || 0 } })} />
+              </label>
+              {room.request.windows > 0 && (
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.9rem', color: '#475569', display: 'flex', alignItems: 'center' }}>Usually open in the:</span>
+                  <label style={check}><input type="checkbox" style={{ width: '20px', height: '20px' }} checked={ui.windowsMorning} onChange={(e) => updateUi({ windowsMorning: e.target.checked })} /> Morning</label>
+                  <label style={check}><input type="checkbox" style={{ width: '20px', height: '20px' }} checked={ui.windowsAfternoon} onChange={(e) => updateUi({ windowsAfternoon: e.target.checked })} /> Afternoon</label>
+                  <label style={check}><input type="checkbox" style={{ width: '20px', height: '20px' }} checked={ui.windowsNight} onChange={(e) => updateUi({ windowsNight: e.target.checked })} /> Night</label>
+                </div>
+              )}
+            </fieldset>
+
+            {/* Purifier */}
+            <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+              <legend style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Air Purifier</legend>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <select style={{ ...input, minHeight: '44px' }} value={ui.purifierMode} onChange={(e) => updateUi({ purifierMode: e.target.value as any })}>
+                  <option value="no">No purifier</option>
+                  <option value="small">Yes, small</option>
+                  <option value="large">Yes, large</option>
+                  <option value="custom">I know its CADR</option>
+                </select>
+                {ui.purifierMode === 'custom' && (
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input style={{ ...input, width: '5rem', minHeight: '44px' }} type="number" value={ui.purifierUnit === 'cfm' ? Math.round(room.request.purifier_cadr_m3_h / 1.7) : room.request.purifier_cadr_m3_h} 
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        onUpdate({ request: { ...room.request, purifier_cadr_m3_h: ui.purifierUnit === 'cfm' ? val * 1.7 : val } });
+                      }} 
+                    />
+                    <select style={{ ...input, minHeight: '44px' }} value={ui.purifierUnit} onChange={(e) => {
+                      const newUnit = e.target.value as any;
+                      updateUi({ purifierUnit: newUnit });
+                    }}>
+                      <option value="m3h">m³/h</option>
+                      <option value="cfm">cfm</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </fieldset>
+
+            {/* Kitchen specifics */}
+            {isKitchen && (
+              <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                <legend style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Kitchen details</legend>
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  <label style={label}>
+                    Cooking fuel
+                    <select style={{ ...input, minHeight: '44px' }} value={room.request.cooking_fuel} onChange={(e) => onUpdate({ request: { ...room.request, cooking_fuel: e.target.value as any } })}>
+                      <option value="lpg">🔵 LPG</option>
+                      <option value="png">🟡 Piped Gas</option>
+                      <option value="electric">⚡ Induction / Electric</option>
+                      <option value="kerosene">🛢️ Kerosene</option>
+                      <option value="biomass">🪵 Wood / Dung (Chulha)</option>
+                    </select>
+                  </label>
+                  
+                  <div>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>Meal times</span>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      {ui.mealTimes.map((time, i) => (
+                        <input key={i} type="time" style={{ ...input, minHeight: '44px' }} value={time} onChange={(e) => {
+                          const newTimes = [...ui.mealTimes];
+                          newTimes[i] = e.target.value;
+                          updateUi({ mealTimes: newTimes });
+                        }} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>Chimney / Exhaust</span>
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>Not counted yet</p>
+                  </div>
+                </div>
+              </fieldset>
+            )}
+
+            {/* Smoking */}
+            {(isLiving || (!isKitchen && !isBedroom)) && (
+              <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                <legend style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Smoking indoors</legend>
+                <select style={{ ...input, minHeight: '44px' }} value={ui.smokerSelect} onChange={(e) => updateUi({ smokerSelect: e.target.value as any })}>
+                  <option value="unanswered" disabled>Select...</option>
+                  <option value="no">No</option>
+                  <option value="sometimes">Sometimes</option>
+                  <option value="every_day">Every day</option>
+                  <option value="prefer_not">Prefer not to say</option>
+                </select>
+              </fieldset>
+            )}
+
+            {/* Incense & Mosquito Coils */}
+            <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+              {isLiving && (
+                <label style={{ ...check, minHeight: '44px' }}>
+                  <input type="checkbox" style={{ width: '20px', height: '20px' }} checked={room.request.incense} onChange={(e) => onUpdate({ request: { ...room.request, incense: e.target.checked } })} /> 
+                  Burn incense or dhoop
+                </label>
+              )}
+              {isBedroom && (
+                <label style={{ ...check, minHeight: '44px' }}>
+                  <input type="checkbox" style={{ width: '20px', height: '20px' }} checked={room.request.mosquito_coils} onChange={(e) => onUpdate({ request: { ...room.request, mosquito_coils: e.target.checked } })} /> 
+                  Burn mosquito coils at night
+                </label>
+              )}
+            </fieldset>
           </div>
 
           {result.error && <p style={{ color: '#ef4444', fontSize: '0.9rem' }}>{result.error}</p>}
@@ -337,7 +518,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               </ul>
 
               <details style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: '#475569' }}>
-                <summary style={{ cursor: 'pointer' }}>What we assumed</summary>
+                <summary style={{ cursor: 'pointer', minHeight: '44px', display: 'flex', alignItems: 'center' }}>What we assumed</summary>
                 <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
                   <li>{String(e.assumptions.room_volume_m3)} m³; windows {String(e.assumptions.ventilation)}: {String(e.assumptions.infiltration_rate_ach)} air changes an hour, {String(e.assumptions.penetration)} of particles get in</li>
                   <li>Settling {String(e.assumptions.decay_rate_h)}/h; purifier {String(e.assumptions.purifier_effective_cadr_m3_h)} m³/h</li>
@@ -351,7 +532,6 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
             <Button size="sm" variant="secondary" onClick={() => onRemove()}>Remove this room</Button>
           </div>
         </div>
-      )}
     </div>
   );
 }
