@@ -6,6 +6,7 @@ Kisan Saathi service (P1): the stubble coverage engine and the farmer intake age
 uv sync
 uv run pytest -q
 uv run uvicorn agent_kisan.api:app --reload --port 8001   # API docs at http://localhost:8001/docs
+uv run python scripts/serve_scripted.py                   # same API, Gurpreet's scripted conversation instead of Bedrock
 uv run python -m agent_kisan.chat                         # talk to the agent in the terminal
 uv run python scripts/smoke_gurpreet.py                   # scripted Punjabi conversation (calls Bedrock)
 ```
