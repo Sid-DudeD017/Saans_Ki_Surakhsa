@@ -118,7 +118,7 @@ The application uses `TRANSACTIONAL` messages and supplies `IN_ENTITY_ID` and `I
 AWS. Carriers can reject a message when its fixed text differs from the registered DLT template, even
 by punctuation, whitespace, or letter case.
 
-## 8. Access-control decision
+## 8. Access-control decision — complete
 
 The initial deployment uses one `officer` role and two district groups:
 
@@ -131,6 +131,9 @@ The initial deployment uses one `officer` role and two district groups:
 
 This is the approved access model for the isolated development deployment. Revisit it before a
 shared or production deployment.
+
+Decision recorded: district officers are the only deployed role; field-officer and state-centre
+roles are intentionally excluded. `CLOSED` is a terminal case state, enforced by the command API.
 
 ## 9. Billing Alerts
 Billing metrics exist only in `us-east-1`, so deploy the separate account-level template there:

@@ -1,6 +1,7 @@
 import { commandConfig } from "./config";
 import { pool, type Db } from "./deps";
 import { authorizeResource } from "./avp";
+import { resolveTransition } from "./case-transitions";
 import { InMemoryIdempotencyStore, SmsSender } from "./sms";
 
 interface Event {
@@ -84,23 +85,18 @@ export async function detail(event: Event) {
   return response(200, row);
 }
 
-const ACTIONS: Record<string, { cedar: string; status: string }> = {
-  APPROVE: { cedar: "assign", status: "ACTION_APPROVED" },
-  CHANGE: { cedar: "assign", status: "ACTION_CHANGED" },
-  REJECT: { cedar: "assign", status: "OPEN" },
-  MARK_IN_FIELD: { cedar: "mark_in_field", status: "IN_FIELD" },
-  RECORD_ACTION_TAKEN: { cedar: "record_action", status: "ACTION_TAKEN" },
-  CLOSE: { cedar: "close", status: "CLOSED" },
-};
-
 export async function actions(event: Event) {
   const id = event.pathParameters?.id ?? "";
   const row = await loadCase(id);
   if (!row) return response(404, { error: { code: "not_found" } });
   let input: any;
   try { input = JSON.parse(event.body ?? "{}"); } catch { return response(400, { error: { code: "invalid_request" } }); }
-  const mapping = ACTIONS[input.action];
-  if (!mapping) return response(400, { error: { code: "invalid_action" } });
+  const resolved = resolveTransition(row.status, input.action);
+  if (!resolved.ok) {
+    const status = resolved.code === "case_closed" ? 409 : 400;
+    return response(status, { error: { code: resolved.code } });
+  }
+  const mapping = resolved.transition;
   if (!(await allowed(event, mapping.cedar, id, row.district))) return response(403, { error: { code: "forbidden" } });
   const version = Number(input.previousCaseVersion);
   const updated = await db.query<any>(
