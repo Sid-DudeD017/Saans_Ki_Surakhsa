@@ -1,5 +1,4 @@
 // Amazon Location routes (P3): reading CalculateRoutes answers, the request we send, and falling back to OSRM.
-import type { CalculateRoutesCommand } from '@aws-sdk/client-geo-routes';
 import { describe, expect, it, vi } from 'vitest';
 
 import { amazonProvider, fromAmazon } from './amazon';
@@ -31,7 +30,7 @@ const answer = {
 
 describe('Amazon Location answers', () => {
   it('turns spans into steps with names, geometry and congestion = 1 − free ÷ actual', () => {
-    const [route] = fromAmazon(answer as never);
+    const [route] = fromAmazon(answer);
     expect(route).toMatchObject({ distance_m: 9000, duration_s: 1000, source: 'amazon' });
     expect(route.steps.map((s) => [s.name, s.distance_m, s.duration_s, s.coords.length, s.congestion])).toEqual([
       ['DND Flyway', 6000, 400, 3, 0.25],
@@ -49,9 +48,9 @@ describe('the Amazon provider', () => {
   const fallback: RouteProvider = { routes: vi.fn(async () => [osrmRoute]) };
 
   it('asks for up to 5 routes with traffic, as Scooter for a two-wheeler, from [lon, lat]', async () => {
-    const sent: CalculateRoutesCommand[] = [];
-    const client = { send: vi.fn(async (c: CalculateRoutesCommand) => (sent.push(c), answer)) };
-    const routes = await amazonProvider(fallback, client as never).routes(NOIDA, SAKET, DEPART, 'two_wheeler');
+    const sent: any[] = [];
+    const client = { send: vi.fn(async (c: any) => (sent.push(c), answer)) };
+    const routes = await amazonProvider(fallback, client).routes(NOIDA, SAKET, DEPART, 'two_wheeler');
     expect(routes[0].source).toBe('amazon');
     expect(sent[0].input).toMatchObject({
       Origin: [77.391, 28.5355],
@@ -67,11 +66,11 @@ describe('the Amazon provider', () => {
   it('sends cycling to OSRM, and falls back to OSRM when Amazon fails, but not when it finds no route', async () => {
     const failing = { send: vi.fn(async () => { throw new Error('AccessDeniedException'); }) };
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect((await amazonProvider(fallback, failing as never).routes(NOIDA, SAKET, DEPART, 'cycle'))[0].source).toBe('osrm');
+    expect((await amazonProvider(fallback, failing).routes(NOIDA, SAKET, DEPART, 'cycle'))[0].source).toBe('osrm');
     expect(failing.send).not.toHaveBeenCalled();
-    expect((await amazonProvider(fallback, failing as never).routes(NOIDA, SAKET, DEPART, 'car_windows_up'))[0].source).toBe('osrm');
+    expect((await amazonProvider(fallback, failing).routes(NOIDA, SAKET, DEPART, 'car_windows_up'))[0].source).toBe('osrm');
     const empty = { send: vi.fn(async () => ({ Routes: [] })) };
-    await expect(amazonProvider(fallback, empty as never).routes(NOIDA, SAKET, DEPART, 'walk')).rejects.toThrow(NoRouteError);
+    await expect(amazonProvider(fallback, empty).routes(NOIDA, SAKET, DEPART, 'walk')).rejects.toThrow(NoRouteError);
     warn.mockRestore();
   });
 });
