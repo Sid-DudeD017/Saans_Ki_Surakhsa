@@ -153,4 +153,26 @@ describe('P2 G2 Contract Specification (p2-shala.openapi.json)', () => {
     ]);
     expect(schemas.PrincipalDecision.enum).toEqual(['go', 'caution', 'no_go']);
   });
+
+  it('declares GET /v1/notifications endpoint with NotificationItem array response', () => {
+    const notifsPath = contract.paths['/v1/notifications'];
+    expect(notifsPath).toBeDefined();
+    expect(notifsPath.get).toBeDefined();
+
+    const okResponse = notifsPath.get.responses['200'];
+    expect(okResponse).toBeDefined();
+    expect(okResponse.content['application/json'].schema.type).toBe('array');
+    expect(
+      okResponse.content['application/json'].schema.items.$ref
+    ).toBe('#/components/schemas/NotificationItem');
+
+    const notifItem = contract.components.schemas.NotificationItem;
+    expect(notifItem).toBeDefined();
+    expect(notifItem.required).toContain('id');
+    expect(notifItem.required).toContain('title');
+    expect(notifItem.required).toContain('message');
+    expect(notifItem.required).toContain('severity');
+    expect(notifItem.required).toContain('read');
+    expect(notifItem.required).toContain('sourceModule');
+  });
 });
