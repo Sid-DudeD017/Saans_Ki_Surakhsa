@@ -69,6 +69,7 @@ export default function ShalaPage() {
     'Dense smoke observed near playground boundary wall.'
   );
   const [reportSubmitted, setReportSubmitted] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -95,17 +96,23 @@ export default function ShalaPage() {
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setReportError(null);
     try {
       const res = await submitComplaint({
         category: reportCategory,
         description: reportDescription,
-        latitude: 28.6472,
-        longitude: 77.3058,
+        latitude: SCHOOL.location.lat,
+        longitude: SCHOOL.location.lon,
+        lat: SCHOOL.location.lat,
+        lon: SCHOOL.location.lon,
         photo: 'mock/photo/smoke_demo.jpg',
-        school_id: 'school_demo_001',
+        school_id: SCHOOL.id,
         reported_by_role: role,
       });
-      setReportSubmitted(res.ticket_id);
+      setReportSubmitted(res.ticket_id || res.id || 'SUBMITTED');
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      setReportError(err instanceof Error ? err.message : 'Failed to submit incident report');
     } finally {
       setIsSubmitting(false);
     }
@@ -256,13 +263,25 @@ export default function ShalaPage() {
                 <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', color: '#14532d' }}>
                   Reference Ticket ID: <strong>#{reportSubmitted}</strong>
                 </p>
-                <Button size="sm" variant="secondary" onClick={() => setReportSubmitted(null)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setReportSubmitted(null);
+                    setReportError(null);
+                  }}
+                >
                   Report Another Incident
                 </Button>
               </div>
             ) : (
               <form onSubmit={handleReportSubmit}>
                 <Stack gap="md">
+                  {reportError && (
+                    <Alert variant="danger">
+                      {reportError}
+                    </Alert>
+                  )}
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
                       1. Pollution Source Category
@@ -297,7 +316,7 @@ export default function ShalaPage() {
                     <input
                       type="text"
                       readOnly
-                      value="Government Model School Campus Perimeter (28.6472°N, 77.3058°E)"
+                      value={`${SCHOOL.name} (${SCHOOL.location.lat}°N, ${SCHOOL.location.lon}°E)`}
                       style={{
                         width: '100%',
                         padding: '0.5rem',

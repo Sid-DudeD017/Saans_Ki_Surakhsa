@@ -15,6 +15,7 @@
     "mock": "npx -y @stoplight/prism-cli@5.16.0 mock --host 127.0.0.1 --port 4010 packages/contracts/openapi.yaml",
     "stack": "docker compose -f infra/compose.yaml up -d --wait",
     "stack:down": "docker compose -f infra/compose.yaml down",
+    "smoke": "bash scripts/smoke.sh",
     "smoke:intake": "bash scripts/smoke-intake.sh"
   },
   "keywords": [],

@@ -61,6 +61,7 @@ export interface ComplaintPayload {
 
 export interface ComplaintResponse {
   ticket_id: string;
+  id?: string;
   status: 'received' | 'investigating' | 'resolved';
   created_at: string;
   message: string;
@@ -69,15 +70,20 @@ export interface ComplaintResponse {
 // In-memory mock notification store
 let notificationsStore: MockNotification[] = [...INITIAL_MOCK_NOTIFICATIONS];
 
+function getBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
+}
+
 /**
  * GET /v1/aqi?lat={lat}&lon={lon}
  */
 export async function getAqi(lat: number, lon: number): Promise<AqiData> {
-  if (USE_MOCKS || !API_BASE_URL) {
+  if (USE_MOCKS) {
     return { ...DETERMINISTIC_EVENT.aqiReading };
   }
 
-  const res = await fetch(`${API_BASE_URL}/v1/aqi?lat=${lat}&lon=${lon}`);
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch AQI: ${res.statusText}`);
   }
@@ -92,14 +98,15 @@ export async function getFires(
   lon: number,
   radiusKm = 10
 ): Promise<{ fires: FireData[] }> {
-  if (USE_MOCKS || !API_BASE_URL) {
+  if (USE_MOCKS) {
     return {
       fires: [{ ...DETERMINISTIC_EVENT.upwindFire }],
     };
   }
 
+  const base = getBaseUrl();
   const res = await fetch(
-    `${API_BASE_URL}/v1/fires?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`
+    `${base}/v1/fires?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`
   );
   if (!res.ok) {
     throw new Error(`Failed to fetch fires: ${res.statusText}`);
@@ -112,9 +119,9 @@ export async function getFires(
  */
 export async function getSchoolAdvisory(
   schoolId: string,
-  _role?: string
+  role?: string
 ): Promise<SchoolAdvisoryData> {
-  if (USE_MOCKS || !API_BASE_URL) {
+  if (USE_MOCKS) {
     return {
       school_id: schoolId || DETERMINISTIC_EVENT.school.id,
       school_name: DETERMINISTIC_EVENT.school.name,
@@ -127,26 +134,51 @@ export async function getSchoolAdvisory(
     };
   }
 
-  const res = await fetch(`${API_BASE_URL}/v1/schools/${schoolId}/advisory`);
+  const base = getBaseUrl();
+  const url = `${base}/v1/schools/${encodeURIComponent(schoolId)}/advisory${role ? `?role=${encodeURIComponent(role)}` : ''}`;
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch school advisory: ${res.statusText}`);
   }
-  return res.json();
+  const data = await res.json();
+  return {
+    school_id: data.school_id || schoolId,
+    school_name: data.school_name || data.school?.name || DETERMINISTIC_EVENT.school.name,
+    aqi: data.aqi ?? DETERMINISTIC_EVENT.aqiReading.aqi,
+    grap_stage: data.grap_stage || 'Stage II',
+    outdoor_activities_permitted: data.outdoor_activities_permitted ?? (data.guidance?.sports === 'outdoors'),
+    mask_recommended: data.mask_recommended ?? (data.guidance?.masks === 'recommended' || data.guidance?.masks === 'required_outdoors'),
+    summary: data.summary || data.headline || DETERMINISTIC_EVENT.advisory.summary,
+  };
 }
 
 /**
  * GET /v1/notifications
  */
 export async function getNotifications(): Promise<MockNotification[]> {
-  if (USE_MOCKS || !API_BASE_URL) {
+  if (USE_MOCKS) {
     return [...notificationsStore];
   }
 
-  const res = await fetch(`${API_BASE_URL}/v1/notifications`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch notifications: ${res.statusText}`);
+  try {
+    const base = getBaseUrl();
+    const res = await fetch(`${base}/v1/notifications`);
+    if (!res.ok) {
+      return [...notificationsStore];
+    }
+    return res.json();
+  } catch {
+    return [...notificationsStore];
   }
-  return res.json();
+}
+
+function mapCategoryToCitizenType(category?: string): 'farm_fire' | 'garbage' | 'vehicle' | 'firecrackers' {
+  if (!category) return 'farm_fire';
+  const lower = category.toLowerCase();
+  if (lower.includes('firecracker')) return 'firecrackers';
+  if (lower.includes('vehicle') || lower.includes('idling') || lower.includes('traffic')) return 'vehicle';
+  if (lower.includes('waste') || lower.includes('garbage') || lower.includes('dust') || lower.includes('trash')) return 'garbage';
+  return 'farm_fire';
 }
 
 /**
@@ -155,12 +187,12 @@ export async function getNotifications(): Promise<MockNotification[]> {
 export async function submitComplaint(
   payload: ComplaintPayload
 ): Promise<ComplaintResponse> {
-  if (USE_MOCKS || !API_BASE_URL) {
+  if (USE_MOCKS) {
     const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
     const newNotif: MockNotification = {
       id: `notif_${Date.now()}`,
       title: 'New Complaint Logged',
-      message: `Report filed for ${payload.category}: "${payload.description.slice(0, 40)}..."`,
+      message: `Report filed for ${payload.category}: "${(payload.description || '').slice(0, 40)}..."`,
       severity: 'info',
       timestamp: 'Just now',
       read: false,
@@ -169,6 +201,7 @@ export async function submitComplaint(
     notificationsStore = [newNotif, ...notificationsStore];
 
     return {
+      id: ticketId,
       ticket_id: ticketId,
       status: 'received',
       created_at: new Date().toISOString(),
@@ -176,15 +209,46 @@ export async function submitComplaint(
     };
   }
 
-  const res = await fetch(`${API_BASE_URL}/v1/complaints`, {
+  const base = getBaseUrl();
+  const lat = payload.lat ?? payload.latitude ?? 30.245;
+  const lon = payload.lon ?? payload.longitude ?? 75.842;
+  const idempotencyKey = `idem-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+
+  const body = {
+    type: mapCategoryToCitizenType(payload.category),
+    location: { lat, lon },
+    description: payload.description || undefined,
+    evidence: [],
+  };
+
+  const res = await fetch(`${base}/v1/complaints`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify(body),
   });
+
   if (!res.ok) {
-    throw new Error(`Failed to submit complaint: ${res.statusText}`);
+    const errBody = await res.json().catch(() => null);
+    const detail =
+      errBody?.error?.message ||
+      errBody?.message ||
+      (errBody?.error?.details?.[0] ? `${errBody.error.details[0].field}: ${errBody.error.details[0].problem}` : null) ||
+      res.statusText;
+    throw new Error(`Failed to submit complaint: ${detail}`);
   }
-  return res.json();
+
+  const data = await res.json();
+  const ticketId = data.ticket_id || data.id || `TKT-${Date.now()}`;
+  return {
+    id: data.id || ticketId,
+    ticket_id: ticketId,
+    status: data.status || 'received',
+    created_at: data.created_at || new Date().toISOString(),
+    message: data.message || 'Report submitted successfully. Dispatched to response desk.',
+  };
 }
 
 /**
