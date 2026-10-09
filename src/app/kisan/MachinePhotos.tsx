@@ -28,6 +28,7 @@ export function MachinePhotos({ language }: { language: Language }) {
   const [choice, setChoice] = useState<MachineType | 'other' | null>(null);
   const [count, setCount] = useState(1);
   const [owned, setOwned] = useState(true);
+  const [days, setDays] = useState(2); // for a rented machine; an owned one has the whole season
   const camera = useRef<HTMLInputElement | null>(null);
   const gallery = useRef<HTMLInputElement | null>(null);
   const preview = 'preview' in phase ? phase.preview : null;
@@ -48,6 +49,7 @@ export function MachinePhotos({ language }: { language: Language }) {
       setChoice(preselect(result.machine));
       setCount(1);
       setOwned(true);
+      setDays(2);
       setPhase({ at: 'confirm', preview: url, thumb, result });
     } catch (e) {
       const why = e instanceof KisanError && e.status !== 0 ? e.message : say('network', language);
@@ -69,6 +71,7 @@ export function MachinePhotos({ language }: { language: Language }) {
       type: choice,
       count,
       owned,
+      ...(owned ? {} : { days }),
       ...(phase.thumb ? { thumb: phase.thumb } : {}),
       guess: { machine: guess?.machine ?? null, confidence: guess?.confidence ?? null },
       addedAt: new Date().toISOString(),
@@ -171,18 +174,7 @@ export function MachinePhotos({ language }: { language: Language }) {
                 </fieldset>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.95rem', color: '#334155' }}>{say('howMany', language)}</span>
-                    <Button variant="secondary" aria-label={say('fewer', language)} disabled={count <= 1} onClick={() => setCount((n) => Math.max(1, n - 1))} style={{ ...BIG, minWidth: '3rem' }}>
-                      −
-                    </Button>
-                    <span aria-live="polite" style={{ minWidth: '1.5rem', textAlign: 'center', fontSize: '1.15rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                      {count}
-                    </span>
-                    <Button variant="secondary" aria-label={say('more', language)} disabled={count >= 20} onClick={() => setCount((n) => Math.min(20, n + 1))} style={{ ...BIG, minWidth: '3rem' }}>
-                      +
-                    </Button>
-                  </div>
+                  <Stepper label={say('howMany', language)} value={count} min={1} max={20} onChange={setCount} language={language} />
                   <div role="group" style={{ display: 'flex', gap: '0.5rem' }}>
                     <Button variant={owned ? 'primary' : 'outline'} aria-pressed={owned} onClick={() => setOwned(true)} style={BIG}>
                       {say('mine', language)}
@@ -192,6 +184,17 @@ export function MachinePhotos({ language }: { language: Language }) {
                     </Button>
                   </div>
                 </div>
+
+                {!owned && (
+                  <Stepper
+                    label={say('forDays', language)}
+                    value={days}
+                    min={1}
+                    max={60}
+                    onChange={setDays}
+                    language={language}
+                  />
+                )}
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <Button size="lg" disabled={!choice} onClick={add} style={BIG}>
@@ -228,7 +231,10 @@ export function MachinePhotos({ language }: { language: Language }) {
                       <div style={{ fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>
                         {m.count} × {machineLabel(m.type, language)}
                       </div>
-                      <div style={{ fontSize: '0.9rem', color: '#475569' }}>{say(m.owned ? 'mine' : 'rented', language)}</div>
+                      <div style={{ fontSize: '0.9rem', color: '#475569' }}>
+                        {say(m.owned ? 'mine' : 'rented', language)} ·{' '}
+                        {m.days !== undefined ? sayWith('nDays', language, { n: m.days }) : say('wholeSeason', language)}
+                      </div>
                     </div>
                     <Button variant="ghost" onClick={() => remove(m.id)} style={{ minHeight: '2.75rem' }}>
                       {say('remove', language)}
@@ -239,10 +245,27 @@ export function MachinePhotos({ language }: { language: Language }) {
             ))}
           </ul>
         )}
-        {farm.machines.length > 0 && (
-          <p style={{ margin: '0.75rem 0 0', fontSize: '0.9rem', color: '#64748b' }}>{say('checkNext', language)}</p>
+        {farm.machines.some((m) => m.type === 'other') && (
+          <p style={{ margin: '0.75rem 0 0', fontSize: '0.9rem', color: '#64748b' }}>{say('otherNotCounted', language)}</p>
         )}
       </section>
+    </div>
+  );
+}
+
+function Stepper({ label, value, min, max, onChange, language }: { label: string; value: number; min: number; max: number; onChange: (n: number) => void; language: Language }) {
+  return (
+    <div role="group" aria-label={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <span style={{ fontSize: '0.95rem', color: '#334155' }}>{label}</span>
+      <Button variant="secondary" aria-label={say('fewer', language)} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))} style={{ ...BIG, minWidth: '3rem' }}>
+        −
+      </Button>
+      <span aria-live="polite" style={{ minWidth: '1.75rem', textAlign: 'center', fontSize: '1.15rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+      </span>
+      <Button variant="secondary" aria-label={say('more', language)} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))} style={{ ...BIG, minWidth: '3rem' }}>
+        +
+      </Button>
     </div>
   );
 }

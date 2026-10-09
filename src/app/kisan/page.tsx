@@ -1,19 +1,20 @@
 'use client';
 
 // Kisan Saathi (P1): four tabs along the bottom (K1). Plan is the conversation with the agent; Machines
-// holds the farm card and machine photos; Shop and Help come next. Every tab shares the farm's
-// location and profile, kept on the phone (farmProfile.ts). All tabs stay mounted, so switching
-// never loses a conversation or a photo half-way through.
+// holds the farm card, machine photos and the "is it enough?" check; Shop and Help come next. Every
+// tab shares the farm's location and profile, kept on the phone (farmProfile.ts). All tabs stay
+// mounted, so switching never loses a conversation or a photo half-way through.
 import React, { useCallback } from 'react';
 
 import { Badge, Card, Container } from '../../components/ui';
 import { useLanguage } from '../../lib/i18n';
 import { FarmCard } from './FarmCard';
 import { FarmLocationBar } from './FarmLocationBar';
-import { farmFromReadback, farmStore, mergeFromChat } from './farmProfile';
+import { farmFromReadback, farmHint, farmStore, machinesFromReadback, mergeFromChat } from './farmProfile';
 import { KisanChat } from './KisanChat';
 import { USE_MOCKS, type Language, type Readback } from './kisanApi';
 import { KisanTabs, useTab, type Tab } from './KisanTabs';
+import { MachineCheck } from './MachineCheck';
 import { MachinePhotos } from './MachinePhotos';
 import { FONT, say, type StringKey } from './strings';
 
@@ -43,8 +44,10 @@ export default function KisanPage() {
   const [tab, go] = useTab();
 
   const confirmed = useCallback((readback: Readback) => {
-    farmStore.set((farm) => mergeFromChat(farm, farmFromReadback(readback)));
+    farmStore.set((farm) => mergeFromChat(farm, farmFromReadback(readback), machinesFromReadback(readback)));
   }, []);
+  // A new conversation starts from what the farm card and machine photos already say (K9).
+  const startFrom = useCallback(() => farmHint(farmStore.get()), []);
 
   return (
     <Container maxWidth="md" style={{ paddingTop: '1.5rem', paddingBottom: '2rem', fontFamily: FONT }}>
@@ -63,13 +66,14 @@ export default function KisanPage() {
       <FarmLocationBar language={lang} />
 
       <Panel tab="plan" current={tab}>
-        <KisanChat onConfirmed={confirmed} />
+        <KisanChat onConfirmed={confirmed} farm={startFrom} />
       </Panel>
 
       <Panel tab="machines" current={tab}>
         <div style={{ display: 'grid', gap: '1rem' }}>
           <FarmCard language={lang} />
           <MachinePhotos language={lang} />
+          <MachineCheck language={lang} onGo={go} />
         </div>
       </Panel>
 

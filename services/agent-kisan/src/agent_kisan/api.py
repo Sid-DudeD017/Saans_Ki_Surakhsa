@@ -85,7 +85,8 @@ class Paddy(BaseModel):
 
 class Machine(BaseModel):
     type: MachineType
-    days: float = Field(ge=0, description="Days the farmer can use it")
+    days: float = Field(ge=0, description="Days the farmer can use it, added up over all units")
+    units: int = Field(default=1, ge=1, le=20, description="How many of this machine; each needs its own tractor")
 
 
 class CoverageRequest(BaseModel):
@@ -162,6 +163,7 @@ def farm_coverage(req: CoverageRequest) -> CoverageResponse:
             paddy_acres,
             window,
             {m.type: m.days for m in req.machines},
+            machine_units={m.type: m.units for m in req.machines},
             tractors=req.tractors,
             rain_days=req.rain_days,
             decomposer_acres=req.decomposer_acres,
@@ -380,12 +382,36 @@ def allocations(req: AllocationRequest) -> dict:
 
 # ---- the agent ----
 
+class FarmHint(BaseModel):
+    """What the farmer already told the app (its farm card and machine photos). Used only when a
+    conversation starts, to fill details the agent would otherwise ask for; the read-back still shows
+    them all for the farmer to confirm."""
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+    village: str | None = Field(default=None, max_length=80)
+    paddy_acres: float | None = Field(default=None, ge=0, le=10_000)
+    tractors: int | None = Field(default=None, ge=0, le=50)
+    harvest_date: date | None = None
+    wheat_deadline: date | None = None
+    machines: dict[MachineType, float] | None = Field(default=None, description="Machine → days the farmer can use it")
+
+    def apply(self, chat: KisanChat) -> None:
+        h = self.model_dump(exclude_none=True)
+        if "paddy_acres" in h:
+            h["paddy_area"] = h.pop("paddy_acres")
+            chat.session.profile.paddy_unit = "acre"
+        errors = chat.session.prefill(**h)
+        if errors:
+            log.info("farm details from the app not used: %s", errors)
+
+
 class MessageRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Omit to start a new conversation")
     text: str = Field(min_length=1, max_length=2000)
     language: Literal["pa", "hi", "en"] = "pa"
     farmer_phone: str | None = Field(default=None, description="+91 mobile from sign-in, for SMS updates",
                                      pattern=r"^\+91[6-9]\d{9}$")
+    farm: FarmHint | None = Field(default=None, description="With a new conversation only: what the app already knows about the farm")
 
 
 class QuickReply(BaseModel):
@@ -493,6 +519,8 @@ def _after_turn(chat: KisanChat) -> None:
 @app.post("/v1/agent/kisan/messages", responses=_errors(404, 409, 503))
 def kisan_message(req: MessageRequest) -> MessageResponse:
     sid, chat = _chat_for(req.session_id, req.language)
+    if req.session_id is None and req.farm is not None:
+        req.farm.apply(chat)
     if req.farmer_phone:
         chat.session.farmer_phone = req.farmer_phone
     reply = _one_at_a_time(sid, lambda: chat.send(req.text))
@@ -582,8 +610,13 @@ def kisan_voice(
     audio: UploadFile,
     session_id: str | None = Form(default=None),
     language: Literal["pa", "hi", "en"] = Form(default="pa"),
+    farm: str | None = Form(default=None, description="With a new conversation only: a FarmHint as JSON"),
 ) -> MessageResponse:
     """A voice note (m4a, wav, ogg, mp3...). The reply includes the transcript so the app can show what was heard."""
+    try:
+        hint = FarmHint.model_validate_json(farm) if farm and session_id is None else None
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"farm isn't a valid FarmHint: {e}") from e
     data = audio.file.read(MAX_AUDIO_BYTES + 1)
     if not data:
         raise HTTPException(status_code=422, detail="the voice note is empty")
@@ -597,6 +630,8 @@ def kisan_voice(
         raise HTTPException(status_code=503, detail=f"speech recognition isn't set up here: {e}") from e
 
     sid, chat = _chat_for(session_id, language)
+    if hint is not None:
+        hint.apply(chat)
     try:
         reply, transcript = _one_at_a_time(sid, lambda: chat.send_voice(data, transcriber))
     except ImportError as e:  # local Whisper is a dev-only dependency

@@ -51,7 +51,10 @@ def estimate_coverage(
     rain_days: float = 0,
     decomposer_acres: float = 0,
     capacities: Mapping[str, float] = CAPACITY_ACRES_PER_DAY,
+    machine_units: Mapping[str, int] | None = None,
 ) -> CoverageResult:
+    """machine_units: how many of each machine the farmer has (default 1). Each needs its own tractor, so
+    a type's days are capped at units × work days as well as by the tractor-days."""
     machine_days = dict(machine_days or {})
     _require_non_negative(
         paddy_acres=paddy_acres, window_days=window_days, tractors=tractors,
@@ -76,7 +79,7 @@ def estimate_coverage(
         capacity = capacities[machine]
         days = min(
             machine_days[machine],
-            work_days,
+            work_days * (machine_units or {}).get(machine, 1),
             tractor_days - used_total,
             (paddy_acres - covered) / capacity if capacity else 0.0,
         )

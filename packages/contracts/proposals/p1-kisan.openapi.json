@@ -1681,6 +1681,18 @@
             ],
             "title": "Language",
             "default": "pa"
+          },
+          "farm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Farm",
+            "description": "With a new conversation only: a FarmHint as JSON"
           }
         },
         "type": "object",
@@ -2019,6 +2031,124 @@
         ],
         "title": "CoverageResponse"
       },
+      "FarmHint": {
+        "properties": {
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lon": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lon"
+          },
+          "village": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Village"
+          },
+          "paddy_acres": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paddy Acres"
+          },
+          "tractors": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 50.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tractors"
+          },
+          "harvest_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Harvest Date"
+          },
+          "wheat_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wheat Deadline"
+          },
+          "machines": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "happy_seeder",
+                    "super_seeder",
+                    "mulcher_rmb",
+                    "baler"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Machines",
+            "description": "Machine → days the farmer can use it"
+          }
+        },
+        "type": "object",
+        "title": "FarmHint",
+        "description": "What the farmer already told the app (its farm card and machine photos). Used only when a\nconversation starts, to fill details the agent would otherwise ask for; the read-back still shows\nthem all for the farmer to confirm."
+      },
       "Fire": {
         "properties": {
           "lat": {
@@ -2225,7 +2355,15 @@
             "type": "number",
             "minimum": 0.0,
             "title": "Days",
-            "description": "Days the farmer can use it"
+            "description": "Days the farmer can use it, added up over all units"
+          },
+          "units": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Units",
+            "description": "How many of this machine; each needs its own tractor",
+            "default": 1
           }
         },
         "type": "object",
@@ -2335,6 +2473,17 @@
             ],
             "title": "Farmer Phone",
             "description": "+91 mobile from sign-in, for SMS updates"
+          },
+          "farm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FarmHint"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With a new conversation only: what the app already knows about the farm"
           }
         },
         "type": "object",

@@ -11,6 +11,7 @@ import { useLanguage } from '../../lib/i18n';
 import {
   KisanError,
   readbackOf,
+  type FarmHint,
   sendMessage,
   sendVoice,
   transcriptOf,
@@ -58,7 +59,7 @@ function Bubble({ line, language }: { line: Line; language: Language }) {
   );
 }
 
-export function KisanChat({ onConfirmed }: { onConfirmed?: (readback: Readback) => void }) {
+export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Readback) => void; farm?: () => FarmHint | undefined }) {
   const { language: shellLanguage } = useLanguage();
   const [language, setLanguage] = useState<Language>(shellLanguage);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -109,13 +110,13 @@ export function KisanChat({ onConfirmed }: { onConfirmed?: (readback: Readback) 
     setLines((old) => [...old, { who: 'farmer', text: clean }]);
     setDraft('');
     setReadback(null);
-    void turn(() => sendMessage(clean, lang, sessionId));
+    void turn(() => sendMessage(clean, lang, sessionId, sessionId ? undefined : farm?.()));
   }
 
   const recorder = useHoldToRecord((audio, filename) => {
     setReadback(null);
     void turn(async () => {
-      const r = await sendVoice(audio, filename, lang, sessionId);
+      const r = await sendVoice(audio, filename, lang, sessionId, sessionId ? undefined : farm?.());
       const heard = transcriptOf(r)?.text;
       setLines((old) => [...old, { who: 'farmer', text: heard || '🎤', voice: true }]);
       return r;

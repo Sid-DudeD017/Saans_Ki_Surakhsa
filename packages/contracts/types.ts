@@ -723,6 +723,11 @@ export interface components {
              * @enum {string}
              */
             language: "pa" | "hi" | "en";
+            /**
+             * Farm
+             * @description With a new conversation only: a FarmHint as JSON
+             */
+            farm?: string | null;
         };
         /**
          * Booking
@@ -1082,6 +1087,35 @@ export interface components {
             tractors: number;
             /** Machines */
             machines: components["schemas"]["FarmMachine"][];
+        };
+        /**
+         * FarmHint
+         * @description What the farmer already told the app (its farm card and machine photos). Used only when a
+         *     conversation starts, to fill details the agent would otherwise ask for; the read-back still shows
+         *     them all for the farmer to confirm.
+         */
+        FarmHint: {
+            /** Lat */
+            lat?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Village */
+            village?: string | null;
+            /** Paddy Acres */
+            paddy_acres?: number | null;
+            /** Tractors */
+            tractors?: number | null;
+            /** Harvest Date */
+            harvest_date?: string | null;
+            /** Wheat Deadline */
+            wheat_deadline?: string | null;
+            /**
+             * Machines
+             * @description Machine → days the farmer can use it
+             */
+            machines?: {
+                [key: string]: number;
+            } | null;
         };
         /** FarmMachine */
         FarmMachine: {
@@ -1543,9 +1577,15 @@ export interface components {
             type: "happy_seeder" | "super_seeder" | "mulcher_rmb" | "baler";
             /**
              * Days
-             * @description Days the farmer can use it
+             * @description Days the farmer can use it, added up over all units
              */
             days: number;
+            /**
+             * Units
+             * @description How many of this machine; each needs its own tractor
+             * @default 1
+             */
+            units: number;
         };
         MachineAsset: {
             id: string;
@@ -1590,6 +1630,8 @@ export interface components {
              * @description +91 mobile from sign-in, for SMS updates
              */
             farmer_phone?: string | null;
+            /** @description With a new conversation only: what the app already knows about the farm */
+            farm?: components["schemas"]["FarmHint"] | null;
         };
         /** MessageResponse */
         MessageResponse: {

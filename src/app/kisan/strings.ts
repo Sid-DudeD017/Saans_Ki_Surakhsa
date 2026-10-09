@@ -164,11 +164,89 @@ const STRINGS = {
     hi: 'भेजी गई फ़ोटो में चेहरे धुंधले किए जाते हैं और जगह की जानकारी हटा दी जाती है।',
     en: "In the photo we keep, faces are blurred and the photo's location data is removed.",
   },
-  checkNext: {
-    pa: 'ਅਗਲਾ ਕਦਮ: ਕੀ ਇਹ ਮਸ਼ੀਨਾਂ ਕਾਫ਼ੀ ਹਨ? (ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ)',
-    hi: 'अगला कदम: क्या ये मशीनें काफ़ी हैं? (जल्द आ रहा है)',
-    en: 'Next: are these machines enough? (coming soon)',
+  forDays: { pa: 'ਕਿੰਨੇ ਦਿਨਾਂ ਲਈ?', hi: 'कितने दिनों के लिए?', en: 'For how many days?' },
+  nDays: { pa: '{n} ਦਿਨ', hi: '{n} दिन', en: '{n} days' },
+  wholeSeason: { pa: 'ਪੂਰਾ ਸੀਜ਼ਨ', hi: 'पूरा सीज़न', en: 'whole season' },
+  otherNotCounted: {
+    pa: '"ਹੋਰ ਮਸ਼ੀਨ" ਹਿਸਾਬ ਵਿੱਚ ਨਹੀਂ ਗਿਣੀ ਜਾਂਦੀ।',
+    hi: '"दूसरी मशीन" हिसाब में नहीं गिनी जाती।',
+    en: '"Other machine" isn\'t counted in the check.',
   },
+
+  // Is it enough? (K10)
+  checkTitle: { pa: 'ਕੀ ਤੁਹਾਡੀਆਂ ਮਸ਼ੀਨਾਂ ਕਾਫ਼ੀ ਹਨ?', hi: 'क्या आपकी मशीनें काफ़ी हैं?', en: 'Are your machines enough?' },
+  checkButton: { pa: 'ਹਿਸਾਬ ਲਾਓ', hi: 'हिसाब लगाएँ', en: 'Work it out' },
+  checkAgain: { pa: 'ਫਿਰ ਹਿਸਾਬ ਲਾਓ', hi: 'फिर से हिसाब लगाएँ', en: 'Work it out again' },
+  checking: { pa: 'ਹਿਸਾਬ ਲਾ ਰਿਹਾ ਹਾਂ…', hi: 'हिसाब लगा रहा हूँ…', en: 'Working it out…' },
+  changed: {
+    pa: 'ਖੇਤ ਜਾਂ ਮਸ਼ੀਨਾਂ ਬਦਲ ਗਈਆਂ ਹਨ।',
+    hi: 'खेत या मशीनें बदल गई हैं।',
+    en: 'Your farm or machines have changed.',
+  },
+  needPaddy: {
+    pa: 'ਪਹਿਲਾਂ ਖੇਤ ਵਾਲੇ ਕਾਰਡ ਤੇ ਝੋਨੇ ਦੇ ਕਿੱਲੇ ਭਰੋ।',
+    hi: 'पहले खेत वाले कार्ड पर धान के किल्ले भरें।',
+    en: 'Add your paddy acres on the farm card first.',
+  },
+  needDates: {
+    pa: 'ਪਹਿਲਾਂ ਖੇਤ ਵਾਲੇ ਕਾਰਡ ਤੇ ਵਾਢੀ ਅਤੇ ਕਣਕ ਦੀਆਂ ਤਾਰੀਖ਼ਾਂ ਭਰੋ।',
+    hi: 'पहले खेत वाले कार्ड पर कटाई और गेहूँ की तारीख़ें भरें।',
+    en: 'Add the harvest and wheat dates on the farm card first.',
+  },
+  verdict_enough: { pa: 'ਕਾਫ਼ੀ ਹਨ', hi: 'काफ़ी हैं', en: 'Enough' },
+  verdict_almost: { pa: 'ਲਗਭਗ', hi: 'लगभग', en: 'Almost' },
+  verdict_short: { pa: 'ਕਾਫ਼ੀ ਨਹੀਂ', hi: 'काफ़ी नहीं', en: 'Not enough' },
+  coveredBy: {
+    pa: '{date} ਤੱਕ {total} ਵਿੱਚੋਂ {covered} ਕਿੱਲੇ ਬਿਨਾਂ ਅੱਗ ਦੇ ਸਾਫ਼',
+    hi: '{date} तक {total} में से {covered} किल्ले बिना आग के साफ़',
+    en: '{covered} of {total} acres cleared by {date} without fire',
+  },
+  gapLeft: {
+    pa: '{gap} ਕਿੱਲੇ ਬਾਕੀ: ਲਗਭਗ {straw} ਟਨ ਪਰਾਲੀ',
+    hi: '{gap} किल्ले बाकी: लगभग {straw} टन पराली',
+    en: '{gap} acres left: about {straw} t of straw',
+  },
+  smokeIfBurnt: {
+    pa: 'ਜੇ ਸਾੜੀ ਤਾਂ: ਲਗਭਗ {kg} ਕਿਲੋ PM2.5 ਧੂੰਆਂ',
+    hi: 'अगर जलाई तो: लगभग {kg} किलो PM2.5 धुआँ',
+    en: "If it's burnt: about {kg} kg of PM2.5 smoke",
+  },
+  moreDays: {
+    pa: 'ਲਗਭਗ {days} ਦਿਨ ਹੋਰ {machine} ਨਾਲ ਪੂਰਾ ਹੋ ਜਾਵੇਗਾ',
+    hi: 'लगभग {days} दिन और {machine} से पूरा हो जाएगा',
+    en: 'About {days} more days of a {machine} would clear it',
+  },
+  assumedDry: {
+    pa: 'ਇਹ ਮੰਨ ਕੇ ਕਿ ਸਾਰੇ ਦਿਨ ਸੁੱਕੇ ਰਹਿਣਗੇ। CHC ਯੋਜਨਾ ਮੀਂਹ ਦੀ ਭਵਿੱਖਬਾਣੀ ਵੀ ਵੇਖਦੀ ਹੈ।',
+    hi: 'यह मानकर कि सारे दिन सूखे रहेंगे। CHC योजना बारिश का पूर्वानुमान भी देखती है।',
+    en: 'This assumes every day is dry. The CHC plan also checks the rain forecast.',
+  },
+
+  // From the verdict to action (K11)
+  findChc: { pa: 'ਬਾਕੀ ਲਈ CHC ਮਸ਼ੀਨ ਲੱਭੋ', hi: 'बाकी के लिए CHC मशीन ढूँढें', en: 'Find CHC machines for the rest' },
+  seeShop: { pa: 'ਕਿਰਾਏ ਜਾਂ ਖਰੀਦਣ ਲਈ ਵੇਖੋ', hi: 'किराए या खरीद के लिए देखें', en: 'See what to rent or buy' },
+  needLocation: {
+    pa: 'ਪਹਿਲਾਂ ਉੱਪਰ ਖੇਤ ਦੀ ਥਾਂ ਦੱਸੋ ਤਾਂ ਜੋ ਨੇੜੇ ਦੇ CHC ਲੱਭ ਸਕੀਏ।',
+    hi: 'पहले ऊपर खेत की जगह बताएँ ताकि पास के CHC ढूँढ सकें।',
+    en: 'Set your farm location above first, so we can find CHCs near you.',
+  },
+  planning: { pa: 'ਨੇੜੇ ਦੀਆਂ CHC ਮਸ਼ੀਨਾਂ ਲੱਭ ਰਿਹਾ ਹਾਂ…', hi: 'पास की CHC मशीनें ढूँढ रहा हूँ…', en: 'Looking for CHC machines near you…' },
+  chcPlanTitle: { pa: 'ਸੁਝਾਈਆਂ CHC ਮਸ਼ੀਨਾਂ', hi: 'सुझाई गई CHC मशीनें', en: 'Suggested CHC machines' },
+  fromChc: { pa: '{chc} ਤੋਂ', hi: '{chc} से', en: 'from {chc}' },
+  withThese: { pa: 'ਇਹਨਾਂ ਨਾਲ: {pct}%', hi: 'इनके साथ: {pct}%', en: 'With these: {pct}%' },
+  rainDays: { pa: 'ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ: {n} ਦਿਨ', hi: 'बारिश की संभावना: {n} दिन', en: 'Rain expected on {n} days' },
+  noChcFree: {
+    pa: 'ਤੁਹਾਡੇ ਖੇਤ ਦੇ ਨੇੜੇ ਸਮੇਂ ਸਿਰ ਕੋਈ CHC ਮਸ਼ੀਨ ਖਾਲੀ ਨਹੀਂ।',
+    hi: 'आपके खेत के पास समय पर कोई CHC मशीन खाली नहीं।',
+    en: 'No CHC machine near your farm is free in time.',
+  },
+  demoChc: { pa: 'ਡੈਮੋ CHC ਜਾਣਕਾਰੀ', hi: 'डेमो CHC जानकारी', en: 'Demo CHC data' },
+  notBookedYet: {
+    pa: 'ਹਾਲੇ ਕੁਝ ਬੁੱਕ ਨਹੀਂ ਹੋਇਆ। ਯੋਜਨਾ ਵਾਲੀ ਗੱਲਬਾਤ ਵਿੱਚ ਮੰਗੋ, ਵਿਭਾਗ ਨੂੰ ਤੁਹਾਡੀ ਬੇਨਤੀ ਪਹੁੰਚ ਜਾਵੇਗੀ।',
+    hi: 'अभी कुछ बुक नहीं हुआ। योजना वाली बातचीत में माँगिए, विभाग को आपकी बिनती पहुँच जाएगी।',
+    en: "Nothing is booked yet. Ask for it in the Plan conversation and your request goes to the department.",
+  },
+  askInChat: { pa: 'ਗੱਲਬਾਤ ਵਿੱਚ ਮੰਗੋ', hi: 'बातचीत में माँगें', en: 'Ask in the conversation' },
 } satisfies Record<string, Record<Language, string>>;
 
 export type StringKey = keyof typeof STRINGS;

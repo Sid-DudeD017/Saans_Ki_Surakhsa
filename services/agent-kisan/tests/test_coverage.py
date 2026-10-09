@@ -116,3 +116,12 @@ def test_rain_longer_than_window_leaves_no_work_days():
     r = estimate_coverage(18, 10, {"super_seeder": 2}, rain_days=12)
     assert r.work_days == 0
     assert r.covered_acres == 0
+
+
+def test_two_of_the_same_machine_need_two_tractors():
+    # Two Super Seeders for the whole 20 days: 40 machine-days, but only as many as there are tractors.
+    two = estimate_coverage(400, 20, {"super_seeder": 40}, tractors=2, machine_units={"super_seeder": 2})
+    assert two.covered_acres == 220
+    one_tractor = estimate_coverage(400, 20, {"super_seeder": 40}, tractors=1, machine_units={"super_seeder": 2})
+    assert one_tractor.covered_acres == 110
+    assert estimate_coverage(400, 20, {"super_seeder": 40}, tractors=2).covered_acres == 110  # one unit

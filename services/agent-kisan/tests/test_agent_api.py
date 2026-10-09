@@ -71,3 +71,35 @@ def test_model_unavailable_is_a_503(client):
     assert "being verified" in res.json()["error"]["message"]
     api._chats[sid].raise_error = False
     assert client.post("/v1/agent/kisan/messages", json={"session_id": sid, "text": "ok"}).status_code == 200
+
+
+GURPREET_FARM = {"lat": 30.27, "lon": 76.04, "paddy_acres": 18, "tractors": 1, "harvest_date": "2026-10-20",
+                 "wheat_deadline": "2026-11-09", "machines": {"super_seeder": 2}}
+
+
+def test_farm_from_the_app_fills_a_new_conversation(client):
+    res = client.post("/v1/agent/kisan/messages", json={"text": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ", "farm": GURPREET_FARM}).json()
+    p = api._chats[res["session_id"]].session.profile
+    assert (p.lat, p.lon, p.tractors, p.machines) == (30.27, 76.04, 1, {"super_seeder": 2.0})
+    assert str(p.harvest_date) == "2026-10-20" and str(p.wheat_deadline) == "2026-11-09"
+    # The fake agent records 18 acres, the same as the farm card, so nothing needs a tap.
+    assert res["missing"] == []
+    assert res["quick_replies"] == []
+
+
+def test_farm_hint_fills_only_empty_slots_and_trust_ends_when_a_number_changes(client):
+    res = client.post("/v1/agent/kisan/messages", json={"text": "hi", "farm": {**GURPREET_FARM, "paddy_acres": 20}}).json()
+    session = api._chats[res["session_id"]].session
+    # The agent's own update (18, never said) wins over the app's 20, so the guard asks about it.
+    assert session.profile.paddy_area == 18
+    assert [q["slot"] for q in res["quick_replies"]] == ["paddy_area"]
+    session.update(tractors=2)  # changed in the conversation: no longer the app's number
+    assert "tractors" in [u["slot"] for u in session.unsure()]
+
+
+def test_farm_hint_ignored_on_later_messages_and_checked(client):
+    sid = client.post("/v1/agent/kisan/messages", json={"text": "hi"}).json()["session_id"]
+    client.post("/v1/agent/kisan/messages", json={"session_id": sid, "text": "hor", "farm": GURPREET_FARM})
+    assert api._chats[sid].session.profile.tractors is None
+    bad = client.post("/v1/agent/kisan/messages", json={"text": "hi", "farm": {"machines": {"combine": 2}}})
+    assert bad.status_code == 422

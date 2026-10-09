@@ -4,13 +4,21 @@ import { describe, expect, it } from 'vitest';
 import {
   cardDate,
   cleanFarm,
+  coverageInput,
+  daysToClear,
   describeGuess,
   farmFromForm,
   farmFromReadback,
+  farmHint,
+  machineDays,
+  machinesFromReadback,
   mergeFromChat,
+  planInput,
   preselect,
+  verdictOf,
   type FarmProfile,
 } from '../app/kisan/farmProfile';
+import { coverageResponse } from '../app/kisan/coverage';
 import type { Readback } from '../app/kisan/kisanApi';
 import { tabFrom } from '../app/kisan/KisanTabs';
 import { mockMessage, mockPhoto } from '../app/kisan/mock';
@@ -142,5 +150,83 @@ describe('machine photos', () => {
     expect(fitWithin(4000, 3000, 1600)).toEqual({ width: 1600, height: 1200 });
     expect(fitWithin(3000, 4000, 1600)).toEqual({ width: 1200, height: 1600 });
     expect(fitWithin(800, 600, 1600)).toEqual({ width: 800, height: 600 });
+  });
+});
+
+const GURPREET: FarmProfile = {
+  location: { lat: 30.27, lon: 76.04 },
+  paddyAcres: 18,
+  tractors: 1,
+  harvestDate: '2026-10-20',
+  wheatBy: '2026-11-09',
+  machines: [{ id: 'a', type: 'super_seeder', count: 1, owned: false, days: 2, addedAt: '2026-10-09T00:00:00Z' }],
+};
+
+describe('is it enough? (K10)', () => {
+  it("Gurpreet's farm card and rented Super Seeder give 61%, 7 acres short", () => {
+    const req = coverageInput(GURPREET);
+    expect(req).toMatchObject({ harvest_date: '2026-10-20', wheat_deadline: '2026-11-09', tractors: 1, machines: [{ type: 'super_seeder', days: 2, units: 1 }] });
+    if ('missing' in req) throw new Error('should be complete');
+    const res = coverageResponse(req);
+    expect([res.coverage_pct, res.gap_acres]).toEqual([61, 7]);
+    expect(verdictOf(res.coverage_pct)).toBe('short');
+    expect(daysToClear(res.gap_acres, 'super_seeder', res.assumptions.capacity_acres_per_day)).toBe(1.5);
+  });
+
+  it('adds up machines of one type; owned ones have the whole window; "other" is left out', () => {
+    const farm: FarmProfile = {
+      ...GURPREET,
+      machines: [
+        { id: 'a', type: 'happy_seeder', count: 2, owned: true, addedAt: '' },
+        { id: 'b', type: 'happy_seeder', count: 1, owned: false, days: 3, addedAt: '' },
+        { id: 'c', type: 'other', count: 1, owned: true, addedAt: '' },
+      ],
+    };
+    expect(machineDays(farm, 20)).toEqual([{ type: 'happy_seeder', days: 43, units: 3 }]);
+  });
+
+  it('says what the farm card is missing', () => {
+    expect(coverageInput({ machines: [] })).toEqual({ missing: ['paddy', 'dates'] });
+    expect(coverageInput({ ...GURPREET, wheatBy: undefined })).toEqual({ missing: ['dates'] });
+  });
+
+  it('verdicts: 100 enough, 80 almost, 79 short', () => {
+    expect([verdictOf(100), verdictOf(80), verdictOf(79)]).toEqual(['enough', 'almost', 'short']);
+  });
+});
+
+describe('from the verdict to a CHC plan (K11)', () => {
+  it('needs the farm location; GPS wins over the village', () => {
+    expect(planInput({ ...GURPREET, location: undefined })).toBeNull();
+    expect(planInput(GURPREET)).toMatchObject({ lat: 30.27, lon: 76.04, max_km: 15 });
+    expect(planInput({ ...GURPREET, location: { village: 'Bhawanigarh' } })).toMatchObject({ village: 'Bhawanigarh' });
+  });
+});
+
+describe('the chat and the machine list share machines (K9)', () => {
+  it('the chat starts from the farm card and machines', () => {
+    expect(farmHint(GURPREET)).toEqual({
+      lat: 30.27,
+      lon: 76.04,
+      paddy_acres: 18,
+      tractors: 1,
+      harvest_date: '2026-10-20',
+      wheat_deadline: '2026-11-09',
+      machines: { super_seeder: 2 },
+    });
+    expect(farmHint({ machines: [] })).toBeUndefined();
+    // An owned machine needs the window to turn into days, so without dates it isn't sent.
+    expect(farmHint({ machines: [{ id: 'a', type: 'baler', count: 1, owned: true, addedAt: '' }] })).toBeUndefined();
+  });
+
+  it("the chat's confirmed machines join the list unless that type is already there", async () => {
+    const reply = await mockMessage('', 'en', null);
+    const readback = reply.readback as unknown as Readback;
+    const fromChat = machinesFromReadback(readback, TODAY);
+    expect(fromChat).toMatchObject([{ type: 'super_seeder', count: 1, days: 2 }]);
+    const empty = mergeFromChat({ machines: [] }, {}, fromChat);
+    expect(empty.machines).toHaveLength(1);
+    const photographed = mergeFromChat(GURPREET, {}, fromChat);
+    expect(photographed).toBe(GURPREET);
   });
 });

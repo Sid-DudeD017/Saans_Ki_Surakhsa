@@ -2,7 +2,7 @@
 // window, and the machines the farmer photographed. It lives on the phone only. The chat fills it
 // once the farmer confirms the read-back; the farm card lets them type it instead.
 import { localStore } from '../../lib/localStore';
-import type { CardItem, Language, Readback } from './kisanApi';
+import type { CardItem, CoverageRequest, FarmHint, Language, PlanRequest, Readback } from './kisanApi';
 
 export const MACHINE_TYPES = ['happy_seeder', 'super_seeder', 'mulcher_rmb', 'baler'] as const;
 export type MachineType = (typeof MACHINE_TYPES)[number];
@@ -19,6 +19,8 @@ export interface OwnedMachine {
   type: MachineType | 'other';
   count: number;
   owned: boolean;
+  /** Days the farmer can use each one; unset = the whole sowing window (their own machine). */
+  days?: number;
   /** A small preview made on the phone. It never leaves the phone. */
   thumb?: string;
   /** How the photo service guessed it, for the record; the farmer's tap decided the type. */
@@ -62,6 +64,7 @@ export function cleanFarm(saved: unknown): FarmProfile {
         type: m.type as OwnedMachine['type'],
         count: Math.max(1, Math.round(num(m.count, 1) ?? 1)),
         owned: m.owned !== false,
+        ...(num(m.days, 0) !== undefined && (m.days as number) <= 365 ? { days: m.days as number } : {}),
         ...(typeof m.thumb === 'string' && m.thumb.startsWith('data:image/') ? { thumb: m.thumb } : {}),
         ...(m.guess && typeof m.guess === 'object' ? { guess: m.guess as OwnedMachine['guess'] } : {}),
         addedAt: typeof m.addedAt === 'string' ? m.addedAt : new Date(0).toISOString(),
@@ -136,10 +139,119 @@ export function farmFromReadback(readback: Readback, today = new Date()): Partia
   return out;
 }
 
-/** The chat's confirmed numbers replace the typed ones; machines and location stay. */
-export function mergeFromChat(farm: FarmProfile, fromChat: Partial<FarmProfile>): FarmProfile {
-  if (Object.keys(fromChat).length === 0) return farm;
-  return { ...farm, ...fromChat, machines: farm.machines, location: farm.location, source: 'chat' };
+/** Machines the read-back card lists ("Your machine: Super Seeder, 2 days"), as list entries. */
+export function machinesFromReadback(readback: Readback, now = new Date()): OwnedMachine[] {
+  return readback.card.items
+    .filter((i) => i.kind === 'machine' && (MACHINE_TYPES as readonly string[]).includes(i.icon ?? ''))
+    .map((i) => {
+      const days = cardNumber(i);
+      return {
+        id: `chat-${i.icon}`,
+        type: i.icon as MachineType,
+        count: 1,
+        owned: true,
+        ...(days !== undefined ? { days } : {}),
+        addedAt: now.toISOString(),
+      };
+    });
+}
+
+/**
+ * The chat's confirmed numbers replace the typed ones and location stays. Machines the chat confirmed
+ * join the list unless that type is already there (a photographed machine keeps its photo).
+ */
+export function mergeFromChat(farm: FarmProfile, fromChat: Partial<FarmProfile>, chatMachines: OwnedMachine[] = []): FarmProfile {
+  const added = chatMachines.filter((m) => !farm.machines.some((old) => old.type === m.type));
+  if (Object.keys(fromChat).length === 0 && added.length === 0) return farm;
+  return { ...farm, ...fromChat, machines: [...farm.machines, ...added], location: farm.location, source: 'chat' };
+}
+
+/** Days from harvest to the wheat deadline, or undefined until both dates are known. */
+export function windowDays(farm: FarmProfile): number | undefined {
+  if (!farm.harvestDate || !farm.wheatBy) return undefined;
+  return Math.round((Date.parse(farm.wheatBy) - Date.parse(farm.harvestDate)) / 86_400_000);
+}
+
+/**
+ * The machines as the coverage engine wants them: one entry per type, days added up over every unit.
+ * "Other" machines aren't in the engine, so they don't count.
+ */
+export function machineDays(farm: FarmProfile, window: number): { type: MachineType; days: number; units: number }[] {
+  const byType = new Map<MachineType, { days: number; units: number }>();
+  for (const m of farm.machines) {
+    if (m.type === 'other') continue;
+    const t = byType.get(m.type) ?? { days: 0, units: 0 };
+    t.days += m.count * Math.min(m.days ?? window, window);
+    t.units += m.count;
+    byType.set(m.type, t);
+  }
+  return MACHINE_TYPES.filter((t) => byType.has(t)).map((type) => ({ type, ...byType.get(type)! }));
+}
+
+export type NeedsFirst = 'paddy' | 'dates';
+
+/** The coverage request for this farm, or what's still missing from the farm card. */
+export function coverageInput(farm: FarmProfile): CoverageRequest | { missing: NeedsFirst[] } {
+  const window = windowDays(farm);
+  const missing: NeedsFirst[] = [];
+  if (farm.paddyAcres === undefined) missing.push('paddy');
+  if (window === undefined) missing.push('dates');
+  if (missing.length || window === undefined || farm.paddyAcres === undefined) return { missing };
+  return {
+    paddy: { value: farm.paddyAcres, unit: 'acre' },
+    harvest_date: farm.harvestDate,
+    wheat_deadline: farm.wheatBy,
+    tractors: farm.tractors ?? 1,
+    machines: machineDays(farm, window),
+    rain_days: 0, // the verdict assumes dry days; the plan (K11) checks the forecast
+    decomposer_acres: 0,
+  };
+}
+
+/** How far to look for CHCs; the planner's own default (planner.py DEFAULT_MAX_KM). */
+export const PLAN_MAX_KM = 15;
+
+/** The zero-burn plan request: the coverage request plus where the farm is. */
+export function planInput(farm: FarmProfile): PlanRequest | null {
+  const cov = coverageInput(farm);
+  const loc = farm.location;
+  if ('missing' in cov || !loc || !cov.harvest_date || !cov.wheat_deadline) return null;
+  const where = loc.lat !== undefined && loc.lon !== undefined ? { lat: loc.lat, lon: loc.lon } : loc.village ? { village: loc.village } : null;
+  if (!where) return null;
+  return { ...cov, harvest_date: cov.harvest_date, wheat_deadline: cov.wheat_deadline, max_km: PLAN_MAX_KM, ...where };
+}
+
+/** What a new conversation can start from, so the agent doesn't ask again. Undefined if there's nothing yet. */
+export function farmHint(farm: FarmProfile): FarmHint | undefined {
+  const window = windowDays(farm);
+  const hint: FarmHint = {
+    ...(farm.location?.lat !== undefined && farm.location.lon !== undefined ? { lat: farm.location.lat, lon: farm.location.lon } : {}),
+    ...(farm.location?.village ? { village: farm.location.village } : {}),
+    ...(farm.paddyAcres !== undefined ? { paddy_acres: farm.paddyAcres } : {}),
+    ...(farm.tractors !== undefined ? { tractors: farm.tractors } : {}),
+    ...(farm.harvestDate ? { harvest_date: farm.harvestDate } : {}),
+    ...(farm.wheatBy ? { wheat_deadline: farm.wheatBy } : {}),
+  };
+  // Days for machines need the window, unless every machine has its own day count.
+  const machines = farm.machines.filter((m) => m.type !== 'other');
+  if (machines.length && (window !== undefined || machines.every((m) => m.days !== undefined))) {
+    hint.machines = Object.fromEntries(machineDays(farm, window ?? 365).map((m) => [m.type, m.days]));
+  }
+  return Object.keys(hint).length ? hint : undefined;
+}
+
+export type Verdict = 'enough' | 'almost' | 'short';
+
+/** ≥ 100% enough, 80–99% almost, under 80% not enough. */
+export function verdictOf(coveragePct: number): Verdict {
+  if (coveragePct >= 100) return 'enough';
+  return coveragePct >= 80 ? 'almost' : 'short';
+}
+
+/** About how many more days of a machine would clear the gap, rounded up to half a day. */
+export function daysToClear(gapAcres: number, machine: MachineType, capacities: Record<string, number>): number {
+  const perDay = capacities[machine] ?? 0;
+  return perDay > 0 ? Math.ceil((gapAcres / perDay) * 2) / 2 : 0;
 }
 
 /** The guess the photo service made, as the choice to show first. Below 60% the farmer picks. */
