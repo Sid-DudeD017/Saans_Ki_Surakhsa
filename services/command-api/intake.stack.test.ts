@@ -59,8 +59,9 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     return fetch(target.upload_url, { method: "PUT", headers: target.headers, body: new Uint8Array(bytes) });
   }
 
-  // Each report somewhere new in Sangrur: reports within 150 m and 6 hours of an open case merge into it.
-  const spot = () => ({ lat: Math.round((30.1 + Math.random() * 0.2) * 1e5) / 1e5, lon: Math.round((75.75 + Math.random() * 0.3) * 1e5) / 1e5 });
+  // Each report somewhere new in a wide box south of where the other stack tests and the smoke test file,
+  // since reports within 150 m and 6 hours of an open case merge into it (a local database keeps them all).
+  const spot = () => ({ lat: Math.round((23.5 + Math.random() * 4.8) * 1e5) / 1e5, lon: Math.round((69 + Math.random() * 5) * 1e5) / 1e5 });
   function report(evidence: unknown[] = [], extra: Record<string, unknown> = {}) {
     return { type: "farm_fire", location: spot(), description: "Smoke over the field by the canal", evidence, ...extra };
   }
