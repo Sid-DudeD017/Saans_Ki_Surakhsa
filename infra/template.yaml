@@ -4,16 +4,28 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Saans Command - uploads, complaints and the intake workflow (G5)
+Metadata:
+  DatabaseSecretPolicy: &DatabaseSecretPolicy
+    Statement:
+      - Effect: Allow
+        Action: secretsmanager:GetSecretValue
+        Resource:
+          Ref: DatabaseSecretArn
 
 Parameters:
   Stage:
     Type: String
     Default: dev
     AllowedValues: [dev, demo]
-  DatabaseUrl:
+  DatabaseSecretArn:
     Type: String
-    NoEcho: true
-    Description: postgres:// URL of the PostGIS database (G7 replaces this with RDS and Secrets Manager)
+    Description: ARN of a Secrets Manager secret whose databaseUrl field contains the PostgreSQL URL
+  VpcSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs that can reach RDS
+  LambdaSecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Lambda security groups allowed to connect to RDS
 
   CorsAllowedOrigin:
     Type: String
@@ -27,16 +39,33 @@ Parameters:
   AppLogoutUrl:
     Type: String
     Default: "http://localhost:3000/logout"
+  SmsOriginationIdentity:
+    Type: String
+    Default: ""
+  SmsEntityId:
+    Type: String
+    Default: ""
+  SmsAssignmentTemplateId:
+    Type: String
+    Default: ""
+  SmsActionTakenTemplateId:
+    Type: String
+    Default: ""
 Globals:
   Function:
     Runtime: nodejs22.x
     Architectures: [arm64]
     MemorySize: 512
     Timeout: 15
+    VpcConfig:
+      SecurityGroupIds:
+        Ref: LambdaSecurityGroupIds
+      SubnetIds:
+        Ref: VpcSubnetIds
     Environment:
       Variables:
         SAANS_DATABASE_URL:
-          Ref: DatabaseUrl
+          Fn::Sub: "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:databaseUrl}}"
         SAANS_EVIDENCE_BUCKET:
           Ref: EvidenceBucket
         SAANS_S3_ENDPOINT: ""
@@ -90,6 +119,7 @@ Resources:
       Handler: services/command-api/lambda.uploads
       CodeUri: ../
       Policies:
+        - *DatabaseSecretPolicy
         - S3WritePolicy:
             BucketName:
               Ref: EvidenceBucket
@@ -118,6 +148,7 @@ Resources:
           SAANS_STATE_MACHINE_ARN:
             Ref: IntakeStateMachine
       Policies:
+        - *DatabaseSecretPolicy
         - StepFunctionsExecutionPolicy:
             StateMachineName:
               Fn::GetAtt: [IntakeStateMachine, Name]
@@ -141,6 +172,8 @@ Resources:
     Properties:
       Handler: services/workflows/lambda.validate
       CodeUri: ../
+      Policies:
+        - *DatabaseSecretPolicy
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -154,6 +187,7 @@ Resources:
       CodeUri: ../
       Timeout: 60
       Policies:
+        - *DatabaseSecretPolicy
         - S3ReadPolicy:
             BucketName:
               Ref: EvidenceBucket
@@ -168,6 +202,8 @@ Resources:
     Properties:
       Handler: services/workflows/lambda.triage
       CodeUri: ../
+      Policies:
+        - *DatabaseSecretPolicy
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -183,7 +219,19 @@ Resources:
         Variables:
           SAANS_DLQ_URL:
             Ref: NotificationFailureDLQ
+          SAANS_SMS_BACKEND: aws
+          SAANS_SMS_REGION:
+            Ref: AWS::Region
+          SAANS_SMS_SENDER_ID:
+            Ref: SmsOriginationIdentity
+          SAANS_SMS_ENTITY_ID:
+            Ref: SmsEntityId
+          SAANS_SMS_TEMPLATE_ASSIGNMENT:
+            Ref: SmsAssignmentTemplateId
+          SAANS_SMS_TEMPLATE_ACTION_TAKEN:
+            Ref: SmsActionTakenTemplateId
       Policies:
+        - *DatabaseSecretPolicy
         - Statement:
             - Effect: Allow
               Action: sms-voice:SendTextMessage
@@ -203,6 +251,8 @@ Resources:
     Properties:
       Handler: services/workflows/lambda.recordFailure
       CodeUri: ../
+      Policies:
+        - *DatabaseSecretPolicy
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -368,6 +418,7 @@ Resources:
       ValidationSettings:
         Mode: STRICT
       Schema:
+        # Generated from infra/policies/schema.cedar by npm run cedar:sync.
         CedarJson: '{"Saans": {"entityTypes": {"User": {"shape": {"type": "Record", "attributes": {}}, "memberOfTypes": ["UserGroup"]}, "UserGroup": {"shape": {"type": "Record", "attributes": {}}}, "Application": {"shape": {"type": "Record", "attributes": {}}}, "Case": {"shape": {"type": "Record", "attributes": {"district": {"type": "String", "required": true}}}}}, "actions": {"whoami": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Application"]}}, "list": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "counts": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "map": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "detail": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "evidence": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "assign": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "mark_in_field": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "record_action": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "close": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}}}}'
 
   IdentitySource:
@@ -386,6 +437,7 @@ Resources:
             GroupEntityType: Saans::UserGroup
 
   WhoamiPolicy:
+    # Generated from infra/policies/policies.cedar by npm run cedar:sync.
     Type: AWS::VerifiedPermissions::Policy
     Properties:
       PolicyStoreId:
@@ -475,6 +527,76 @@ Resources:
       BuildMethod: esbuild
       BuildProperties:
         EntryPoints: [services/command-api/whoami.ts]
+        Target: node22
+
+  CasesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/cases.handler
+      CodeUri: ../
+      Environment:
+        Variables:
+          VERIFIED_PERMISSIONS_POLICY_STORE_ID:
+            Ref: PolicyStore
+          SAANS_SMS_BACKEND: aws
+          SAANS_SMS_REGION:
+            Ref: AWS::Region
+          SAANS_SMS_SENDER_ID:
+            Ref: SmsOriginationIdentity
+          SAANS_SMS_ENTITY_ID:
+            Ref: SmsEntityId
+          SAANS_SMS_TEMPLATE_ASSIGNMENT:
+            Ref: SmsAssignmentTemplateId
+          SAANS_SMS_TEMPLATE_ACTION_TAKEN:
+            Ref: SmsActionTakenTemplateId
+          SAANS_DLQ_URL:
+            Ref: NotificationFailureDLQ
+      Policies:
+        - *DatabaseSecretPolicy
+        - Statement:
+            - Effect: Allow
+              Action: verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}"
+            - Effect: Allow
+              Action: sms-voice:SendTextMessage
+              Resource: "*"
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource:
+                Fn::GetAtt: [NotificationFailureDLQ, Arn]
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /v1/cases
+            Auth:
+              Authorizer: CustomAuthorizer
+        Detail:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /v1/cases/{id}
+            Auth:
+              Authorizer: CustomAuthorizer
+        Actions:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: POST
+            Path: /v1/cases/{id}/actions
+            Auth:
+              Authorizer: CustomAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/cases.ts]
         Target: node22
 
   NotificationFailureDLQ:

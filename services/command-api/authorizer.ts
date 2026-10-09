@@ -33,8 +33,17 @@ export const setAvpClientForTest = (mockClient: any) => {
 };
 
 const routeMap: Record<string, string> = {
-    "GET /v1/officer/whoami": "whoami"
+    "GET /v1/officer/whoami": "whoami",
+    "GET /v1/cases": "list",
+    "GET /v1/cases/{id}": "detail",
+    "POST /v1/cases/{id}/actions": "record_action",
 };
+
+function normalizedRoute(method: string, path: string) {
+    if (method === "GET" && /^\/v1\/cases\/[^/]+$/.test(path)) return "GET /v1/cases/{id}";
+    if (method === "POST" && /^\/v1\/cases\/[^/]+\/actions$/.test(path)) return "POST /v1/cases/{id}/actions";
+    return `${method} ${path}`;
+}
 
 export const authorizer = async (event: APIGatewayRequestAuthorizerEventV2): Promise<APIGatewaySimpleAuthorizerResult> => {
     const poolId = process.env.COGNITO_USER_POOL_ID;
@@ -78,10 +87,17 @@ export const authorizer = async (event: APIGatewayRequestAuthorizerEventV2): Pro
         
         const method = event.requestContext?.http?.method || "";
         const rawPath = event.requestContext?.http?.path || "";
-        const matchedAction = routeMap[`${method} ${rawPath}`];
+        const matchedAction = routeMap[normalizedRoute(method, rawPath)];
 
         if (!matchedAction) {
             return { isAuthorized: false, context: { error: "unauthorized" } };
+        }
+
+        // Case resources must be loaded from the database before Cedar can safely evaluate
+        // their district. The route authorizer authenticates those requests; the case handler
+        // then calls IsAuthorizedWithToken with the real case ID and trusted district.
+        if (matchedAction !== "whoami") {
+            return { isAuthorized: true, context: { subject: payload.sub, role: "officer", district } };
         }
 
         const res = await c.send(new IsAuthorizedWithTokenCommand({

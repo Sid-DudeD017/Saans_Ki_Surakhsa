@@ -6,6 +6,7 @@ import { Pool } from "pg";
 
 import { commandConfig, type CommandConfig } from "./config";
 import { SCHEMA } from "./schema";
+import type { NotificationSender } from "./sms";
 
 export interface Db {
   query<Row = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: Row[]; rowCount: number | null }>;
@@ -19,6 +20,8 @@ export interface IntakeDeps {
   newId: (prefix: string) => string;
   /** Starts the intake workflow for a stored complaint. Safe to call twice for one complaint. */
   startWorkflow: (complaintId: string) => Promise<void>;
+  /** Optional in local tests; AWS injects the production sender. */
+  notifications?: NotificationSender;
 }
 
 export function newId(prefix: string) {

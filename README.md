@@ -117,7 +117,8 @@ For local development or environments without approved DLT templates, use the **
 **Security Warning**: The `.outbox/` file contains highly sensitive phone numbers and message data. It must never be committed to version control and is git-ignored by default.
 
 ## Limitations and Current State
-- `SmsSender` is code-prepared but is not yet invoked by a deployed case-action handler.
+- `SmsSender` is invoked for workflow assignment and officer assignment/action handling; AWS failures
+  are sent to the encrypted `NotificationFailureDLQ` without message text or phone numbers.
 - Durable production idempotency requires a real durable `IdempotencyStore` implementation.
 - Indian SMS requires completed DLT registration and real-phone verification before it can be used.
 - The `outbox` may be selected as the approved fallback in the interim.

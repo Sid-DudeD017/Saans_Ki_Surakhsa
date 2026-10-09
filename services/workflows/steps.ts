@@ -170,6 +170,12 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
     );
     const { rows } = await deps.db.query<{ id: string }>("SELECT id FROM cases WHERE complaint_id = $1", [input.complaintId]);
     await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
+    const phone = complaint.type === "farmer_support"
+      ? String((complaint.support_request as { farmer_phone?: unknown }).farmer_phone ?? "")
+      : "";
+    if (phone && deps.notifications) {
+      await deps.notifications.sendAssignment(phone, rows[0].id, `case-assigned:${rows[0].id}`);
+    }
     return { ...input, caseId: rows[0].id };
   });
 }

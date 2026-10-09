@@ -12,6 +12,7 @@ import * as apiHandlers from "../command-api/lambda";
 import * as healthHandlers from "../command-api/health";
 import * as authHandlers from "../command-api/authorizer";
 import * as whoamiHandlers from "../command-api/whoami";
+import * as caseHandlers from "../command-api/cases";
 import * as stepHandlers from "./lambda";
 
 const root = join(__dirname, "../..");
@@ -23,13 +24,14 @@ const modules: Record<string, Record<string, unknown>> = {
   "services/command-api/health": healthHandlers as any,
   "services/command-api/authorizer": authHandlers as any,
   "services/command-api/whoami": whoamiHandlers as any,
+  "services/command-api/cases": caseHandlers as any,
   "services/workflows/lambda": stepHandlers,
 };
 
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(10);
+    expect(functions.length).toBe(11);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -44,13 +46,16 @@ describe("infra/template.yaml", () => {
     expect(Object.keys(machine.DefinitionSubstitutions as object).sort()).toEqual(placeholders);
   });
 
-  it("routes the two intake paths", () => {
+  it("routes intake and protected case paths", () => {
     const paths = Object.values(resources).flatMap((r) =>
       Object.values((r.Properties.Events ?? {}) as Record<string, { Properties: { Method: string; Path: string } }>).map(
         (e) => `${e.Properties.Method} ${e.Properties.Path}`,
       ),
     );
-    expect(paths.sort()).toEqual(["GET /health", "GET /v1/officer/whoami", "POST /v1/complaints", "POST /v1/uploads"]);
+    expect(paths.sort()).toEqual([
+      "GET /health", "GET /v1/cases", "GET /v1/cases/{id}", "GET /v1/officer/whoami",
+      "POST /v1/cases/{id}/actions", "POST /v1/complaints", "POST /v1/uploads",
+    ]);
   });
 });
 describe("template.yaml structural checks (migrated)", () => {

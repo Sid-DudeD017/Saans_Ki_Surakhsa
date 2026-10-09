@@ -6,7 +6,8 @@ This runbook describes the deployment of the Saans Command module, its Cognito i
 Before deploying, the team must confirm:
 - Target AWS account ID and Stack Name.
 - The region must be exactly **ap-south-1**.
-- The production RDS Database URL is provisioned.
+- A private RDS instance, its Secrets Manager secret (`databaseUrl` key), private subnet IDs,
+  and a Lambda security group allowed to reach the database are provisioned.
 - The Cognito callback/logout URLs are approved.
 - The SMS delivery backend is chosen (AWS End User Messaging SMS or `outbox` fallback).
 
@@ -20,7 +21,9 @@ aws sts get-caller-identity --profile saans
 Verify the default region is set to `ap-south-1` in your `~/.aws/config`.
 
 ### Secure Database URL Handling
-Obtain the production Database URL. Do not place this URL in shell history, `README.md`, or Git. Set it as an environment variable or secure parameter during deployment. 
+Pass only the Secrets Manager ARN as `DatabaseSecretArn`; never pass the database URL to SAM.
+The workload template resolves the secret and grants only `secretsmanager:GetSecretValue` on that ARN.
+Pass the private subnet IDs and Lambda security group IDs when guided deployment prompts for them.
 
 ### Local Validation
 Run these commands to ensure the codebase is clean:
@@ -28,6 +31,7 @@ Run these commands to ensure the codebase is clean:
 npx tsc --noEmit
 npm test
 npm run lint
+npm run cedar:check
 SAM_CLI_TELEMETRY=0 sam validate --lint --template-file infra/template.yaml
 ```
 
@@ -43,7 +47,7 @@ sam build --template-file infra/template.yaml
 ## 3. Deployment
 
 ### First Deployment
-For the initial deployment, use the guided mode to set parameter overrides (like the Database URL and Cognito domains):
+For the initial deployment, use guided mode to set the secret ARN, private networking, SMS/DLT values, and Cognito domains:
 ```bash
 sam deploy --guided
 ```
@@ -79,7 +83,14 @@ If SMS is chosen over the `outbox` fallback, you must configure Indian DLT param
 - If DLT registration is pending, explicitly approve the `outbox` fallback.
 
 ## 8. Billing Alerts
-Enable AWS billing alerts. Create a **USD 50 EstimatedCharges** alarm in `us-east-1` (Billing alarms must reside in `us-east-1`, while the workload resources remain in `ap-south-1`).
+Billing metrics exist only in `us-east-1`, so deploy the separate account-level template there:
+```bash
+aws cloudformation deploy --profile saans --region us-east-1 \
+  --stack-name saans-billing-alarm \
+  --template-file infra/billing-alarm.yaml \
+  --parameter-overrides AlarmEmail=TEAM_EMAIL
+```
+Confirm the SNS email subscription; an unconfirmed subscription cannot deliver the alarm.
 
 ## 9. Rollback, Teardown, and Cost Warnings
 To destroy the stack:

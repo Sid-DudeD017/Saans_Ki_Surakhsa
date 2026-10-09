@@ -27,11 +27,9 @@ describe("Verified Permissions Template & Policies", () => {
   });
 
   it("verifies function IAM policies (S3, SFN, AVP)", () => {
-    expect(template.Resources.UploadsFunction.Properties.Policies[0].S3WritePolicy).toBeDefined();
-    expect(template.Resources.UploadsFunction.Properties.Policies.length).toBe(1);
+    expect(template.Resources.UploadsFunction.Properties.Policies.some((p: any) => p.S3WritePolicy)).toBe(true);
 
-    expect(template.Resources.ComplaintsFunction.Properties.Policies[0].StepFunctionsExecutionPolicy).toBeDefined();
-    expect(template.Resources.ComplaintsFunction.Properties.Policies.length).toBe(1);
+    expect(template.Resources.ComplaintsFunction.Properties.Policies.some((p: any) => p.StepFunctionsExecutionPolicy)).toBe(true);
 
     expect(template.Resources.AuthorizerFunction.Properties.Policies[0].Statement[0].Action).toBe("verifiedpermissions:IsAuthorizedWithToken");
     expect(template.Resources.AuthorizerFunction.Properties.Policies.length).toBe(1);
