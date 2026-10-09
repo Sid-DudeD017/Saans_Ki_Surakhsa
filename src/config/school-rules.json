@@ -1,0 +1,63 @@
+{
+  "$comment": "Saans Shala's go/no-go rules for a school day (P2), from the plan's 'School go/no-go defaults'. The board reads these; no band is written in code. 'from'/'to' are CPCB AQI values, inclusive. The plan's 'Other' column adds up as the air gets worse, so purifiers stay on and trips stay off above the band that starts them. At a heat index of 41 °C or more everything moves indoors whatever the AQI.",
+  "bands": [
+    {
+      "from": 0,
+      "to": 100,
+      "assembly": "outdoors",
+      "pe": "normal",
+      "recess": "outdoors",
+      "classroomPurifiers": false,
+      "outdoorTrips": true,
+      "parentSms": "none",
+      "commuteMasks": false
+    },
+    {
+      "from": 101,
+      "to": 200,
+      "assembly": "outdoors",
+      "pe": "light_for_asthma",
+      "recess": "outdoors",
+      "classroomPurifiers": true,
+      "outdoorTrips": true,
+      "parentSms": "none",
+      "commuteMasks": false
+    },
+    {
+      "from": 201,
+      "to": 300,
+      "assembly": "indoors",
+      "pe": "indoors",
+      "recess": "outdoors",
+      "classroomPurifiers": true,
+      "outdoorTrips": false,
+      "parentSms": "none",
+      "commuteMasks": false
+    },
+    {
+      "from": 301,
+      "to": 400,
+      "assembly": "indoors",
+      "pe": "indoors",
+      "recess": "indoors",
+      "classroomPurifiers": true,
+      "outdoorTrips": false,
+      "parentSms": "once",
+      "commuteMasks": true
+    },
+    {
+      "from": 401,
+      "to": 500,
+      "assembly": "state_order",
+      "pe": "state_order",
+      "recess": "indoors",
+      "classroomPurifiers": true,
+      "outdoorTrips": false,
+      "parentSms": "every_morning",
+      "commuteMasks": true
+    }
+  ],
+  "heatIndex": {
+    "indoorsAtOrAboveC": 41
+  }
+}

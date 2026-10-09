@@ -2084,6 +2084,16 @@ paths:
                   details:
                     - field: query.role
                       problem: required
+        "503":
+          description: No AQI reading for the school right now (P3's sources are down)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: sources_unavailable
+                  message: no AQI reading for this school right now; try again in a minute
       tags:
         - Shala
       security: []
@@ -4873,8 +4883,89 @@ components:
           description: Advisory expiration timestamp in ISO 8601 with +05:30 offset.
         role_advisories:
           $ref: "#/components/schemas/RoleAdvisories"
+        school_day:
+          $ref: "#/components/schemas/SchoolDay"
       title: SchoolAdvisoryResponse
       description: Complete school air quality status and role-adaptive advisory payload.
+    SchoolDay:
+      type: object
+      title: SchoolDay
+      description: "Each part of the school day as src/config/school-rules.json decides it: the AQI band, and indoors at a heat index of 41 °C or more. The principal's board shows these."
+      required:
+        - aqi
+        - heat_index_c
+        - band
+        - assembly
+        - pe
+        - recess
+        - classroom_purifiers
+        - outdoor_trips
+        - parent_sms
+        - commute_masks
+        - heat_override
+        - decision
+        - severity
+        - action_code
+      properties:
+        aqi:
+          type: integer
+          minimum: 0
+          maximum: 500
+        heat_index_c:
+          type:
+            - number
+            - "null"
+          description: From P3's weather; null when unknown, and then only the AQI decides.
+        band:
+          type: object
+          required:
+            - from
+            - to
+          properties:
+            from:
+              type: integer
+            to:
+              type: integer
+          description: The AQI band used, inclusive.
+        assembly:
+          type: string
+          enum:
+            - outdoors
+            - indoors
+            - state_order
+        pe:
+          type: string
+          enum:
+            - normal
+            - light_for_asthma
+            - indoors
+            - state_order
+        recess:
+          type: string
+          enum:
+            - outdoors
+            - indoors
+        classroom_purifiers:
+          type: boolean
+        outdoor_trips:
+          type: boolean
+        parent_sms:
+          type: string
+          enum:
+            - none
+            - once
+            - every_morning
+        commute_masks:
+          type: boolean
+        heat_override:
+          type: boolean
+          description: True when the heat index, not the AQI, moved something indoors.
+        decision:
+          $ref: "#/components/schemas/PrincipalDecision"
+        severity:
+          $ref: "#/components/schemas/AdvisorySeverity"
+        action_code:
+          $ref: "#/components/schemas/SchoolActionCode"
     SchoolIdentity:
       type: object
       required:
