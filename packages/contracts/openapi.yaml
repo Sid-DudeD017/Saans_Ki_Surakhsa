@@ -1318,6 +1318,7 @@ paths:
       summary: Track complaint status
       description: A citizen's status tracking for their complaint (received -> sent to officer -> merged or case opened -> acted on -> closed), with no officer names or other reporters' details.
       operationId: getComplaintStatus
+      security: []
       parameters:
         - name: id
           in: path
