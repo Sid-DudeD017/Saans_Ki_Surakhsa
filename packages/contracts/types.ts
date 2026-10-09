@@ -374,6 +374,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get system and environmental notifications
+         * @description Returns active environmental alerts, GRAP escalation advisories, and school incident dispatch notifications for the current session.
+         */
+        get: operations["get_notifications_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/board": {
         parameters: {
             query?: never;
@@ -1631,6 +1651,32 @@ export interface components {
              * @enum {string}
              */
             located_by: "gps" | "village";
+        };
+        /**
+         * NotificationItem
+         * @description A system or environmental alert notification.
+         */
+        NotificationItem: {
+            /** @description Unique notification identifier. */
+            id: string;
+            /** @description Notification headline. */
+            title: string;
+            /** @description Detailed notification body. */
+            message: string;
+            /**
+             * @description Severity level of notification.
+             * @enum {string}
+             */
+            severity: "info" | "warning" | "alert";
+            /** @description ISO 8601 timestamp with +05:30 offset or relative time string. */
+            timestamp: string;
+            /** @description Whether the notification has been marked as read. */
+            read: boolean;
+            /**
+             * @description Platform source module that triggered the notification.
+             * @enum {string}
+             */
+            sourceModule: "kisan" | "shala" | "ghar" | "command";
         };
         OfficerDecision: {
             id: string;
@@ -4226,6 +4272,43 @@ export interface operations {
                      *       "error": {
                      *         "code": "sources_unavailable",
                      *         "message": "Outdoor AQI sources failed to respond. Retry after 60 seconds."
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    get_notifications_v1_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of active notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationItem"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "Failed to retrieve notifications."
                      *       }
                      *     }
                      */
