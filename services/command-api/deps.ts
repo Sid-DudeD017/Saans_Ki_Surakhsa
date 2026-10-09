@@ -79,7 +79,12 @@ export async function ensureBucket(s3: S3Client, bucket: string) {
   } catch {
     // missing: create it below
   }
-  await s3.send(new CreateBucketCommand({ Bucket: bucket, CreateBucketConfiguration: { LocationConstraint: "ap-south-1" } }));
+  try {
+    await s3.send(new CreateBucketCommand({ Bucket: bucket, CreateBucketConfiguration: { LocationConstraint: "ap-south-1" } }));
+  } catch (e) {
+    // Another process (a parallel test file, a second dev server) created it between our check and now.
+    if ((e as { name?: string }).name !== "BucketAlreadyOwnedByYou") throw e;
+  }
   await s3.send(
     new PutBucketCorsCommand({
       Bucket: bucket,
