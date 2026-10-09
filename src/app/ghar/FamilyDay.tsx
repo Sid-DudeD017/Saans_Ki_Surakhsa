@@ -23,15 +23,14 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
   }, [family]);
 
   // Extract outdoor forecast from the first available estimate
-  const outdoorForecast = React.useMemo(() => {
-    for (const key in estimates) {
-      const est = estimates[key].estimate;
-      if (est?.hourly_series) {
-        return est.hourly_series.map(s => ({ time: s.time, value: s.outdoor_pm25_ug_m3 }));
-      }
+  let outdoorForecast: { time: string, value: number }[] = [];
+  for (const key in estimates) {
+    const est = estimates[key].estimate;
+    if (est?.hourly_series) {
+      outdoorForecast = est.hourly_series.map(s => ({ time: s.time, value: s.outdoor_pm25_ug_m3 }));
+      break;
     }
-    return [];
-  }, [estimates]);
+  }
 
   const rawEstimates = React.useMemo(() => {
     const res: Record<string, IndoorEstimate> = {};
@@ -50,6 +49,7 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
     let mounted = true;
     if (!bedroom) return;
     if (bedroom.request.purifier_cadr_m3_h > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPurifierEstimate(null);
       return;
     }

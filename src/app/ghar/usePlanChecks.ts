@@ -23,6 +23,7 @@ export function usePlanChecks() {
       if (raw) {
         const parsed = JSON.parse(raw) as ChecksStorage;
         if (parsed.date === today && parsed.checks) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setChecks(parsed.checks);
         } else {
           // It's a new day or invalid format

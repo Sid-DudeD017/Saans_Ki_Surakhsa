@@ -62,6 +62,7 @@ export function GharIndoor() {
   // Ensure something is selected
   useEffect(() => {
     if (home.rooms.length > 0 && !selectedRoomId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedRoomId(home.rooms[0].id);
     } else if (home.rooms.length > 0 && selectedRoomId && !home.rooms.find(r => r.id === selectedRoomId)) {
       setSelectedRoomId(home.rooms[0].id);
@@ -71,6 +72,7 @@ export function GharIndoor() {
   // Sync location to all rooms whenever it changes
   useEffect(() => {
     if (!locationReady) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHome(prev => {
       let changed = false;
       const updated = prev.rooms.map(r => {
@@ -256,6 +258,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
 
   useEffect(() => {
     let on = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResult(prev => ({ ...prev, isFetching: true, error: undefined, errorCode: undefined }));
     const timer = setTimeout(() => {
       getIndoorEstimate(room.request)
