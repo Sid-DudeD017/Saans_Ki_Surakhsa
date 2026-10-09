@@ -19,21 +19,37 @@ interface HttpApiResult {
   body: string;
 }
 
-let deps: IntakeDeps | null = null;
+import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 
-function awsDeps(): IntakeDeps {
+let deps: IntakeDeps | null = null;
+let sfn: SFNClient | null = null;
+
+export function awsDeps(): IntakeDeps {
   if (deps) return deps;
   const config = commandConfig();
+  if (!sfn) sfn = new SFNClient({ region: config.region });
+
   deps = {
     db: pool(config),
     s3: s3Client(config),
     config,
     now: () => new Date(),
     newId,
-    startWorkflow: async () => {
-      // G7: StartExecution on SAANS_STATE_MACHINE_ARN with name = the complaint id (so a retry can't
-      // start it twice), using @aws-sdk/client-sfn. Until then intake runs only on the local stack.
-      throw new Error("starting the intake workflow on AWS lands in G7");
+    startWorkflow: async (complaintId: string) => {
+      const arn = process.env.SAANS_STATE_MACHINE_ARN;
+      if (!arn) throw new Error("SAANS_STATE_MACHINE_ARN is missing");
+      try {
+        await sfn!.send(
+          new StartExecutionCommand({
+            stateMachineArn: arn,
+            name: complaintId,
+            input: JSON.stringify({ complaintId }),
+          })
+        );
+      } catch (err: any) {
+        if (err.name === "ExecutionAlreadyExists") return;
+        throw err;
+      }
     },
   };
   return deps;

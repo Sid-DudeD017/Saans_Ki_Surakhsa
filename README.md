@@ -85,3 +85,41 @@ NEXT_PUBLIC_USE_MOCKS=true
 ## Deployment (AWS Amplify Hosting)
 
 Amplify Hosting is configured in [`amplify.yml`](./amplify.yml) targeting the root Next.js application build (`.next`).
+# Saans Ki Surakhsa - Command Module
+
+Saans Ki Surakhsa is an emergency intake system tracking stubble burning and respiratory health incidents.
+
+## Configuration
+
+Set the following variables in your frontend or `.env` to connect to the deployed AWS resources.
+
+```env
+# Frontend API and Cognito
+NEXT_PUBLIC_API_BASE_URL=https://<api-id>.execute-api.ap-south-1.amazonaws.com/dev
+SAANS_API_URL=https://<api-id>.execute-api.ap-south-1.amazonaws.com/dev
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=ap-south-1_xxxxxxxxx
+NEXT_PUBLIC_COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_COGNITO_DOMAIN=saans-dev-yourname
+```
+
+### Authentication Flow
+The browser application uses the **Cognito Authorization Code + PKCE flow**.
+The frontend application has no client secret. Never commit AWS credentials, database URLs, passwords, tokens, phone numbers, DLT IDs, or client secrets. 
+
+When calling the command API, send the Cognito access token as:
+`Authorization: Bearer <access-token>`
+
+### Notifications
+The application supports sending Indian DLT-registered SMS messages via AWS End User Messaging SMS. 
+For local development or environments without approved DLT templates, use the **outbox fallback** by setting:
+`SAANS_SMS_BACKEND=outbox`
+
+**Security Warning**: The `.outbox/` file contains highly sensitive phone numbers and message data. It must never be committed to version control and is git-ignored by default.
+
+## Limitations and Current State
+- `SmsSender` is code-prepared but is not yet invoked by a deployed case-action handler.
+- Durable production idempotency requires a real durable `IdempotencyStore` implementation.
+- Indian SMS requires completed DLT registration and real-phone verification before it can be used.
+- The `outbox` may be selected as the approved fallback in the interim.
+- Real Cognito/Verified Permissions behavior must be verified after deployment.
+- Do not claim deployed SMS or production exactly-once behavior.

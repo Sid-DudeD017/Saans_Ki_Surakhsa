@@ -1,9 +1,6 @@
 # Saans Command on AWS (SAM). G5 defines complaint intake; G7 deploys it to ap-south-1 and adds sign-in
 # (Cognito), the database (RDS PostGIS) and the alarms. Intrinsics are written in long form (Fn::Sub,
 # Ref) so the file is plain YAML that tests can read.
-#
-# Not deployable yet, on purpose: the complaints function can't start the state machine until G7 adds
-# @aws-sdk/client-sfn (services/command-api/lambda.ts), and DatabaseUrl has no RDS behind it.
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Saans Command - uploads, complaints and the intake workflow (G5)
@@ -18,6 +15,18 @@ Parameters:
     NoEcho: true
     Description: postgres:// URL of the PostGIS database (G7 replaces this with RDS and Secrets Manager)
 
+  CorsAllowedOrigin:
+    Type: String
+    Default: "https://saans.local"
+  CognitoDomainPrefix:
+    Type: String
+    Default: saans-dev
+  AppCallbackUrl:
+    Type: String
+    Default: "http://localhost:3000/callback"
+  AppLogoutUrl:
+    Type: String
+    Default: "http://localhost:3000/logout"
 Globals:
   Function:
     Runtime: nodejs22.x
@@ -51,7 +60,8 @@ Resources:
       CorsConfiguration:
         CorsRules:
           - AllowedMethods: [PUT]
-            AllowedOrigins: ["*"]
+            AllowedOrigins: 
+              - Ref: CorsAllowedOrigin
             AllowedHeaders: ["*"]
             MaxAge: 600
 
@@ -60,6 +70,19 @@ Resources:
     Properties:
       StageName:
         Ref: Stage
+      CorsConfiguration:
+        AllowOrigins:
+          - Ref: CorsAllowedOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+      Auth:
+        Authorizers:
+          CustomAuthorizer:
+            FunctionArn: {"Fn::GetAtt": ["AuthorizerFunction", "Arn"]}
+            AuthorizerPayloadFormatVersion: '2.0'
+            EnableSimpleResponses: true
 
   UploadsFunction:
     Type: AWS::Serverless::Function
@@ -156,6 +179,19 @@ Resources:
     Properties:
       Handler: services/workflows/lambda.assign
       CodeUri: ../
+      Environment:
+        Variables:
+          SAANS_DLQ_URL:
+            Ref: NotificationFailureDLQ
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: sms-voice:SendTextMessage
+              Resource: "*"
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource:
+                Fn::GetAtt: [NotificationFailureDLQ, Arn]
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -206,7 +242,254 @@ Resources:
             FunctionName:
               Ref: RecordFailureFunction
 
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/health.health
+      CodeUri: ../
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /health
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/health.ts]
+        Target: node22
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: API Gateway 5xx
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: ApiId
+          Value:
+            Ref: Api
+        - Name: Stage
+          Value:
+            Ref: Stage
+
+  UploadsErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Uploads Function Errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value:
+            Ref: UploadsFunction
+
+  ComplaintsErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Complaints Function Errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value:
+            Ref: ComplaintsFunction
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: saans-pool
+
+  OfficerGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: officer
+      UserPoolId:
+        Ref: CognitoUserPool
+        
+  DistrictSangrurGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: district-sangrur
+      UserPoolId:
+        Ref: CognitoUserPool
+        
+  DistrictPatialaGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: district-patiala
+      UserPoolId:
+        Ref: CognitoUserPool
+      
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: browser-app
+      UserPoolId:
+        Ref: CognitoUserPool
+      GenerateSecret: false
+      AllowedOAuthFlows: [code]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes: [openid, email, profile]
+      CallbackURLs:
+        - Ref: AppCallbackUrl
+      LogoutURLs:
+        - Ref: AppLogoutUrl
+      SupportedIdentityProviders: [COGNITO]
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain:
+        Ref: CognitoDomainPrefix
+      UserPoolId:
+        Ref: CognitoUserPool
+
+  PolicyStore:
+    Type: AWS::VerifiedPermissions::PolicyStore
+    Properties:
+      ValidationSettings:
+        Mode: STRICT
+      Schema:
+        CedarJson: '{"Saans": {"entityTypes": {"User": {"shape": {"type": "Record", "attributes": {}}, "memberOfTypes": ["UserGroup"]}, "UserGroup": {"shape": {"type": "Record", "attributes": {}}}, "Application": {"shape": {"type": "Record", "attributes": {}}}, "Case": {"shape": {"type": "Record", "attributes": {"district": {"type": "String", "required": true}}}}}, "actions": {"whoami": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Application"]}}, "list": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "counts": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "map": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "detail": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "evidence": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "assign": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "mark_in_field": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "record_action": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}, "close": {"appliesTo": {"principalTypes": ["User"], "resourceTypes": ["Case"]}}}}}'
+
+  IdentitySource:
+    Type: AWS::VerifiedPermissions::IdentitySource
+    Properties:
+      PolicyStoreId:
+        Ref: PolicyStore
+      PrincipalEntityType: Saans::User
+      Configuration:
+        CognitoUserPoolConfiguration:
+          UserPoolArn:
+            Fn::GetAtt: [CognitoUserPool, Arn]
+          ClientIds:
+            - Ref: CognitoUserPoolClient
+          GroupConfiguration:
+            GroupEntityType: Saans::UserGroup
+
+  WhoamiPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId:
+        Ref: PolicyStore
+      Definition:
+        Static:
+          Statement: |
+            permit (
+                principal,
+                action == Saans::Action::"whoami",
+                resource
+            )
+            when {
+                principal in Saans::UserGroup::"officer"
+            };
+
+  CasesPolicy:
+    Type: AWS::VerifiedPermissions::Policy
+    Properties:
+      PolicyStoreId:
+        Ref: PolicyStore
+      Definition:
+        Static:
+          Statement: |
+            permit (
+                principal,
+                action in [
+                    Saans::Action::"list",
+                    Saans::Action::"counts",
+                    Saans::Action::"map",
+                    Saans::Action::"detail",
+                    Saans::Action::"evidence",
+                    Saans::Action::"assign",
+                    Saans::Action::"mark_in_field",
+                    Saans::Action::"record_action",
+                    Saans::Action::"close"
+                ],
+                resource
+            )
+            when {
+                principal in Saans::UserGroup::"officer" &&
+                ((principal in Saans::UserGroup::"district-sangrur" && resource.district == "sangrur") ||
+                 (principal in Saans::UserGroup::"district-patiala" && resource.district == "patiala"))
+            };
+
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/authorizer.authorizer
+      CodeUri: ../
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID:
+            Ref: CognitoUserPool
+          COGNITO_CLIENT_ID:
+            Ref: CognitoUserPoolClient
+          VERIFIED_PERMISSIONS_POLICY_STORE_ID:
+            Ref: PolicyStore
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}"
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/authorizer.ts]
+        Target: node22
+
+  WhoamiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/whoami.handler
+      CodeUri: ../
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /v1/officer/whoami
+            Auth:
+              Authorizer: CustomAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/whoami.ts]
+        Target: node22
+
+  NotificationFailureDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+
 Outputs:
+  NotificationFailureDlqUrl:
+    Value:
+      Ref: NotificationFailureDLQ
+  NotificationFailureDlqArn:
+    Value:
+      Fn::GetAtt: [NotificationFailureDLQ, Arn]
   ApiUrl:
     Description: Base URL for SAANS_API_URL and NEXT_PUBLIC_API_BASE_URL (no /v1)
     Value:
@@ -217,3 +500,18 @@ Outputs:
   IntakeStateMachineArn:
     Value:
       Ref: IntakeStateMachine
+
+
+  CognitoUserPoolId:
+    Value:
+      Ref: CognitoUserPool
+  CognitoClientId:
+    Value:
+      Ref: CognitoUserPoolClient
+  CognitoDomain:
+    Value:
+      Ref: CognitoUserPoolDomain
+
+  PolicyStoreId:
+    Value:
+      Ref: PolicyStore
