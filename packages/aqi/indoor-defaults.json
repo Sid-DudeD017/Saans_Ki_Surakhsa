@@ -1,0 +1,71 @@
+{
+  "$comment": "Ghar ki Hawa's indoor model defaults (P3), read by indoorDefaults.ts. Every value carries its source. Hours are India time; an end past 24 runs into the next morning.",
+  "ventilation": {
+    "closed": {
+      "air_exchange_per_h": 0.6,
+      "penetration": 0.8,
+      "source": "Saans plan values for a home with windows shut; in line with the air exchange, penetration and infiltration ranges reviewed in Chen & Zhao (2011), Atmos. Environ. 45:275–288."
+    },
+    "ajar": {
+      "air_exchange_per_h": 2,
+      "penetration": 0.9,
+      "source": "Saans plan values for one open window (single-sided ventilation)."
+    },
+    "open": {
+      "air_exchange_per_h": 6,
+      "penetration": 1,
+      "source": "Saans plan values for two or more open windows (cross-ventilation); with the windows open, outside air comes straight in, so nothing is filtered out."
+    }
+  },
+  "deposition_per_h": {
+    "value": 0.2,
+    "source": "PM2.5 settling onto indoor surfaces; Saans plan value, in line with Chen & Zhao (2011)."
+  },
+  "ceiling_height_m": {
+    "value": 2.7,
+    "source": "p3-aqi.openapi.json's default for IndoorEstimateRequest.ceiling_height_m."
+  },
+  "cooking": {
+    "hours": [[7, 8], [12.5, 13.5], [19.5, 20.5]],
+    "hours_source": "Assumed meal times: breakfast, lunch and dinner, an hour each.",
+    "fuels": {
+      "none": { "mg_per_h": 0, "source": "No cooking at home." },
+      "electric": { "mg_per_h": 0, "source": "No combustion. Frying still makes some smoke, which this leaves out." },
+      "lpg": {
+        "mg_per_h": 14,
+        "source": "WHO Indoor Air Quality Guidelines: Household Fuel Combustion (2014) set 0.23 mg/min as the unvented emission rate target, which gas burners are taken to meet; we use the target itself as an upper bound."
+      },
+      "png": {
+        "mg_per_h": 14,
+        "source": "As LPG: piped natural gas burns as cleanly (WHO 2014 lists both as clean fuels)."
+      },
+      "kerosene": {
+        "mg_per_h": 105,
+        "source": "Estimate. WHO (2014) interim target for unvented stoves, 1.75 mg/min; WHO advises against kerosene, and wick stoves can exceed this."
+      },
+      "biomass": {
+        "mg_per_h": 300,
+        "source": "Estimate. Real-world chulha emission factor about 10.5 g PM2.5 per kg of wood (Atmos. Chem. Phys. 18, 15169, 2018); we assume about 1 kg burnt an hour and that about 3% of the smoke stays in the home's air rather than leaving through the kitchen's openings. Needs checking against kitchen measurements."
+      }
+    }
+  },
+  "smoker": {
+    "mg_per_h": 22,
+    "hours": [[7, 23]],
+    "source": "Marlboro cigarettes emitted 2.2 mg PM2.5 a minute under a fixed puffing protocol (\"Measuring indoor fine particle concentrations, emission rates, and decay rates from cannabis use in a residence\", Atmos. Environ. X, 2021); a cigarette lasts about 10 minutes. We assume one cigarette an hour while awake."
+  },
+  "incense": {
+    "mg_per_h": 25,
+    "hours": [[7, 8], [19, 20]],
+    "source": "About 7 µg/s (25 mg/h) per stick, measured in a closed room (Int. J. Environ. Res. Public Health 20:587, 2022); chamber studies find more. Assumed one stick, morning and evening."
+  },
+  "mosquito_coil": {
+    "mg_per_h": 85,
+    "hours": [[21, 29]],
+    "source": "Liu et al. (2003), Environ. Health Perspect. 111:1454–1460: four coil brands emitted 63–117 mg/h, one coil about 75–137 cigarettes' worth. We use 85 mg/h, burning from 21:00 to 05:00."
+  },
+  "purifier": {
+    "suggested_air_changes_per_h": 5,
+    "source": "When the home has no purifier, the plan suggests one with a CADR of 5 room volumes an hour: AHAM's sizing rule (CADR in cfm at least two-thirds of the floor area in ft²) works out to 5 air changes an hour under an 8 ft (2.4 m) ceiling."
+  }
+}

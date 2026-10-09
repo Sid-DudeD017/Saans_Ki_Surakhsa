@@ -50,20 +50,26 @@ export interface HourForecast {
  * Stops early if the snapshot runs out of hours.
  */
 export function forecastSeries(snapshot: ForecastSnapshot, lat: number, lon: number, fromMs: number, hours: number): HourForecast[] {
-  const { grid, plume } = modelFor(snapshot);
-  const cell = cellOf(lat, lon);
   const first = nextIstHour(fromMs);
   const out: HourForecast[] = [];
   for (let i = 0; i < hours; i++) {
-    const at = first + i * HOUR_MS;
-    const t = hoursSince(snapshot.start, at);
-    const base = grid.value('pm25', cell.lat, cell.lon, t);
-    if (base === null) break;
-    const bias = biasAt(snapshot.stations, snapshot.start, cell.lat, cell.lon, t);
-    const smoke = plume.at(cell.lat, cell.lon, t);
-    out.push({ at, base, bias, plume: smoke, pm25: Math.max(0, base + bias + smoke) });
+    const h = pm25At(snapshot, lat, lon, first + i * HOUR_MS);
+    if (!h) break;
+    out.push(h);
   }
   return out;
+}
+
+/** Ĉ for the 1 km cell around a point at any instant inside the snapshot, or null outside its hours. */
+export function pm25At(snapshot: ForecastSnapshot, lat: number, lon: number, at: number): HourForecast | null {
+  const { grid, plume } = modelFor(snapshot);
+  const cell = cellOf(lat, lon);
+  const t = hoursSince(snapshot.start, at);
+  const base = grid.value('pm25', cell.lat, cell.lon, t);
+  if (base === null) return null;
+  const bias = biasAt(snapshot.stations, snapshot.start, cell.lat, cell.lon, t);
+  const smoke = plume.at(cell.lat, cell.lon, t);
+  return { at, base, bias, plume: smoke, pm25: Math.max(0, base + bias + smoke) };
 }
 
 export interface BuildDeps {

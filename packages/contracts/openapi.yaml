@@ -3820,6 +3820,11 @@ components:
           type: object
           additionalProperties: true
           description: Model assumptions used for transparency (infiltration rate, effective CADR, emission rates, decay rate)
+        plan:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndoorPlanItem"
+          description: today_plan, piece by piece, for screens that show it as a list
       required:
         - indoor_pm25_now_ug_m3
         - outdoor_pm25_now_ug_m3
@@ -3842,6 +3847,24 @@ components:
         - indoor_pm25_ug_m3
         - outdoor_pm25_ug_m3
       title: IndoorHour
+    IndoorPlanItem:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - windows
+            - purifier
+            - source
+            - mask
+          description: What the advice is about
+        text:
+          type: string
+          description: One piece of advice, in plain English
+      required:
+        - kind
+        - text
+      title: IndoorPlanItem
     KisanHelpRequest:
       description: Saans Command's HelpRequestSchema (src/domain/schemas), plus extras for the officer's case view.
       properties:
