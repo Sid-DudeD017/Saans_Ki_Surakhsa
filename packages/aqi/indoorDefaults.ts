@@ -28,6 +28,11 @@ const Defaults = z.object({
   incense: emitter,
   mosquito_coil: emitter,
   purifier: z.strictObject({ suggested_air_changes_per_h: z.number().positive(), source }),
+  rooms: z.strictObject({
+    kitchen: z.strictObject({ area_m2: z.number().positive(), windows: z.number().min(0), ceiling_height_m: z.number().positive(), source }),
+    master_bedroom: z.strictObject({ area_m2: z.number().positive(), windows: z.number().min(0), ceiling_height_m: z.number().positive(), source }),
+    living_room: z.strictObject({ area_m2: z.number().positive(), windows: z.number().min(0), ceiling_height_m: z.number().positive(), source }),
+  }),
 });
 
 export type IndoorDefaults = z.infer<typeof Defaults>;
