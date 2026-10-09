@@ -11,10 +11,53 @@ import {
   SchoolAdvisoryData,
 } from '../../lib/api';
 import { Card, Button, Container, Stack, Badge, Alert } from '../../components/ui';
+import { AirBuddy } from './AirBuddy';
+import { CATEGORIES, CATEGORY_NAMES, WORDS, type Category } from './airQuality';
+import { AQI_FIXTURES } from './aqiFixtures';
+import { SCHOOLS, buildAdvisory, type SchoolAdvisory } from './advisory';
+import { FilterFrenzy } from './FilterFrenzy';
+import { GasCards } from './GasCards';
+import { PrincipalBoard } from './PrincipalBoard';
+import { RedZoneMap } from './RedZoneMap';
+import { DEMO_FIRES, DEMO_STATIONS } from './redZoneFixtures';
+import { USE_MOCKS, getAdvisory, getAir, getFires, type FirePoint } from './shalaApi';
+import type { AqiResponse } from './airQuality';
+
+const SCHOOL = SCHOOLS[0];
+const FIRE_RADIUS_KM = 25;
 
 export default function ShalaPage() {
   const { role, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [fixtureDay, setFixtureDay] = useState<Category>('poor');
+  // Mock mode: the example day drives everything. Live: P3's AQI and fires, and Shala's own advisory API.
+  const [live, setLive] = useState<{ air?: AqiResponse; advisory?: SchoolAdvisory; fires?: FirePoint[]; error?: string; firesError?: string }>({});
+  useEffect(() => {
+    if (USE_MOCKS) return;
+    let on = true;
+    const { lat, lon } = SCHOOL.location;
+    // The fires are extra: without them the map says so, and the rest of the page still works.
+    Promise.allSettled([getAir(lat, lon, 'poor'), getAdvisory(SCHOOL.id, 'poor'), getFires(lat, lon, FIRE_RADIUS_KM)]).then(([air, advisory, fires]) => {
+      if (!on) return;
+      const why = (r: PromiseSettledResult<unknown>) => (r.status === 'rejected' ? String((r.reason as Error)?.message ?? r.reason) : undefined);
+      setLive({
+        air: air.status === 'fulfilled' ? air.value : undefined,
+        advisory: advisory.status === 'fulfilled' ? advisory.value : undefined,
+        fires: fires.status === 'fulfilled' ? fires.value : [],
+        error: why(air) ?? why(advisory),
+        firesError: why(fires),
+      });
+    });
+    return () => {
+      on = false;
+    };
+  }, []);
+  const airDay = USE_MOCKS ? AQI_FIXTURES[fixtureDay] : live.air;
+  const schoolAdvisory = USE_MOCKS && airDay ? buildAdvisory(SCHOOL, airDay, new Date(airDay.data_timestamp)) : live.advisory;
+  const fires = USE_MOCKS ? DEMO_FIRES : (live.fires ?? []);
+  const stations = USE_MOCKS && airDay
+    ? DEMO_STATIONS.map((s) => ({ ...s, aqi: Math.max(0, Math.min(500, airDay.aqi + s.aqiOffset)) }))
+    : null;
 
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
   const [advisory, setAdvisory] = useState<SchoolAdvisoryData | null>(null);
@@ -145,34 +188,45 @@ export default function ShalaPage() {
           </div>
         </Card>
 
-        {/* Air Buddy Placeholder */}
-        <Card padding="md">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                backgroundColor: '#fff7ed',
-                border: '1.5px solid #fed7aa',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.75rem',
-              }}
-            >
-              😟
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ea580c', textTransform: 'uppercase' }}>
-                Air Buddy • Mood: Worried (Poor Air)
+        {/* Air Buddy, the gas cards, the principal's board, the red-zone map and Filter Frenzy (P2) */}
+        {live.error && <Alert variant="danger">{live.error}</Alert>}
+        {airDay && (
+          <>
+            <AirBuddy category={airDay.category} language={language} aqi={airDay.aqi} />
+            {USE_MOCKS && (
+              <div role="group" aria-label={WORDS.exampleDay[language]} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: '#64748b' }}>
+                <span>{WORDS.exampleDay[language]}:</span>
+                {CATEGORIES.map((day) => (
+                  <Button key={day} size="sm" variant={day === fixtureDay ? 'primary' : 'secondary'} aria-pressed={day === fixtureDay} onClick={() => setFixtureDay(day)}>
+                    {CATEGORY_NAMES[day][language]}
+                  </Button>
+                ))}
               </div>
-              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a', marginTop: '2px' }}>
-                &ldquo;Air Buddy says: The air feels dusty today. Shift playground games indoors!&rdquo;
-              </div>
-            </div>
-          </div>
-        </Card>
+            )}
+            {schoolAdvisory && (
+              <Card padding="lg">
+                <PrincipalBoard advisory={schoolAdvisory} language={language} />
+              </Card>
+            )}
+            <Card padding="lg">
+              <GasCards aqi={airDay} language={language} />
+            </Card>
+            <Card padding="lg">
+              <RedZoneMap
+                school={{ ...SCHOOL.location, name: SCHOOL.name }}
+                wind={airDay.wind}
+                fires={fires}
+                stations={stations}
+                language={language}
+                demo={USE_MOCKS}
+                firesUnavailable={live.firesError}
+              />
+            </Card>
+            <Card padding="lg">
+              <FilterFrenzy category={airDay.category} language={language} />
+            </Card>
+          </>
+        )}
 
         {/* Today's Advisory Card */}
         <Card padding="md">
