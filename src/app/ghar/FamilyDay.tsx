@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLanguage } from '../../lib/i18n';
+import { useGharLanguage } from './gharTranslations';
 import { loadFamilyState, saveFamilyState, type FamilyState, type FamilyMember, type TimeBlock } from './familyState';
 import { calculateDailyExposure, generatePurifierComparison } from './familyLogic';
 import type { RoomState } from './homeState';
@@ -14,7 +14,7 @@ export interface FamilyDayProps {
 }
 
 export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
-  const { t } = useLanguage();
+  const { tLocal } = useGharLanguage();
   const [family, setFamily] = useState<FamilyState>(() => loadFamilyState());
 
   // Save to localStorage on change
@@ -44,23 +44,20 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
   // Purifier comparison logic
   const [purifierEstimate, setPurifierEstimate] = useState<IndoorEstimate | null>(null);
   
-  const bedroom = rooms.find(r => r.id === 'master_bedroom' || r.name.toLowerCase().includes('bedroom'));
+  const bedroom = rooms.find(r => r.id === 'master_bedroom' || r.name.toLowerCase().includes('bedroom') || r.name === tLocal('rooms.master_bedroom'));
   
   useEffect(() => {
     let mounted = true;
     if (!bedroom) return;
     if (bedroom.request.purifier_cadr_m3_h > 0) {
-      // Already has a purifier, no need for hypothetical comparison
       setPurifierEstimate(null);
       return;
     }
 
-    // Only run if we have the baseline estimate
     if (!estimates[bedroom.id]?.estimate) return;
 
-    // Fetch hypothetical
     const cadr = Math.max(50, Math.round((5 * bedroom.request.room_area_m2 * bedroom.request.ceiling_height_m) / 50) * 50) || 200;
-    const hypotheticalReq = { ...bedroom.request, purifier_cadr_m3_h: cadr };
+    const hypotheticalReq = { ...bedroom.request, purifier_cadr_m3_h: cadr }; // VERIFY
     
     getIndoorEstimate(hypotheticalReq).then(est => {
       if (mounted) setPurifierEstimate(est);
@@ -75,7 +72,7 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
     const newMember: FamilyMember = {
       id: 'person_' + Date.now(),
       name: '',
-      role: 'Family Member',
+      role: '',
       blocks: [
         { id: 'b1', start: '22:00', end: '06:00', locationId: bedroom?.id || rooms[0]?.id || 'out' },
         { id: 'b2', start: '06:00', end: '22:00', locationId: 'out' }
@@ -94,19 +91,19 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
     setFamily(prev => ({ members: prev.members.filter(m => m.id !== id) }));
   };
 
-  if (outdoorForecast.length < 24) return null; // Need baseline data to function
+  if (outdoorForecast.length < 24) return null;
 
   return (
     <section style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>Family's Day</h2>
-        <button onClick={addMember} style={{ padding: '0.5rem 1rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '0.25rem', cursor: 'pointer', fontWeight: 600 }}>
-          + Add Person
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>{tLocal('family.title')}</h2>
+        <button onClick={addMember} style={{ padding: '0.5rem 1rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '0.25rem', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}>
+          {tLocal('family.add_person')}
         </button>
       </div>
 
       {family.members.length === 0 && (
-        <p style={{ color: '#64748b', fontSize: '0.95rem' }}>Add family members to see their daily PM2.5 exposure based on their schedule.</p>
+        <p style={{ color: '#64748b', fontSize: '0.95rem' }}>{tLocal('family.empty')}</p>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -119,52 +116,52 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                 <input 
                   type="text" 
-                  placeholder="Name (Optional)" 
+                  placeholder={tLocal('family.name_opt')}
                   value={member.name} 
                   onChange={e => updateMember(member.id, { name: e.target.value })}
-                  style={{ padding: '0.5rem', border: '1px solid #94a3b8', borderRadius: '0.25rem', flex: 1, minWidth: '150px' }}
+                  style={{ padding: '0.5rem', border: '1px solid #94a3b8', borderRadius: '0.25rem', flex: 1, minWidth: '150px', minHeight: '44px' }}
                 />
                 <input 
                   type="text" 
-                  placeholder="Role (e.g. Child, Parent)" 
+                  placeholder={tLocal('family.role_opt')}
                   value={member.role} 
                   onChange={e => updateMember(member.id, { role: e.target.value })}
-                  style={{ padding: '0.5rem', border: '1px solid #94a3b8', borderRadius: '0.25rem', flex: 1, minWidth: '150px' }}
+                  style={{ padding: '0.5rem', border: '1px solid #94a3b8', borderRadius: '0.25rem', flex: 1, minWidth: '150px', minHeight: '44px' }}
                 />
-                <button onClick={() => removeMember(member.id)} style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '0.25rem', cursor: 'pointer' }}>
-                  Remove
+                <button onClick={() => removeMember(member.id)} style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '0.25rem', cursor: 'pointer', minHeight: '44px' }}>
+                  {tLocal('family.remove')}
                 </button>
               </div>
 
               <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
-                <strong style={{ fontSize: '0.9rem', color: '#475569' }}>Schedule:</strong>
+                <strong style={{ fontSize: '0.9rem', color: '#475569' }}>{tLocal('family.schedule')}</strong>
                 {member.blocks.map((block, i) => (
                   <div key={block.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <input type="time" value={block.start} onChange={e => {
                       const newBlocks = [...member.blocks];
                       newBlocks[i].start = e.target.value;
                       updateMember(member.id, { blocks: newBlocks });
-                    }} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem' }} />
-                    <span>to</span>
+                    }} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', minHeight: '44px' }} />
+                    <span>{tLocal('family.to')}</span>
                     <input type="time" value={block.end} onChange={e => {
                       const newBlocks = [...member.blocks];
                       newBlocks[i].end = e.target.value;
                       updateMember(member.id, { blocks: newBlocks });
-                    }} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem' }} />
+                    }} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', minHeight: '44px' }} />
                     
                     <select value={block.locationId} onChange={e => {
                       const newBlocks = [...member.blocks];
                       newBlocks[i].locationId = e.target.value;
                       updateMember(member.id, { blocks: newBlocks });
-                    }} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', flex: 1 }}>
-                      <option value="out">Outdoors</option>
+                    }} style={{ padding: '0.4rem', border: '1px solid #cbd5e1', borderRadius: '0.25rem', flex: 1, minHeight: '44px' }}>
+                      <option value="out">{tLocal('family.outdoors')}</option>
                       {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
 
                     <button onClick={() => {
                       const newBlocks = member.blocks.filter((_, idx) => idx !== i);
                       updateMember(member.id, { blocks: newBlocks });
-                    }} style={{ padding: '0.4rem 0.6rem', backgroundColor: 'transparent', border: '1px solid #cbd5e1', borderRadius: '0.25rem', color: '#64748b', cursor: 'pointer' }}>
+                    }} style={{ padding: '0.4rem 0.6rem', backgroundColor: 'transparent', border: '1px solid #cbd5e1', borderRadius: '0.25rem', color: '#64748b', cursor: 'pointer', minHeight: '44px' }}>
                       ✕
                     </button>
                   </div>
@@ -172,27 +169,32 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
                 <button onClick={() => {
                   const newBlocks = [...member.blocks, { id: 'b' + Date.now(), start: '12:00', end: '13:00', locationId: 'out' }];
                   updateMember(member.id, { blocks: newBlocks });
-                }} style={{ alignSelf: 'flex-start', fontSize: '0.85rem', color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  + Add time block
+                }} style={{ alignSelf: 'flex-start', fontSize: '0.85rem', color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', minHeight: '44px' }}>
+                  {tLocal('family.add_block')}
                 </button>
               </div>
 
               <div style={{ backgroundColor: '#f1f5f9', padding: '1rem', borderRadius: '0.5rem', fontSize: '0.95rem', color: '#334155' }}>
                 {exposure.missingHours > 0.1 ? (
                   <div style={{ color: '#b45309' }}>
-                    <strong>Incomplete schedule:</strong> Missing {exposure.missingHours} hours of coverage. Please fill out the full 24 hours to see the daily average.
+                    <strong>{tLocal('family.incomplete', { missing: exposure.missingHours })}</strong>
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '0.5rem' }}>
-                    <div><strong>Today's average:</strong> {exposure.average} µg/m³</div>
+                    <div><strong>{tLocal('family.avg')}</strong> {exposure.average} µg/m³</div>
                     {exposure.worstStretch && (
                       <div>
-                        <strong>Worst stretch:</strong> {exposure.worstStretch.start}–{exposure.worstStretch.end} in {exposure.worstStretch.locationId === 'out' ? 'Outdoors' : rooms.find(r => r.id === exposure.worstStretch!.locationId)?.name} (about {exposure.worstStretch.average} µg/m³)
+                        <strong>{tLocal('family.worst')}</strong> {exposure.worstStretch.start}–{exposure.worstStretch.end} {tLocal('family.in')} {exposure.worstStretch.locationId === 'out' ? tLocal('family.outdoors') : rooms.find(r => r.id === exposure.worstStretch!.locationId)?.name} (about {exposure.worstStretch.average} µg/m³)
                       </div>
                     )}
                     {comp && (
                       <div style={{ color: '#0369a1', marginTop: '0.5rem', fontWeight: 500 }}>
-                        If the {bedroom?.name.toLowerCase() || 'bedroom'} purifier runs at night, {member.name || member.role || 'this person'}'s day falls from {comp.baselineAvg} to {comp.improvedAvg} µg/m³! (Modelled scenario)
+                        {tLocal('family.purifier_comp', {
+                          room: bedroom?.name.toLowerCase() || 'bedroom',
+                          name: member.name || member.role || 'this person',
+                          baseline: comp.baselineAvg,
+                          improved: comp.improvedAvg
+                        })}
                       </div>
                     )}
                   </div>

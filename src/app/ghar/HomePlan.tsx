@@ -1,10 +1,9 @@
 'use client';
 import React from 'react';
 import { Card } from '../../components/ui';
-import { useLanguage } from '../../lib/i18n';
+import { useGharLanguage } from './gharTranslations';
 import { buildHomeSummary, buildMergedPlan, type RoomWithEstimate, type MergedPlanItem } from './summaryLogic';
 import { usePlanChecks } from './usePlanChecks';
-import type { TranslationStrings } from '../../lib/i18n';
 
 const ICONS = { windows: '🪟', purifier: '🌀', source: '🔥', mask: '😷' };
 
@@ -15,21 +14,21 @@ function formatTime(iso: string) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function translatePlanItem(item: MergedPlanItem, t: TranslationStrings) {
-  if (!item.key || !(item.key in t.gharPlan)) {
-    return t.gharPlan.fallback.replace('{{text}}', item.text);
+function translatePlanItem(item: MergedPlanItem, tLocal: any) {
+  if (!item.key) {
+    return tLocal('plan.fallback', { text: item.text });
   }
-  let str = t.gharPlan[item.key as keyof typeof t.gharPlan];
-  str = str.replace('{{pm25}}', String(item.pm25 ?? ''));
-  str = str.replace('{{from}}', item.from ?? '');
-  str = str.replace('{{to}}', item.to ?? '');
-  str = str.replace('{{sourceType}}', item.sourceType ?? '');
-  str = str.replace('{{purifierCadr}}', String(item.purifierCadr ?? ''));
-  return str;
+  return tLocal(`plan.${item.key}` as any, {
+    pm25: item.pm25,
+    from: item.from,
+    to: item.to,
+    sourceType: item.sourceType,
+    purifierCadr: item.purifierCadr
+  });
 }
 
 export function HomePlan({ rooms }: { rooms: RoomWithEstimate[] }) {
-  const { t } = useLanguage();
+  const { tLocal } = useGharLanguage();
   const summary = buildHomeSummary(rooms);
   const planItems = buildMergedPlan(rooms);
   const { checks, toggleCheck, ready } = usePlanChecks();
@@ -39,43 +38,37 @@ export function HomePlan({ rooms }: { rooms: RoomWithEstimate[] }) {
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <Card padding="lg">
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem', color: '#0f172a' }}>{t.gharSummary.title}</h2>
+        <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem', color: '#0f172a' }}>{tLocal('summary.title')}</h2>
         {summary.outsidePeak ? (
           <ul style={{ margin: 0, paddingLeft: '1.5rem', display: 'grid', gap: '0.5rem', color: '#334155' }}>
             {summary.outsidePeak && (
-              <li>{t.gharSummary.outsidePeak.replace('{{pm25}}', String(summary.outsidePeak.pm25)).replace('{{time}}', formatTime(summary.outsidePeak.time))}</li>
+              <li>{tLocal('summary.outsidePeak', { pm25: summary.outsidePeak.pm25, time: formatTime(summary.outsidePeak.time) })}</li>
             )}
             {summary.worstRoom && (
               <li>
-                {t.gharSummary.worstRoom
-                  .replace('{{room}}', summary.worstRoom.name)
-                  .replace('{{pm25}}', String(summary.worstRoom.pm25))
-                  .replace('{{source}}', summary.worstRoom.sourceKey ? ` — ${translatePlanItem({ key: summary.worstRoom.sourceKey, ...summary.worstRoom.sourceParams } as any, t)}` : '')}
+                {tLocal('summary.worstRoom', { room: summary.worstRoom.name, pm25: summary.worstRoom.pm25 })}
+                {summary.worstRoom.sourceKey ? ` — ${translatePlanItem({ key: summary.worstRoom.sourceKey, ...summary.worstRoom.sourceParams } as any, tLocal)}` : ''}
               </li>
             )}
             {summary.cleanestRoom && (
               <li>
-                {t.gharSummary.cleanestRoom
-                  .replace('{{room}}', summary.cleanestRoom.name)
-                  .replace('{{pm25}}', String(summary.cleanestRoom.pm25))}
+                {tLocal('summary.cleanestRoom', { room: summary.cleanestRoom.name, pm25: summary.cleanestRoom.pm25 })}
               </li>
             )}
             {summary.biggestChange && (
               <li>
-                {t.gharSummary.biggestChange
-                  .replace('{{action}}', translatePlanItem({ key: summary.biggestChange.actionKey, ...summary.biggestChange.actionParams } as any, t))
-                  .replace('{{reduction}}', String(summary.biggestChange.reduction))}
+                {tLocal('summary.biggestChange', { action: translatePlanItem({ key: summary.biggestChange.actionKey, ...summary.biggestChange.actionParams } as any, tLocal), reduction: summary.biggestChange.reduction })}
               </li>
             )}
           </ul>
         ) : (
-          <p style={{ margin: 0, color: '#64748b' }}>{t.gharSummary.noData}</p>
+          <p style={{ margin: 0, color: '#64748b' }}>{tLocal('summary.noData')}</p>
         )}
       </Card>
 
       {planItems.length > 0 && (
         <Card padding="lg">
-          <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#0f172a' }}>{t.gharSummary.titlePlan}</h3>
+          <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#0f172a' }}>{tLocal('summary.titlePlan')}</h3>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {planItems.map(item => {
               const checked = checks[item.uid] || false;
@@ -93,7 +86,7 @@ export function HomePlan({ rooms }: { rooms: RoomWithEstimate[] }) {
                       <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>{item.roomName}</strong>
                     </div>
                     <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569', textDecoration: checked ? 'line-through' : 'none' }}>
-                      {translatePlanItem(item, t)}
+                      {translatePlanItem(item, tLocal)}
                     </p>
                   </div>
                 </label>

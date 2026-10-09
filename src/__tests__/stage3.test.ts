@@ -45,10 +45,10 @@ describe('Ghar Stage 3 Form Logic', () => {
 
   it('Sets windows_open to afternoon value', () => {
     const start = DEFAULT_HOME.rooms[0];
-    let updated = updateRoomState(start, { windowsAfternoon: true });
+    let updated = updateRoomState(start, { windowsOpen: true });
     expect(updated.request.windows_open).toBe(true);
 
-    updated = updateRoomState(start, { windowsAfternoon: false });
+    updated = updateRoomState(start, { windowsOpen: false });
     expect(updated.request.windows_open).toBe(false);
   });
 

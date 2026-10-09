@@ -5,9 +5,7 @@ export interface RoomUiState {
   sizeMode: 'small' | 'medium' | 'large' | 'custom_m' | 'custom_ft';
   customLength: number;
   customWidth: number;
-  windowsMorning: boolean;
-  windowsAfternoon: boolean;
-  windowsNight: boolean;
+  windowsOpen: boolean;
   purifierMode: 'no' | 'small' | 'large' | 'custom';
   purifierUnit: 'm3h' | 'cfm';
   smokerSelect: 'unanswered' | 'no' | 'sometimes' | 'every_day' | 'prefer_not';
@@ -41,9 +39,7 @@ const COMMON_UI: RoomUiState = {
   sizeMode: 'medium',
   customLength: 4,
   customWidth: 3,
-  windowsMorning: false,
-  windowsAfternoon: false,
-  windowsNight: false,
+  windowsOpen: false,
   purifierMode: 'no',
   purifierUnit: 'm3h',
   smokerSelect: 'unanswered',
@@ -74,7 +70,7 @@ export const DEFAULT_HOME: HomeState = {
         ceiling_height_m: INDOOR_DEFAULTS.rooms.master_bedroom.ceiling_height_m,
         mosquito_coils: true,
       },
-      ui: { ...COMMON_UI, windowsNight: false, purifierMode: 'no' },
+      ui: { ...COMMON_UI, windowsOpen: false, purifierMode: 'no' },
     },
     {
       id: 'living_room',
@@ -180,7 +176,7 @@ export function updateRoomState(room: RoomState, newUi: Partial<RoomUiState>): R
     request: {
       ...room.request,
       room_area_m2: Math.max(1, area_m2),
-      windows_open: combinedUi.windowsAfternoon, 
+      windows_open: combinedUi.windowsOpen, 
       purifier_cadr_m3_h: combinedUi.purifierMode !== 'custom' ? cadr : room.request.purifier_cadr_m3_h,
       smokers,
       meal_times_h,

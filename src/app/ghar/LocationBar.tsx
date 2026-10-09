@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 import { Button, Card } from '../../components/ui';
 import type { LocationState } from './useLocation';
+import { useGharLanguage } from './gharTranslations';
 
 export function LocationBar({ location, onSave }: { location: LocationState, onSave: (loc: LocationState) => void }) {
+  const { tLocal } = useGharLanguage();
   const [mode, setMode] = useState<'view' | 'edit' | 'confirming'>('view');
   const [candidate, setCandidate] = useState<LocationState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function LocationBar({ location, onSave }: { location: LocationState, onS
         </p>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Button onClick={() => { onSave(candidate); setMode('view'); }}>Confirm</Button>
-          <Button variant="secondary" onClick={() => setMode('view')}>Cancel</Button>
+          <Button variant="secondary" onClick={() => setMode('view')}>{tLocal('location.cancel')}</Button>
         </div>
       </Card>
     );
@@ -47,8 +49,8 @@ export function LocationBar({ location, onSave }: { location: LocationState, onS
       <Card padding="md" style={{ marginBottom: '1rem', background: '#f8fafc' }}>
         <p style={{ marginTop: 0, fontWeight: 500 }}>Set your home location</p>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          <Button onClick={handleLocate}>Use my location</Button>
-          <Button variant="secondary" onClick={() => setMode('view')}>Cancel</Button>
+          <Button onClick={handleLocate}>{tLocal('location.use_current')}</Button>
+          <Button variant="secondary" onClick={() => setMode('view')}>{tLocal('location.cancel')}</Button>
         </div>
         {error && <p style={{ color: '#b45309', fontSize: '0.9rem', margin: 0 }}>{error}</p>}
         {!error && <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>PIN/place search is unavailable (missing geocoding provider).</p>}
@@ -62,11 +64,11 @@ export function LocationBar({ location, onSave }: { location: LocationState, onS
         {location.isExample ? (
           <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>Showing an example home in {location.name}</p>
         ) : (
-          <p style={{ margin: 0, fontWeight: 500 }}>Home: {location.name}</p>
+          <p style={{ margin: 0, fontWeight: 500 }}>{tLocal('location.home')}: {location.name}</p>
         )}
       </div>
       <Button variant="secondary" onClick={() => setMode('edit')}>
-        {location.isExample ? 'Set my home' : 'Change'}
+        {location.isExample ? 'Set my home' : tLocal('location.change')}
       </Button>
     </div>
   );
