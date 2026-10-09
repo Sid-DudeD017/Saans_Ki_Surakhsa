@@ -80,6 +80,7 @@ export function GharIndoor() {
   }, [room.lat, room.lon]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAqi();
   }, [fetchAqi]);
 
