@@ -43,7 +43,14 @@ sam build --template-file infra/template.yaml
 ## 3. Deployment
 
 ### First Deployment
-For the initial deployment, use the guided mode to set parameter overrides (like the Database URL and Cognito domains):
+For the initial deployment, use the guided mode to set parameter overrides (like the Database URL and Cognito domains).
+The guided prompts also ask for:
+- `BillingAlertEmail` (required): who gets the $40 and $50 budget emails.
+- `SmsToSangrur`, `SmsToPatiala`, `SmsToUnassigned`: E.164 numbers for assignment and action-taken SMS
+  (hidden in the console; leave empty for no SMS). Type them at the prompt; don't save them in `samconfig.toml`.
+- `SmsBackend` (`outbox` by default) and, for `aws`, `SmsSenderId`, `SmsEntityId`, `SmsTemplateAssignment`,
+  `SmsTemplateActionTaken` from the DLT registration. With `outbox` on Lambda, messages go to `/tmp` and
+  reach no phone.
 ```bash
 sam deploy --guided
 ```
@@ -79,7 +86,11 @@ If SMS is chosen over the `outbox` fallback, you must configure Indian DLT param
 - If DLT registration is pending, explicitly approve the `outbox` fallback.
 
 ## 8. Billing Alerts
-Enable AWS billing alerts. Create a **USD 50 EstimatedCharges** alarm in `us-east-1` (Billing alarms must reside in `us-east-1`, while the workload resources remain in `ap-south-1`).
+The stack creates the **USD 50** guardrail itself: `MonthlyBudget`, an AWS Budget that emails
+`BillingAlertEmail` when the month's actual cost passes $40 and again at $50. (A CloudWatch
+`EstimatedCharges` alarm would have to live in `us-east-1`; Budgets is account-wide, so it works from
+this `ap-south-1` stack.) AWS sends a confirmation email to that address first: confirm it, or no alert
+arrives.
 
 ## 9. Rollback, Teardown, and Cost Warnings
 To destroy the stack:

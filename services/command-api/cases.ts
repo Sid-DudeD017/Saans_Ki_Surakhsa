@@ -1,13 +1,12 @@
 // The officer's side of Saans Command (P4): the case queue, one case with its report and the farmer's open
 // help request (shown before any penalty), and the actions an officer takes. Shapes are
 // p4-command.openapi.yaml's CaseList, CaseDetail, CommandCase and CaseActionInput. Every call is for a
-// signed-in officer, and Cedar (authz.ts) decides what they may see and do: their own district only.
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
+// signed-in officer, and deps.authz decides what they may see and do: their own district only (Cedar
+// in-process locally, Verified Permissions on AWS; see caseAuthz.ts).
 import { z } from "zod";
 
-import { VERB_FOR, listable, mayOnCase, type CaseFacts, type Officer } from "./authz";
+import chcSeed from "../../data/seed/chc_demo.json";
+import { VERB_FOR, type CaseAuthz, type CaseFacts, type Officer } from "./caseAuthz";
 import type { IntakeDeps } from "./deps";
 import { errorResponse, invalid, zodDetails } from "./errors";
 import { indiaTime } from "./time";
@@ -82,6 +81,11 @@ const factsOf = (r: CaseRow): CaseFacts => ({
 // Not "this case is in Patiala": a refusal says nothing about the case.
 const forbidden = (what: string) => errorResponse(403, "forbidden", what);
 
+function rulesOf(deps: IntakeDeps): CaseAuthz {
+  if (!deps.authz) throw new Error("the case API has no authorization configured (deps.authz)");
+  return deps.authz;
+}
+
 // ---- machines: the demo CHC seed Kisan also books from (data/seed/chc_demo.json) ----
 
 interface Chc {
@@ -93,11 +97,8 @@ interface Chc {
   machines: { type: string; units: number; booked: string[] }[];
 }
 const MACHINE_NAMES: Record<string, string> = { happy_seeder: "Happy Seeder", super_seeder: "Super Seeder", mulcher_rmb: "Mulcher + RMB Plough", baler: "Baler" };
-let chcs: Chc[] | null = null;
-function loadChcs(): Chc[] {
-  chcs ??= (JSON.parse(readFileSync(join(process.cwd(), "data/seed/chc_demo.json"), "utf8")) as { chcs: Chc[] }).chcs;
-  return chcs;
-}
+// Imported, not read from disk, so a Lambda bundle carries it.
+const loadChcs = (): Chc[] => (chcSeed as { chcs: Chc[] }).chcs;
 
 function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const r = Math.PI / 180;
@@ -252,7 +253,7 @@ export async function listCases(deps: IntakeDeps, url: URL, officer: Officer): P
   const q = parsed.data;
   const after = q.cursor ? decodeCursor(q.cursor) : null;
   if (q.cursor && !after) return invalid([{ field: "query.cursor", problem: "is not a cursor from this queue" }]);
-  const allowed = listable(officer);
+  const allowed = await rulesOf(deps).listable(officer);
   if (q.district && !allowed.includes(q.district)) return forbidden("you can't list that district's cases");
 
   const where: string[] = [];
@@ -297,7 +298,9 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
   const r = await loadCase(deps, id);
   if (!r) return notFound(id);
   const facts = factsOf(r);
-  if (!mayOnCase(officer, "ViewCase", facts)) return forbidden("you can't open this case");
+  const rules = rulesOf(deps);
+  if (!(await rules.may(officer, "ViewCase", facts))) return forbidden("you can't open this case");
+  const showReporter = await rules.may(officer, "ViewReporter", facts);
   const rec = recommendation(r, deps.now());
   const help = r.help_body;
   const channel = r.type === "farmer_support" ? "kisan_saathi" : "anonymous";
@@ -311,7 +314,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
     report: {
       id: r.complaint_id,
       reportedAt: indiaTime(r.received_at),
-      reporterId: mayOnCase(officer, "ViewReporter", facts) ? r.complaint_body?.reporter_id ?? channel : channel,
+      reporterId: showReporter ? r.complaint_body?.reporter_id ?? channel : channel,
       location: { lat: Number(r.lat), lon: Number(r.lon) },
       description: r.complaint_body?.description ?? "",
       district: districtOf(r),
@@ -341,11 +344,12 @@ export async function actOnCase(deps: IntakeDeps, id: string, body: unknown, off
   const current = await loadCase(deps, id);
   if (!current) return notFound(id);
   const facts = factsOf(current);
-  if (!mayOnCase(officer, "ViewCase", facts)) return forbidden("you can't open this case");
+  const rules = rulesOf(deps);
+  if (!(await rules.may(officer, "ViewCase", facts))) return forbidden("you can't open this case");
   if (current.status === "CLOSED") {
     return Response.json({ error: { code: "conflict", message: `case ${id} is closed` } }, { status: 409 });
   }
-  if (!mayOnCase(officer, VERB_FOR[a.action], facts)) return forbidden("you can't take that action on this case");
+  if (!(await rules.may(officer, VERB_FOR[a.action], facts))) return forbidden("you can't take that action on this case");
   const status = nextStatus(a.action, current.status);
   const now = deps.now();
   // Only the officer who saw the latest version wins; the other gets 409 and reloads.
@@ -360,11 +364,13 @@ export async function actOnCase(deps: IntakeDeps, id: string, body: unknown, off
       { status: 409 },
     );
   }
+  const decisionId = deps.newId("decision");
   await deps.db.query(
     `INSERT INTO case_decisions (id, case_id, officer_id, action, selected_machine_id, reason, previous_case_version, created_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [deps.newId("decision"), id, officer.id, a.action, a.selectedMachineId ?? null, a.reason, a.previousCaseVersion, now],
+    [decisionId, id, officer.id, a.action, a.selectedMachineId ?? null, a.reason, a.previousCaseVersion, now],
   );
+  await deps.notify?.actionTaken({ caseId: id, district: facts.district, action: a.action, decisionId });
   // Sending a machine answers the farmer's help request.
   if ((a.action === "APPROVE" || a.action === "CHANGE") && current.help_request_id && current.help_body?.status === "OPEN") {
     await deps.db.query(

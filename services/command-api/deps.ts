@@ -4,7 +4,9 @@ import { randomUUID } from "node:crypto";
 import { CreateBucketCommand, HeadBucketCommand, PutBucketCorsCommand, S3Client } from "@aws-sdk/client-s3";
 import { Pool } from "pg";
 
+import type { CaseAuthz } from "./caseAuthz";
 import { DISTRICTS, commandConfig, type CommandConfig } from "./config";
+import type { Notifier } from "./notify";
 import { SCHEMA } from "./schema";
 
 export interface Db {
@@ -37,6 +39,10 @@ export interface IntakeDeps {
   startWorkflow: (complaintId: string) => Promise<void>;
   /** The FIRMS check; without one, farm-fire reports stay UNVERIFIED. */
   fires?: FireLookup;
+  /** Who may see and act on cases; the case API refuses everything without it. */
+  authz?: CaseAuthz;
+  /** SMS for assignments and actions taken; without one, nothing is sent. */
+  notify?: Notifier;
 }
 
 export function newId(prefix: string) {

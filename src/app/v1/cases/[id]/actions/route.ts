@@ -1,6 +1,6 @@
 // POST /v1/cases/{id}/actions (P4): an officer's decision, recorded under the signed-in officer's id.
 import { actOnCase } from '../../../../../../services/command-api/cases';
-import { asOfficer } from '../../../../../../services/command-api/http';
+import { asOfficer } from '../../../../../../services/command-api/localStack';
 
 export const runtime = 'nodejs';
 

@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { runIntake } from "../workflows/local";
-import { LOCAL_OFFICERS } from "./authz";
+import { LOCAL_OFFICERS, localCedar } from "./authz";
 import { actOnCase, getCase, listCases } from "./cases";
 import { commandConfig } from "./config";
 import { ensureBucket, migrate, newId, pool, s3Client, type IntakeDeps } from "./deps";
@@ -41,10 +41,15 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
     startWorkflow: async (id) => {
       await runIntake(deps, id, async () => {});
     },
+    authz: localCedar,
   };
-  // Somewhere new each run, in a wide box west of both demo districts (infra/config/districts.json starts at
-  // 75.6° E, and HERE goes at most 20 km east), so help requests left by earlier runs are rarely within 5 km.
-  const HERE = { lat: 29 + Math.random() * 3.3, lon: 72 + Math.random() * 3.1 };
+  // Somewhere new each run, anywhere in a box over most of India but at least 1° from both demo districts
+  // (infra/config/districts.json; HERE's spots reach 40 km out): every run leaves open help requests behind,
+  // and "nothing within 5 km" must stay true on a local database that keeps them all.
+  const nearDistricts = (p: { lat: number; lon: number }) => p.lat > 28.9 && p.lat < 31.7 && p.lon > 74.6 && p.lon < 77.8;
+  let HERE = { lat: 0, lon: 0 };
+  do HERE = { lat: 9 + Math.random() * 23, lon: 69 + Math.random() * 26 };
+  while (nearDistricts(HERE));
 
   beforeAll(async () => {
     await migrate(db);

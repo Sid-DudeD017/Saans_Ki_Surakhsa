@@ -3,6 +3,8 @@ import { CognitoJwtVerifierSingleUserPool } from "aws-jwt-verify/cognito-verifie
 import { VerifiedPermissionsClient, IsAuthorizedWithTokenCommand } from "@aws-sdk/client-verifiedpermissions";
 
 export interface APIGatewayRequestAuthorizerEventV2 {
+  /** "GET /v1/cases/{id}": the route as template.yaml declares it, without the stage prefix. */
+  routeKey?: string;
   requestContext?: {
     http?: {
       method: string;
@@ -35,6 +37,18 @@ export const setAvpClientForTest = (mockClient: any) => {
 const routeMap: Record<string, string> = {
     "GET /v1/officer/whoami": "whoami"
 };
+
+// The case API: here only "a signed-in officer of exactly one district"; the case Lambda then asks
+// Verified Permissions per case, with the district read from the database (avp.ts, avpAuthz.ts).
+const caseRoutes = new Set(["GET /v1/cases", "GET /v1/cases/{id}", "POST /v1/cases/{id}/actions"]);
+
+/** The route's key: API Gateway's routeKey, else method and path with any stage prefix and case id folded. */
+export function routeOf(event: APIGatewayRequestAuthorizerEventV2): string {
+    if (event.routeKey) return event.routeKey;
+    const method = event.requestContext?.http?.method || "";
+    const path = (event.requestContext?.http?.path || "").replace(/^\/(?!v1\/|health)[^/]+(?=\/)/, "");
+    return `${method} ${path.replace(/^\/v1\/cases\/[^/]+/, "/v1/cases/{id}")}`;
+}
 
 export const authorizer = async (event: APIGatewayRequestAuthorizerEventV2): Promise<APIGatewaySimpleAuthorizerResult> => {
     const poolId = process.env.COGNITO_USER_POOL_ID;
@@ -76,9 +90,11 @@ export const authorizer = async (event: APIGatewayRequestAuthorizerEventV2): Pro
         }
         const district = hasSangrur ? "sangrur" : "patiala";
         
-        const method = event.requestContext?.http?.method || "";
-        const rawPath = event.requestContext?.http?.path || "";
-        const matchedAction = routeMap[`${method} ${rawPath}`];
+        const route = routeOf(event);
+        if (caseRoutes.has(route)) {
+            return { isAuthorized: true, context: { subject: payload.sub, role: "officer", district } };
+        }
+        const matchedAction = routeMap[route];
 
         if (!matchedAction) {
             return { isAuthorized: false, context: { error: "unauthorized" } };
