@@ -209,6 +209,23 @@ Resources:
         EntryPoints: [services/workflows/lambda.ts]
         Target: node22
 
+  EscalationFunction:
+    # Stage 3: a case past its deadline with no officer action goes to the district's Deputy Commissioner.
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/workflows/lambda.escalate
+      CodeUri: ../
+      Events:
+        EveryMinute:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(1 minute)
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/workflows/lambda.ts]
+        Target: node22
+
   IntakeStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:

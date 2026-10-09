@@ -1,0 +1,9 @@
+{
+  "$comment": "Local, non-production officer identities for the console and tests before Cognito (G7). The token is a name, not a secret: it only works against the local stack (SAANS_AUTH=local, the default off AWS). On AWS the same role and district come from Cognito's custom:role and custom:district claims.",
+  "officers": [
+    { "id": "officer-sangrur", "token": "local-officer-sangrur", "name": "SDM Sangrur (demo)", "role": "district_officer", "district": "Sangrur" },
+    { "id": "field-sangrur", "token": "local-field-sangrur", "name": "Field officer, Sangrur (demo)", "role": "field_officer", "district": "Sangrur" },
+    { "id": "officer-patiala", "token": "local-officer-patiala", "name": "SDM Patiala (demo)", "role": "district_officer", "district": "Patiala" },
+    { "id": "state-command", "token": "local-state-command", "name": "State command centre (demo)", "role": "state_admin", "district": "*" }
+  ]
+}

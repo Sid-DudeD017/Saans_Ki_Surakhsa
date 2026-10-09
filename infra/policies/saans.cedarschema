@@ -1,0 +1,29 @@
+// Who may do what to a case in Saans Command (P4). Officers come from Cognito at G7 (role and district
+// claims) and from infra/config/officers.local.json on the local stack. A case's district is the one
+// triage found ("unassigned" outside both demo districts).
+namespace Saans {
+  entity Officer = {
+    role: String,      // district_officer | field_officer | state_admin
+    district: String,  // "Sangrur", "Patiala", or "*" for state_admin
+  };
+
+  entity District = {
+    name: String,
+  };
+
+  entity Case = {
+    district: String,
+    status: String,          // OPEN | ACTION_APPROVED | ACTION_CHANGED | CLOSED
+    type: String,            // farm_fire | garbage | vehicle | firecrackers | farmer_support
+    hasHelpRequest: Bool,    // a farmer asked for a machine: only then can one be sent
+    reporterConsent: Bool,   // the reporter agreed to share who they are with the officer
+  };
+
+  // The queue, per district: the API lists only districts an officer may list.
+  action ListCases appliesTo { principal: Officer, resource: District };
+
+  action ViewCase, ViewEvidence, ViewReporter appliesTo { principal: Officer, resource: Case };
+
+  // The six officer actions of CaseActionInput.
+  action Approve, Change, Reject, MarkInField, RecordActionTaken, Close appliesTo { principal: Officer, resource: Case };
+}

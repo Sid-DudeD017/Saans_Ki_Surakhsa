@@ -31,6 +31,7 @@
     "@aws-sdk/client-verifiedpermissions": "^3.1148.0",
     "@aws-sdk/lib-dynamodb": "^3.1147.0",
     "@aws-sdk/s3-request-presigner": "3.1147.0",
+    "@cedar-policy/cedar-wasm": "4.13.0",
     "aws-jwt-verify": "^5.2.1",
     "next": "16.4.0",
     "pg": "8.23.1",

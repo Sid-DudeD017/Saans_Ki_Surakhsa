@@ -3,6 +3,8 @@
 // ComplaintInvalid) is what the definition's Retry and Catch match.
 import { commandConfig } from "../command-api/config";
 import { newId, pool, s3Client, type IntakeDeps } from "../command-api/deps";
+import { escalateOverdue } from "../command-api/escalation";
+import { liveFires } from "../command-api/firms";
 import { assign as assignStep, hashEvidence as hashStep, recordFailure as failureStep, triage as triageStep, validate as validateStep, type IntakeState } from "./steps";
 
 let deps: IntakeDeps | null = null;
@@ -19,6 +21,7 @@ function stepDeps(): IntakeDeps {
     startWorkflow: async () => {
       throw new Error("a step doesn't start workflows");
     },
+    fires: liveFires(),
   };
   return deps;
 }
@@ -28,3 +31,6 @@ export const hashEvidence = (input: IntakeState) => hashStep(stepDeps(), input);
 export const triage = (input: IntakeState) => triageStep(stepDeps(), input);
 export const assign = (input: IntakeState) => assignStep(stepDeps(), input);
 export const recordFailure = (input: IntakeState) => failureStep(stepDeps(), input);
+
+/** The one-minute schedule (EscalationFunction): cases past their deadline with no officer action go up. */
+export const escalate = async () => ({ escalated: await escalateOverdue(stepDeps()) });

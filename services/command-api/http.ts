@@ -1,9 +1,12 @@
 // The HTTP side of intake: Request in, Response out, so the same code serves the Next.js routes
 // (src/app/v1/uploads, src/app/v1/complaints) and, from G7, the Lambda handlers in template.yaml.
+import { officerFrom, type Officer } from "./authz";
 import { commandConfig } from "./config";
 import { submitComplaint } from "./complaints";
 import { ensureBucket, migrate, newId, pool, s3Client, type IntakeDeps } from "./deps";
 import { errorResponse, invalid, zodDetails } from "./errors";
+import { escalateOverdue } from "./escalation";
+import { liveFires } from "./firms";
 import { UploadInput } from "./inputs";
 import { createUpload } from "./uploads";
 import { runIntake } from "../workflows/local";
@@ -54,9 +57,14 @@ export function localDeps(): Promise<IntakeDeps> {
         // Step Functions runs asynchronously too: the complaint is answered before its case exists.
         void runIntake(deps, complaintId).catch((e) => console.error(`intake for ${complaintId} crashed`, e));
       },
+      fires: liveFires(),
     };
     await migrate(deps.db);
     await ensureBucket(deps.s3, config.evidenceBucket);
+    // The local stand-in for template.yaml's one-minute EscalationFunction schedule.
+    setInterval(() => {
+      escalateOverdue(deps).catch((e) => console.error("escalation sweep failed", e));
+    }, config.escalationSweepSeconds * 1000).unref();
     return deps;
   })().catch((e) => {
     local = null;
@@ -75,4 +83,11 @@ export async function onLocalStack(handler: (deps: IntakeDeps) => Promise<Respon
     return errorResponse(503, "unavailable", "complaint intake is unavailable: start the local stack with `npm run stack`");
   }
   return handler(deps);
+}
+
+/** Runs an officer's handler on the local stack, or answers 401 when nobody is signed in. */
+export async function asOfficer(request: Request, handler: (deps: IntakeDeps, officer: Officer) => Promise<Response>): Promise<Response> {
+  const officer = officerFrom(request);
+  if (!officer) return errorResponse(401, "unauthorized", "sign in as an officer to see cases");
+  return onLocalStack((deps) => handler(deps, officer));
 }
