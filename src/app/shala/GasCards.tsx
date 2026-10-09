@@ -37,6 +37,9 @@ function Card({ card, language }: { card: GasCard; language: Language }) {
         <p style={{ margin: '0.4rem 0 0', color: '#475569' }}>
           <strong style={{ color: '#334155' }}>{WORDS.from[language]}:</strong> {gas.from[language]}
         </p>
+        <p style={{ margin: '0.4rem 0 0', color: '#991b1b', fontSize: '0.875rem', backgroundColor: '#fef2f2', padding: '0.35rem 0.5rem', borderRadius: '0.375rem', border: '1px solid #fee2e2' }}>
+          <strong style={{ color: '#b91c1c' }}>🏥 {WORDS.healthRisks[language]}:</strong> {gas.health[language]}
+        </p>
       </div>
       {card.reading && colour ? (
         <div

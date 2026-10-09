@@ -99,7 +99,7 @@ export const BUDDY: Record<Category, { mood: Mood; name: Words; says: Words }> =
 /** The six pollutants every child gets a card for; NH₃ and lead get one only when they're measured. */
 export const CARD_POLLUTANTS: Pollutant[] = ['pm25', 'pm10', 'no2', 'so2', 'co', 'o3'];
 
-export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Words; from: Words }> = {
+export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Words; from: Words; health: Words }> = {
   pm25: {
     symbol: 'PM2.5',
     icon: '💨',
@@ -112,6 +112,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       pa: 'ਪਰਾਲੀ ਅਤੇ ਕੂੜਾ ਸਾੜਨਾ, ਗੱਡੀਆਂ, ਅਤੇ ਚੁੱਲ੍ਹੇ ਦਾ ਧੂੰਆਂ।',
       hi: 'पराली और कचरा जलाना, गाड़ियाँ, और चूल्हे का धुआँ।',
       en: 'Burning straw and rubbish, vehicles, and smoke from stoves.',
+    },
+    health: {
+      pa: 'ਦਮਾ (Asthma), ਬ੍ਰੋਂਕਾਈਟਿਸ, ਖੰਘ, ਅਤੇ ਫੇਫੜਿਆਂ ਤੇ ਦਿਲ ਦੀਆਂ ਬਿਮਾਰੀਆਂ।',
+      hi: 'दमा (Asthma), ब्रोंकाइटिस, लगातार खाँसी, और फेफड़ों व दिल की बीमारियाँ।',
+      en: 'Asthma flare-ups, bronchitis, chronic cough, and lung & heart damage.',
     },
   },
   pm10: {
@@ -127,6 +132,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       hi: 'धूल भरी सड़कें, निर्माण का काम, और हवा से उड़ती मिट्टी।',
       en: 'Dusty roads, building work, and soil blown by the wind.',
     },
+    health: {
+      pa: 'ਅੱਖਾਂ ਅਤੇ ਗਲੇ ਵਿੱਚ ਜਲਣ, ਛਿੱਕਾਂ, ਸਾਹ ਵਿੱਚ ਘਰਘਰਾਹਟ (Wheezing), ਅਤੇ ਐਲਰਜੀ।',
+      hi: 'आँखों और गले में जलन, छींकें, साँस में घरघराहट (Wheezing), और एलर्जी।',
+      en: 'Eye & throat irritation, sneezing, wheezing, and respiratory allergies.',
+    },
   },
   no2: {
     symbol: 'NO₂',
@@ -140,6 +150,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       pa: 'ਕਾਰ, ਬੱਸ ਅਤੇ ਟਰੱਕ ਦਾ ਧੂੰਆਂ, ਅਤੇ ਜਨਰੇਟਰ।',
       hi: 'कार, बस और ट्रक का धुआँ, और जनरेटर।',
       en: 'Car, bus and truck exhaust, and generators.',
+    },
+    health: {
+      pa: 'ਸਾਹ ਦੀ ਨਾਲੀ ਵਿੱਚ ਸੋਜ, ਬੱਚਿਆਂ ਵਿੱਚ ਦਮੇ ਦਾ ਵੱਧ ਖ਼ਤਰਾ, ਅਤੇ ਛਾਤੀ ਵਿੱਚ ਜਕੜਨ।',
+      hi: 'साँस की नली में सूजन, बच्चों में दमे का ख़तरा, और छाती में जकड़न।',
+      en: 'Airway inflammation, childhood asthma risk, and chest tightness.',
     },
   },
   so2: {
@@ -155,6 +170,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       hi: 'कोयला जलाने वाले बिजलीघर और कारखाने।',
       en: 'Power stations and factories that burn coal.',
     },
+    health: {
+      pa: 'ਗੰਭੀਰ ਖੰਘ, ਸਾਹ ਚੜ੍ਹਨਾ, ਅਤੇ ਦਮੇ ਦੇ ਮਰੀਜ਼ਾਂ ਵਿੱਚ ਤੇਜ਼ ਦੌਰਾ।',
+      hi: 'गंभीर खाँसी, साँस फूलना, और दमे के मरीजों में दौरा ट्रिगर होना।',
+      en: 'Severe coughing, shortness of breath, and asthma spasms.',
+    },
   },
   co: {
     symbol: 'CO',
@@ -168,6 +188,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       pa: 'ਠੀਕ ਨਾ ਬਲਣ ਵਾਲੇ ਇੰਜਣ ਅਤੇ ਚੁੱਲ੍ਹੇ, ਖ਼ਾਸ ਕਰਕੇ ਬੰਦ ਕਮਰਿਆਂ ਵਿੱਚ।',
       hi: 'ठीक से न जलने वाले इंजन और चूल्हे, खासकर बंद कमरों में।',
       en: 'Engines and stoves that burn fuel badly, especially in closed rooms.',
+    },
+    health: {
+      pa: 'ਸਿਰਦਰਦ, ਚੱਕਰ ਆਉਣੇ, ਬੇਹੋਸ਼ੀ, ਅਤੇ ਸਰੀਰ ਨੂੰ ਆਕਸੀਜਨ ਦੀ ਭਾਰੀ ਕਮੀ।',
+      hi: 'सिरदर्द, चक्कर आना, अत्यधिक थकान, और दिल-दिमाग को ऑक्सीजन की कमी।',
+      en: 'Headaches, dizziness, confusion, and reduced oxygen delivery to organs.',
     },
   },
   o3: {
@@ -183,6 +208,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       hi: 'गाड़ियों और कारखानों का धुआँ धूप में, गर्म दोपहर में सबसे ज़्यादा।',
       en: 'Vehicle and factory fumes in sunshine, worst on hot afternoons.',
     },
+    health: {
+      pa: 'ਡੂੰਘਾ ਸਾਹ ਲੈਣ ਤੇ ਛਾਤੀ ਵਿੱਚ ਦਰਦ, ਫੇਫੜਿਆਂ ਦੀ ਕਮਜ਼ੋਰੀ, ਅਤੇ ਖੰਘ।',
+      hi: 'गहरी साँस लेने पर छाती में दर्द, खाँसी, और फेफड़ों की क्षमता घटना।',
+      en: 'Chest tightness, pain when breathing deep, and reduced lung function.',
+    },
   },
   nh3: {
     symbol: 'NH₃',
@@ -196,6 +226,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       pa: 'ਖਾਦ, ਪਸ਼ੂਆਂ ਦਾ ਗੋਹਾ, ਅਤੇ ਕੂੜੇ ਦੇ ਢੇਰ।',
       hi: 'खाद, पशुओं का गोबर, और कचरे के ढेर।',
       en: 'Fertiliser, animal dung, and rubbish heaps.',
+    },
+    health: {
+      pa: 'ਨੱਕ, ਗਲੇ ਅਤੇ ਅੱਖਾਂ ਵਿੱਚ ਤਿੱਖੀ ਜਲਣ, ਅਤੇ ਸਾਹ ਲੈਣ ਵਿੱਚ ਔਖ।',
+      hi: 'नाक, गले और आँखों में तेज़ जलन, और साँस लेने में तकलीफ़।',
+      en: 'Nose & eye burning, coughing, and respiratory tract irritation.',
     },
   },
   pb: {
@@ -211,6 +246,11 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
       hi: 'बैटरियाँ गलाना और कुछ कारखाने।',
       en: 'Melting old batteries, and some factories.',
     },
+    health: {
+      pa: 'ਬੱਚਿਆਂ ਦੇ ਦਿਮਾਗੀ ਵਿਕਾਸ ਵਿੱਚ ਰੁਕਾਵਟ, ਸਿੱਖਣ ਦੀ ਕਮਜ਼ੋਰੀ, ਅਤੇ ਅਨੀਮੀਆ।',
+      hi: 'बच्चों के मानसिक विकास में बाधा, सीखने में कठिनाई, और एनीमिया।',
+      en: 'Children brain development impairment, learning deficits, and anemia.',
+    },
   },
 };
 
@@ -221,6 +261,7 @@ export const WORDS = {
   cardsTitle: { pa: 'ਹਵਾ ਵਿੱਚ ਕੀ ਹੈ', hi: 'हवा में क्या है', en: "What's in the air" },
   biggest: { pa: 'ਅੱਜ ਸਭ ਤੋਂ ਵੱਧ', hi: 'आज सबसे ज़्यादा', en: 'Biggest today' },
   from: { pa: 'ਕਿੱਥੋਂ ਆਉਂਦੀ ਹੈ', hi: 'कहाँ से आती है', en: 'Where it comes from' },
+  healthRisks: { pa: 'ਸਿਹਤ ਤੇ ਅਸਰ ਅਤੇ ਬਿਮਾਰੀਆਂ', hi: 'स्वास्थ्य प्रभाव व बीमारियाँ', en: 'Health risks & diseases' },
   notMeasured: { pa: 'ਅੱਜ ਨੇੜੇ ਨਹੀਂ ਮਾਪੀ ਗਈ', hi: 'आज पास में नहीं मापी गई', en: 'Not measured nearby today' },
   index: { pa: 'ਸੂਚਕ', hi: 'सूचकांक', en: 'index' },
   exampleDay: { pa: 'ਉਦਾਹਰਨ ਦਿਨ', hi: 'उदाहरण दिन', en: 'Example day' },
