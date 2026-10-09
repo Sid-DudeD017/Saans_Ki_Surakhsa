@@ -11,10 +11,16 @@ import {
   SchoolAdvisoryData,
 } from '../../lib/api';
 import { Card, Button, Container, Stack, Badge, Alert } from '../../components/ui';
+import { AirBuddy } from './AirBuddy';
+import { CATEGORY_NAMES, WORDS } from './airQuality';
+import { AQI_FIXTURES, type FixtureDay } from './aqiFixtures';
+import { GasCards } from './GasCards';
 
 export default function ShalaPage() {
   const { role, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [fixtureDay, setFixtureDay] = useState<FixtureDay>('poor_day');
+  const airDay = AQI_FIXTURES[fixtureDay];
 
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
   const [advisory, setAdvisory] = useState<SchoolAdvisoryData | null>(null);
@@ -145,33 +151,18 @@ export default function ShalaPage() {
           </div>
         </Card>
 
-        {/* Air Buddy Placeholder */}
-        <Card padding="md">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                backgroundColor: '#fff7ed',
-                border: '1.5px solid #fed7aa',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.75rem',
-              }}
-            >
-              😟
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ea580c', textTransform: 'uppercase' }}>
-                Air Buddy • Mood: Worried (Poor Air)
-              </div>
-              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a', marginTop: '2px' }}>
-                &ldquo;Air Buddy says: The air feels dusty today. Shift playground games indoors!&rdquo;
-              </div>
-            </div>
-          </div>
+        {/* Air Buddy and the gas cards, from AQI fixtures until Shala reads P3's live /v1/aqi */}
+        <AirBuddy category={airDay.category} language={language} aqi={airDay.aqi} />
+        <div role="group" aria-label={WORDS.exampleDay[language]} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: '#64748b' }}>
+          <span>{WORDS.exampleDay[language]}:</span>
+          {(Object.keys(AQI_FIXTURES) as FixtureDay[]).map((day) => (
+            <Button key={day} size="sm" variant={day === fixtureDay ? 'primary' : 'secondary'} aria-pressed={day === fixtureDay} onClick={() => setFixtureDay(day)}>
+              {CATEGORY_NAMES[AQI_FIXTURES[day].category][language]}
+            </Button>
+          ))}
+        </div>
+        <Card padding="lg">
+          <GasCards aqi={airDay} language={language} />
         </Card>
 
         {/* Today's Advisory Card */}
