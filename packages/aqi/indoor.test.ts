@@ -31,6 +31,32 @@ describe('the Sharma example: 280 outside, a 40 m³ bedroom', () => {
     expect([Math.round(open('ajar')), Math.round(open('open'))]).toEqual([229, 271]);
   });
 
+  it('windows open with cooking: ~1481 (±1 µg/m³)', () => {
+    const cooking = steadyIndoor({
+      outdoor: 280,
+      penetration: D.ventilation.open.penetration,
+      airExchangePerH: D.ventilation.open.air_exchange_per_h,
+      depositionPerH: D.deposition_per_h.value,
+      cadrM3H: 0,
+      volumeM3: 40,
+      sourceUgPerH: 300_000
+    });
+    expect(Math.abs(cooking - 1481)).toBeLessThanOrEqual(1);
+  });
+
+  it('windows open with LPG cooking: ~327 (±1 µg/m³)', () => {
+    const lpgCooking = steadyIndoor({
+      outdoor: 280,
+      penetration: D.ventilation.open.penetration,
+      airExchangePerH: D.ventilation.open.air_exchange_per_h,
+      depositionPerH: D.deposition_per_h.value,
+      cadrM3H: 0,
+      volumeM3: 40,
+      sourceUgPerH: 14_000 // 14 mg/h
+    });
+    expect(Math.abs(lpgCooking - 327)).toBeLessThanOrEqual(1);
+  });
+
   it('windows map to shut, one open, or cross-ventilated', () => {
     expect([ventilationFor(0, true), ventilationFor(3, false), ventilationFor(1, true), ventilationFor(2, true)]).toEqual(['closed', 'closed', 'ajar', 'open']);
   });
