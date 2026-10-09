@@ -26,6 +26,17 @@ export interface TranslationStrings {
     title: string;
     unread: string;
   };
+  ghar: {
+    title: string;
+    subtitle: string;
+    apiError: string;
+    exampleAir: string;
+    howItWorks: string;
+    rightNow: string;
+    outsideNow: string;
+    roomNow: string;
+    aqi: string;
+  };
 }
 
 const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
@@ -52,6 +63,17 @@ const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
       title: 'Platform Notifications',
       unread: 'unread alerts',
     },
+    ghar: {
+      title: 'Ghar ki Hawa',
+      subtitle: 'How much of the air outside gets into your room, what it will be hour by hour, and what to do about it today.',
+      apiError: "Couldn't get the outside air for your home. Showing the last reading, from {{time}}.",
+      exampleAir: 'Example air',
+      howItWorks: 'How we work this out',
+      rightNow: 'right now',
+      outsideNow: 'Outside now, µg/m³',
+      roomNow: 'This room now',
+      aqi: 'AQI',
+    },
   },
   hi: {
     appName: 'सांस',
@@ -76,6 +98,17 @@ const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
       title: 'प्लेटफॉर्म अलर्ट',
       unread: 'नई सूचनाएं',
     },
+    ghar: {
+      title: 'घर की हवा',
+      subtitle: 'बाहर की कितनी हवा आपके कमरे में आती है, घंटे-दर-घंटे यह कैसी होगी, और आज इसके लिए क्या करें।',
+      apiError: 'आपके घर के लिए बाहर की हवा का डेटा नहीं मिल सका। {{time}} की पिछली रीडिंग दिखा रहे हैं।',
+      exampleAir: 'उदाहरण हवा',
+      howItWorks: 'हम इसकी गणना कैसे करते हैं',
+      rightNow: 'अभी',
+      outsideNow: 'बाहर अभी, µg/m³',
+      roomNow: 'यह कमरा अभी',
+      aqi: 'AQI',
+    },
   },
   pa: {
     appName: 'ਸਾਂਸ',
@@ -99,6 +132,17 @@ const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
     notifications: {
       title: 'ਪਲੇਟਫਾਰਮ ਸੂਚਨਾਵਾਂ',
       unread: 'ਨਵੀਆਂ ਸੂਚਨਾਵਾਂ',
+    },
+    ghar: {
+      title: 'ਘਰ ਦੀ ਹਵਾ',
+      subtitle: 'ਬਾਹਰ ਦੀ ਕਿੰਨੀ ਹਵਾ ਤੁਹਾਡੇ ਕਮਰੇ ਵਿਚ ਆਉਂਦੀ ਹੈ, ਘੰਟੇ-ਦਰ-ਘੰਟੇ ਇਹ ਕਿਵੇਂ ਹੋਵੇਗੀ, ਅਤੇ ਅੱਜ ਇਸਦੇ ਲਈ ਕੀ ਕਰਨਾ ਹੈ।',
+      apiError: 'ਤੁਹਾਡੇ ਘਰ ਲਈ ਬਾਹਰਲੀ ਹਵਾ ਦਾ ਡਾਟਾ ਨਹੀਂ ਮਿਲ ਸਕਿਆ। {{time}} ਦੀ ਪਿਛਲੀ ਰੀਡਿੰਗ ਦਿਖਾ ਰਹੇ ਹਾਂ।',
+      exampleAir: 'ਉਦਾਹਰਣ ਹਵਾ',
+      howItWorks: 'ਅਸੀਂ ਇਸਦੀ ਗਣਨਾ ਕਿਵੇਂ ਕਰਦੇ ਹਾਂ',
+      rightNow: 'ਹੁਣ',
+      outsideNow: 'ਬਾਹਰ ਹੁਣ, µg/m³',
+      roomNow: 'ਇਹ ਕਮਰਾ ਹੁਣ',
+      aqi: 'AQI',
     },
   },
 };

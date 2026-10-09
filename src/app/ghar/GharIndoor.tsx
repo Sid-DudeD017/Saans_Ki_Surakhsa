@@ -6,22 +6,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 
 import { steadyIndoor, type IndoorEstimate, type IndoorRequest, type PlanItem } from '../../../packages/aqi/indoor';
 import { INDOOR_DEFAULTS } from '../../../packages/aqi/indoorDefaults';
-import { Alert, Button, Card } from '../../components/ui';
+import { Button, Card } from '../../components/ui';
 import { USE_MOCKS, getIndoorEstimate } from './gharApi';
 import { IndoorChart } from './IndoorChart';
 import { SHARMA_BEDROOM } from './sharma';
-import { ReportButton } from '../../components/ReportButton';
 import { getAqi, type AqiData } from '../../lib/api';
-
-// TODO(P2 labels.ts): Replace with imported labels when available.
-const CATEGORY_LABELS: Record<string, string> = {
-  good: 'good',
-  satisfactory: 'satisfactory',
-  moderate: 'moderate',
-  poor: 'poor',
-  very_poor: 'very_poor',
-  severe: 'severe'
-};
+import { useLanguage } from '../../lib/i18n';
+import { CATEGORY_LABELS, CATEGORY_COLORS, getPm25Category } from './labels';
+import type { components } from '../../../packages/contracts/types';
 
 const D = INDOOR_DEFAULTS;
 const shut = { penetration: D.ventilation.closed.penetration, airExchangePerH: D.ventilation.closed.air_exchange_per_h, depositionPerH: D.deposition_per_h.value };
@@ -45,7 +37,7 @@ const label: React.CSSProperties = { display: 'grid', gap: '0.25rem', fontSize: 
 const input: React.CSSProperties = { padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem', minWidth: 0 };
 const check: React.CSSProperties = { display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.9rem', color: '#334155' };
 
-function Step({ value, what, tone }: { value: number; what: string; tone: string }) {
+function Step({ value, what, tone }: { value: number; what: React.ReactNode; tone: string }) {
   return (
     <div style={{ display: 'grid', gap: '0.15rem', minWidth: 0 }}>
       <strong style={{ fontSize: '2rem', fontVariantNumeric: 'tabular-nums', color: tone, lineHeight: 1 }}>{Math.round(value)}</strong>
@@ -54,11 +46,10 @@ function Step({ value, what, tone }: { value: number; what: string; tone: string
   );
 }
 
-import type { components } from '../../../packages/contracts/types';
-
 type AqiWireResponse = components['schemas']['AqiResponse'];
 
 export function GharIndoor() {
+  const { t } = useLanguage();
   const [room, setRoom] = useState<IndoorRequest>(SHARMA_BEDROOM);
   const [result, setResult] = useState<{ estimate?: IndoorEstimate; error?: string }>({});
 
@@ -114,51 +105,6 @@ export function GharIndoor() {
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <Card padding="lg">
-        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem', color: '#0f172a' }}>Outside Air (AQI)</h2>
-        {aqiResult.loading && <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Loading outdoor AQI...</p>}
-        {aqiResult.empty && <p style={{ fontSize: '0.9rem', color: '#64748b' }}>No data available for this location.</p>}
-        {aqiResult.error && (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Alert variant="danger" title="API Error">{aqiResult.error}</Alert>
-            <Button variant="secondary" size="sm" onClick={fetchAqi}>Retry</Button>
-          </div>
-        )}
-        {aqiResult.data && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem' }}>
-              <Step value={aqiResult.data.aqi} what="AQI" tone={aqiResult.data.aqi > 200 ? '#b45309' : '#0369a1'} />
-              <div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0f172a', textTransform: 'capitalize' }}>
-                  {CATEGORY_LABELS[aqiResult.data.category.toLowerCase()] || aqiResult.data.category.toLowerCase()}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#475569' }}>Category</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0f172a' }}>
-                  {aqiResult.data.dominant_pollutant}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#475569' }}>Dominant Pollutant</div>
-              </div>
-            </div>
-            {aqiResult.stale && <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#b45309', fontWeight: 'bold' }}>⚠️ Data is old</p>}
-          </div>
-        )}
-      </Card>
-
-      <Card padding="lg">
-        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem', color: '#0f172a' }}>The Sharma family&apos;s bedroom</h2>
-        <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>A 40 m³ room in Noida on a smoggy morning. Same air outside, three different rooms.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem', alignItems: 'end' }}>
-          <Step value={EXAMPLE.outside} what="Outside, µg/m³" tone="#b45309" />
-          <Step value={EXAMPLE.shut} what="Windows shut" tone="#c2410c" />
-          <Step value={EXAMPLE.purifier} what="Shut, with a 250 m³/h purifier" tone="#0369a1" />
-        </div>
-        <p style={{ margin: '1rem 0 0', fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>
-          C<sub>in</sub> = (P·a·C<sub>out</sub> + S/V) ÷ (a + k + CADR/V). Windows shut, P = {shut.penetration} of the outside air&apos;s particles get in, at a = {shut.airExchangePerH} air changes an hour; k = {shut.depositionPerH}/h settle out. The purifier adds CADR/V = 250/40 = 6.25 changes of clean air an hour.
-        </p>
-      </Card>
-
-      <Card padding="lg">
         <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.1rem', color: '#0f172a' }}>Your room</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.75rem' }}>
           <label style={label}>
@@ -197,16 +143,32 @@ export function GharIndoor() {
         </div>
       </Card>
 
-      {result.error && <Alert variant="danger" title="No estimate">{result.error}</Alert>}
+      {aqiResult.error && (
+        <p style={{ fontSize: '0.9rem', color: '#b45309' }}>
+          {t.ghar.apiError.replace('{{time}}', e ? new Date(e.hourly_series[0].time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'a while ago')}
+        </p>
+      )}
 
       {e && (
         <Card padding="lg">
           <div style={{ opacity: isFetching ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              <Step value={e.outdoor_pm25_now_ug_m3} what="Outside now, µg/m³" tone="#b45309" />
-              <Step value={e.indoor_pm25_now_ug_m3} what="This room now" tone="#0369a1" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem', marginBottom: '1rem', alignItems: 'start' }}>
+              <Step value={e.outdoor_pm25_now_ug_m3} what={<>{t.ghar.outsideNow} &middot; {t.ghar.rightNow}</>} tone={CATEGORY_COLORS[getPm25Category(e.outdoor_pm25_now_ug_m3)]} />
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: CATEGORY_COLORS[getPm25Category(e.outdoor_pm25_now_ug_m3)], textTransform: 'capitalize' }}>
+                  {CATEGORY_LABELS[getPm25Category(e.outdoor_pm25_now_ug_m3)]}
+                </div>
+                {aqiResult.data && (
+                  <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                    {t.ghar.aqi}: {aqiResult.data.aqi}
+                  </div>
+                )}
+              </div>
+              <Step value={e.indoor_pm25_now_ug_m3} what={<>{t.ghar.roomNow} &middot; {t.ghar.rightNow}</>} tone="#0369a1" />
             </div>
+            
             <IndoorChart series={e.hourly_series} />
+            
             <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>Today&apos;s plan</h3>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.6rem' }}>
               {e.plan.map((p) => (
@@ -217,10 +179,7 @@ export function GharIndoor() {
               ))}
             </ul>
           </div>
-          <div style={{ marginTop: '1.5rem' }}>
-            <ReportButton />
-          </div>
-          <details style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#475569' }}>
+          <details style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: '#475569' }}>
             <summary style={{ cursor: 'pointer' }}>What the model assumed</summary>
             <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
               <li>{String(e.assumptions.room_volume_m3)} m³; windows {String(e.assumptions.ventilation)}: {String(e.assumptions.infiltration_rate_ach)} air changes an hour, {String(e.assumptions.penetration)} of particles get in</li>
@@ -228,9 +187,23 @@ export function GharIndoor() {
               <li>Cooking {D.cooking.fuels[room.cooking_fuel].mg_per_h} mg/h at meals, a cigarette {D.smoker.mg_per_h} mg/h, incense {D.incense.mg_per_h} mg/h, a coil {D.mosquito_coil.mg_per_h} mg/h. Each figure&apos;s source is in packages/aqi/indoor-defaults.json.</li>
             </ul>
           </details>
+          
+          <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem', color: '#0f172a' }}>{t.ghar.howItWorks}</h2>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>The Sharma family&apos;s bedroom: a 40 m³ room in Noida on a smoggy morning. Same air outside, three different rooms.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem', alignItems: 'end' }}>
+              <Step value={EXAMPLE.outside} what="Outside, µg/m³" tone="#b45309" />
+              <Step value={EXAMPLE.shut} what="Windows shut" tone="#c2410c" />
+              <Step value={EXAMPLE.purifier} what="Shut, with a 250 m³/h purifier" tone="#0369a1" />
+            </div>
+            <p style={{ margin: '1rem 0 0', fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>
+              C<sub>in</sub> = (P·a·C<sub>out</sub> + S/V) ÷ (a + k + CADR/V). Windows shut, P = {shut.penetration} of the outside air&apos;s particles get in, at a = {shut.airExchangePerH} air changes an hour; k = {shut.depositionPerH}/h settle out. The purifier adds CADR/V = 250/40 = 6.25 changes of clean air an hour.
+            </p>
+          </div>
+
           {USE_MOCKS && (
             <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-              Example outdoor air: a smoggy October day in Noida. Set NEXT_PUBLIC_USE_MOCKS=false for the live forecast.
+              {t.ghar.exampleAir}
             </p>
           )}
         </Card>
