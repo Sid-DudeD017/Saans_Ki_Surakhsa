@@ -15,6 +15,7 @@ import { loadHomeState, saveHomeState, addRoomToState, removeRoomFromState, upda
 import { LocationBar } from './LocationBar';
 import { useHomeLocation, EXAMPLE_LOCATION } from './useLocation';
 import { HomePlan } from './HomePlan';
+import { FamilyDay } from './FamilyDay';
 
 const D = INDOOR_DEFAULTS;
 const ICONS: Record<PlanItem['kind'], string> = { windows: '🪟', purifier: '🌀', source: '🔥', mask: '😷' };
@@ -204,6 +205,9 @@ export function GharIndoor() {
 
       {/* Merged Plan and Summary */}
       <HomePlan rooms={home.rooms.map(r => ({ id: r.id, name: r.name, estimate: estimates[r.id]?.estimate }))} />
+      
+      {/* Family's Day */}
+      <FamilyDay rooms={home.rooms} estimates={estimates} />
       
       {USE_MOCKS && (
         <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
