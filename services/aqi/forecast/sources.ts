@@ -134,12 +134,21 @@ export async function fetchOpenAq(fetcher: Fetch, apiKey: string, nowMs: number)
   const out: Observation[] = [];
   const limit = 1000;
   const since = new Date(nowMs - 3 * 3_600_000).toISOString();
-  for (let page = 1; page <= 10; page++) {
-    const res = await fetcher(`https://api.openaq.org/v3/parameters/2/latest?limit=${limit}&page=${page}&datetime_min=${encodeURIComponent(since)}`, {
+  const page = async (n: number) => {
+    const res = await fetcher(`https://api.openaq.org/v3/parameters/2/latest?limit=${limit}&page=${n}&datetime_min=${encodeURIComponent(since)}`, {
       headers: { 'X-API-Key': apiKey },
     });
     if (!res.ok) throw new Error(`OpenAQ answered ${res.status}`);
-    const results = ((await res.json()) as { results?: OpenAqLatest[] }).results ?? [];
+    return (await res.json()) as { meta?: { found?: number | string }; results?: OpenAqLatest[] };
+  };
+  // Page 1 says how many readings there are (about 9,000 worldwide); the other pages are fetched together.
+  const first = await page(1);
+  const found = typeof first.meta?.found === 'number' ? first.meta.found : null;
+  const rest = found !== null ? Array.from({ length: Math.min(10, Math.ceil(found / limit)) - 1 }, (_, i) => i + 2) : [];
+  const pages = [first, ...(await Promise.all(rest.map(page)))];
+  // Without a count, keep going one page at a time while pages come back full.
+  for (let n = 2; found === null && n <= 10 && (pages.at(-1)?.results?.length ?? 0) === limit; n++) pages.push(await page(n));
+  for (const results of pages.map((p) => p.results ?? [])) {
     for (const r of results) {
       const lat = r.coordinates?.latitude;
       const lon = r.coordinates?.longitude;
@@ -147,7 +156,6 @@ export async function fetchOpenAq(fetcher: Fetch, apiKey: string, nowMs: number)
       if (typeof lat !== 'number' || typeof lon !== 'number' || typeof r.value !== 'number' || !time || r.locationsId === undefined) continue;
       if (inCoverage(lat, lon)) out.push({ id: `openaq-${r.locationsId}`, source: 'openaq', lat, lon, time: new Date(time).toISOString(), pm25: r.value });
     }
-    if (results.length < limit) break;
   }
   return out;
 }
@@ -160,9 +168,12 @@ export const FIRMS_BBOX = [
   Math.max(...REGIONS.map((r) => r.maxLat)),
 ].join(',');
 
-/** FIRMS VIIRS fires from the last day, in the regions, at nominal or high confidence. */
+/**
+ * FIRMS VIIRS fires in the regions at nominal or high confidence. FIRMS's 1-day range is today's UTC date
+ * only, which before the afternoon pass (about 13:30 in India) is empty, so we ask for 2 days.
+ */
 export async function fetchRegionFires(mapKey: string, get = fetchFires): Promise<Fire[]> {
-  const fires = await get(FIRMS_BBOX, mapKey);
+  const fires = await get(FIRMS_BBOX, mapKey, 2);
   return fires
     .filter((f) => (PLUME.minConfidence as readonly string[]).includes(String(f.confidence).toLowerCase()))
     .filter((f) => Number.isFinite(f.frp) && f.frp > 0 && inCoverage(f.lat, f.lon))
