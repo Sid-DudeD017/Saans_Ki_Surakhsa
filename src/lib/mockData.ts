@@ -49,11 +49,11 @@ export interface MockPollutionEvent {
 export const DETERMINISTIC_EVENT: MockPollutionEvent = {
   school: {
     id: 'school_demo_001',
-    name: 'Government Model School — Demo Campus',
-    latitude: 28.6472,
-    longitude: 77.3058,
-    district: 'East Delhi',
-    city: 'Delhi',
+    name: 'Government Senior Secondary School — Sangrur Campus',
+    latitude: 30.245,
+    longitude: 75.842,
+    district: 'Sangrur',
+    city: 'Sangrur',
     isDemoEntity: true,
   },
   aqiReading: {
@@ -63,7 +63,7 @@ export const DETERMINISTIC_EVENT: MockPollutionEvent = {
     pm25: 168,
     pm10: 221,
     timestamp: '2026-10-08T09:30:00Z',
-    station_name: 'Anand Vihar CAAQMS',
+    station_name: 'Sangrur Regional CAAQMS',
     distance_km: 1.4,
   },
   upwindFire: {
@@ -103,7 +103,7 @@ export const INITIAL_MOCK_NOTIFICATIONS: MockNotification[] = [
   {
     id: 'notif_001',
     title: 'Air Quality Deteriorated',
-    message: 'Air quality has deteriorated near Government Model School. AQI has reached 287 (Poor).',
+    message: 'Air quality has deteriorated near Government Senior Secondary School — Sangrur Campus. AQI has reached 287 (Poor).',
     severity: 'urgent',
     timestamp: '10 mins ago',
     read: false,

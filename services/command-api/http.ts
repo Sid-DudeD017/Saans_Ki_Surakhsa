@@ -1,7 +1,7 @@
 // The HTTP side of intake: Request in, Response out, so the same code serves the Next.js routes
 // (src/app/v1/uploads, src/app/v1/complaints) and, from G7, the Lambda handlers in template.yaml.
 import { commandConfig } from "./config";
-import { submitComplaint } from "./complaints";
+import { getComplaintStatus, submitComplaint } from "./complaints";
 import { ensureBucket, migrate, newId, pool, s3Client, type IntakeDeps } from "./deps";
 import { errorResponse, invalid, zodDetails } from "./errors";
 import { UploadInput } from "./inputs";
@@ -34,6 +34,10 @@ export async function handleComplaints(request: Request, deps: IntakeDeps): Prom
   const read = await jsonBody(request);
   if (!read.ok) return read.response;
   return submitComplaint(deps, request.headers.get("idempotency-key"), read.body);
+}
+
+export async function handleGetComplaintStatus(request: Request, deps: IntakeDeps, id: string): Promise<Response> {
+  return getComplaintStatus(deps, id);
 }
 
 // ---- the local stack (npm run stack) ----

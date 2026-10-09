@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const MEDIA_TYPES = ["image/jpeg", "image/png", "image/heic", "audio/mp4", "audio/ogg", "audio/wav"] as const;
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-export const CITIZEN_TYPES = ["farm_fire", "garbage", "vehicle", "firecrackers"] as const;
+export const CITIZEN_TYPES = ["farm_fire", "garbage", "vehicle", "firecrackers", "dust", "industrial"] as const;
 
 export const GeoPoint = z.strictObject({
   lat: z.number().min(-90).max(90),

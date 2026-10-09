@@ -27,8 +27,16 @@ const W = {
   away: { pa: 'ਦੂਰ', hi: 'दूर', en: 'away' },
   demo: { pa: 'ਉਦਾਹਰਨ ਸਟੇਸ਼ਨ ਅਤੇ ਅੱਗਾਂ, ਅਸਲ ਨਹੀਂ', hi: 'उदाहरण स्टेशन और आग, असली नहीं', en: 'Example stations and fires, not real detections' },
   noStations: { pa: 'API ਵਿੱਚ ਹਾਲੇ ਸਟੇਸ਼ਨਾਂ ਦੀ ਸੂਚੀ ਨਹੀਂ', hi: 'API में अभी स्टेशनों की सूची नहीं है', en: 'The API has no station list yet' },
-  noFires: { pa: '25 ਕਿ.ਮੀ. ਦੇ ਅੰਦਰ ਕੋਈ ਅੱਗ ਨਹੀਂ', hi: '25 किमी के अंदर कोई आग नहीं', en: 'No fires within 25 km' },
-  firesDown: { pa: 'ਅੱਗਾਂ ਦਾ ਡਾਟਾ ਹਾਲੇ ਨਹੀਂ ਮਿਲਿਆ', hi: 'आग का डेटा अभी नहीं मिला', en: "Fire data isn't available right now" },
+  noFires: {
+    pa: 'ਪਿਛਲੇ ਸੈਟੇਲਾਈਟ ਗੇੜੇ ਤੋਂ 25 ਕਿਲੋਮੀਟਰ ਦੇ ਅੰਦਰ ਕੋਈ ਅੱਗ ਨਹੀਂ ਦਿਖੀ', // needs native-speaker review
+    hi: 'अंतिम सैटेलाइट पास के बाद से 25 किमी के भीतर कोई आग नहीं देखी गई', // needs native-speaker review
+    en: 'No fires seen within 25 km since the last satellite pass',
+  },
+  firesDown: {
+    pa: 'ਅੱਗ ਦਾ ਡਾਟਾ ਹਾਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ', // needs native-speaker review
+    hi: 'आग का डेटा अभी उपलब्ध नहीं है', // needs native-speaker review
+    en: 'Fire data not available right now',
+  },
   school: { pa: 'ਸਕੂਲ', hi: 'स्कूल', en: 'School' },
   confidence: { pa: 'ਭਰੋਸਾ', hi: 'भरोसा', en: 'confidence' },
 } satisfies Record<string, Words>;

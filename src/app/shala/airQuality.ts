@@ -3,7 +3,13 @@
 import type { components } from '../../../packages/contracts/types';
 import { getCategoryCode } from '../../../packages/aqi';
 
-export type AqiResponse = components['schemas']['AqiResponse'];
+export type AqiResponse = components['schemas']['AqiResponse'] & {
+  station_name?: string;
+  city?: string;
+  distance_km?: number;
+};
+export type ForecastResponse = components['schemas']['ForecastResponse'];
+export type ForecastHour = components['schemas']['ForecastHour'];
 export type Category = components['schemas']['AqiCategory'];
 export type Pollutant = components['schemas']['Pollutant'];
 export type Language = 'pa' | 'hi' | 'en';
@@ -209,6 +215,7 @@ export const GASES: Record<Pollutant, { symbol: string; icon: string; what: Word
 };
 
 export const WORDS = {
+  airQuality: { pa: 'ਹਵਾ ਗੁਣਵੱਤਾ', hi: 'वायु गुणवत्ता', en: 'Air quality' },
   buddy: { pa: 'ਏਅਰ ਬੱਡੀ', hi: 'एयर बडी', en: 'Air Buddy' },
   todaysAir: { pa: 'ਅੱਜ ਦੀ ਹਵਾ', hi: 'आज की हवा', en: "Today's air" },
   cardsTitle: { pa: 'ਹਵਾ ਵਿੱਚ ਕੀ ਹੈ', hi: 'हवा में क्या है', en: "What's in the air" },
@@ -217,7 +224,349 @@ export const WORDS = {
   notMeasured: { pa: 'ਅੱਜ ਨੇੜੇ ਨਹੀਂ ਮਾਪੀ ਗਈ', hi: 'आज पास में नहीं मापी गई', en: 'Not measured nearby today' },
   index: { pa: 'ਸੂਚਕ', hi: 'सूचकांक', en: 'index' },
   exampleDay: { pa: 'ਉਦਾਹਰਨ ਦਿਨ', hi: 'उदाहरण दिन', en: 'Example day' },
+  noReading: {
+    pa: 'ਇਸ ਵੇਲੇ ਕੋਈ ਰੀਡਿੰਗ ਉਪਲਬਧ ਨਹੀਂ ਹੈ', // needs native-speaker review
+    hi: 'अभी कोई रीडिंग उपलब्ध नहीं है', // needs native-speaker review
+    en: 'No reading right now',
+  },
+  retry: {
+    pa: 'ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ', // needs native-speaker review
+    hi: 'पुनः प्रयास करें', // needs native-speaker review
+    en: 'Retry',
+  },
+  noAdvice: {
+    pa: 'ਰੀਡਿੰਗ ਤੋਂ ਬਿਨਾਂ ਸਲਾਹ ਉਪਲਬਧ ਨਹੀਂ ਹੈ', // needs native-speaker review
+    hi: 'रीडिंग के बिना सलाह उपलब्ध नहीं है', // needs native-speaker review
+    en: 'Advice is not available without a reading',
+  },
+  measuredAgo: {
+    pa: 'ਪਹਿਲਾਂ ਮਾਪਿਆ ਗਿਆ', // needs native-speaker review
+    hi: 'पहले मापा गया', // needs native-speaker review
+    en: 'Measured',
+  },
+  staleReading: {
+    pa: 'ਪੁਰਾਣਾ ਡਾਟਾ', // needs native-speaker review
+    hi: 'पुराना डेटा', // needs native-speaker review
+    en: 'Stale data',
+  },
+  exampleData: {
+    pa: 'ਉਦਾਹਰਨ ਡਾਟਾ (ਡੈਮੋ ਮੋਡ)', // needs native-speaker review
+    hi: 'उदाहरण डेटा (डेमो मोड)', // needs native-speaker review
+    en: 'Example data (demo mode)',
+  },
+  source: {
+    pa: 'ਸਰੋਤ', // needs native-speaker review
+    hi: 'स्रोत', // needs native-speaker review
+    en: 'Source',
+  },
+  stations: {
+    pa: 'ਸਟੇਸ਼ਨ', // needs native-speaker review
+    hi: 'स्टेशन', // needs native-speaker review
+    en: 'stations',
+  },
+  dominantPollutant: {
+    pa: 'ਮੁੱਖ ਪ੍ਰਦੂਸ਼ਕ', // needs native-speaker review
+    hi: 'मुख्य प्रदूषक', // needs native-speaker review
+    en: 'Dominant pollutant',
+  },
+  recordedAt: {
+    pa: 'ਦਰਜ ਸਮਾਂ', // needs native-speaker review
+    hi: 'दर्ज समय', // needs native-speaker review
+    en: 'Recorded at',
+  },
+  activeRole: {
+    pa: 'ਸਰਗਰਮ ਭੂਮਿਕਾ', // needs native-speaker review
+    hi: 'सक्रिय भूमिका', // needs native-speaker review
+    en: 'Active role',
+  },
+  loadingAir: {
+    pa: 'ਹਵਾ ਗੁਣਵੱਤਾ ਡਾਟਾ ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ...', // needs native-speaker review
+    hi: 'वायु गुणवत्ता डेटा लोड हो रहा है...', // needs native-speaker review
+    en: 'Loading air quality data...',
+  },
+  todaysAdvisory: {
+    pa: 'ਅੱਜ ਦੀ ਸਲਾਹ', // needs native-speaker review
+    hi: 'आज की सलाह', // needs native-speaker review
+    en: "Today's Advisory",
+  },
+  seeAirWhereYouAre: {
+    pa: 'ਜਿੱਥੇ ਤੁਸੀਂ ਹੋ ਉੱਥੇ ਦੀ ਹਵਾ ਦੇਖੋ', // needs native-speaker review
+    hi: 'जहाँ आप हैं वहाँ की हवा देखें', // needs native-speaker review
+    en: 'See the air where you are',
+  },
+  locationRationale: {
+    pa: 'ਸਾਸ ਤੁਹਾਡੇ ਨੇੜਲੇ ਰੀਡਿੰਗ ਅਤੇ ਅੱਗ ਦੀਆਂ ਘਟਨਾਵਾਂ ਲੱਭਣ ਲਈ ਤੁਹਾਡੀ ਸਥਿਤੀ ਵਰਤਦਾ ਹੈ। ਇਹ ਤੁਹਾਡੀ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ।', // needs native-speaker review
+    hi: 'सांस आपके निकटतम रीडिंग और आग की घटनाओं का पता लगाने के लिए आपकी स्थिति का उपयोग करता है। यह आपकी प्रोफ़ाइल में सहेजा नहीं जाता है।', // needs native-speaker review
+    en: "Saans uses your location to find the nearest readings and fires. It isn't saved to your profile.",
+  },
+  useMyLocation: {
+    pa: 'ਮੇਰੀ ਸਥਿਤੀ ਵਰਤੋ', // needs native-speaker review
+    hi: 'मेरी स्थिति का उपयोग करें', // needs native-speaker review
+    en: 'Use my location',
+  },
+  notNow: {
+    pa: 'ਹੁਣੇ ਨਹੀਂ', // needs native-speaker review
+    hi: 'अभी नहीं', // needs native-speaker review
+    en: 'Not now',
+  },
+  findingYou: {
+    pa: 'ਤੁਹਾਡੀ ਸਥਿਤੀ ਲੱਭੀ ਜਾ ਰਹੀ ਹੈ…', // needs native-speaker review
+    hi: 'आपकी स्थिति खोजी जा रही है…', // needs native-speaker review
+    en: 'Finding you…',
+  },
+  nearYou: {
+    pa: 'ਤੁਹਾਡੇ ਨੇੜੇ', // needs native-speaker review
+    hi: 'आपके पास', // needs native-speaker review
+    en: 'Near you',
+  },
+  showingSchool: {
+    pa: 'ਤੁਹਾਡਾ ਸਕੂਲ ਦਿਖਾਇਆ ਜਾ ਰਿਹਾ ਹੈ, {district}', // needs native-speaker review
+    hi: 'आपके स्कूल का दृश्य, {district}', // needs native-speaker review
+    en: 'Showing your school, {district}',
+  },
+  locationOff: {
+    pa: 'ਸਥਾਨ ਸੇਵਾ ਬੰਦ ਹੈ', // needs native-speaker review
+    hi: 'स्थान सेवा बंद है', // needs native-speaker review
+    en: 'Location is off',
+  },
+  searchPlace: {
+    pa: 'ਕੋਈ ਸਥਾਨ ਚੁਣੋ', // needs native-speaker review
+    hi: 'कोई स्थान चुनें', // needs native-speaker review
+    en: 'Search a place',
+  },
+  howToEnableLocation: {
+    pa: 'ਸਥਾਨ ਚਾਲੂ ਕਰਨ ਲਈ: ਐਡਰੈਸ ਬਾਰ ਵਿੱਚ ਲਾਕ ਜਾਂ ਟਿਊਨ ਆਈਕਨ ਤੇ ਟੈਪ ਕਰੋ, ਇਜਾਜ਼ਤ ਦਿਓ ਅਤੇ ਪੰਨਾ ਰਿਫ੍ਰੈਸ਼ ਕਰੋ।', // needs native-speaker review
+    hi: 'स्थान चालू करने के लिए: पता पट्टी में लॉक या ट्यून आइकन पर टैप करें, अनुमति दें और पृष्ठ को रीफ्रेश करें।', // needs native-speaker review
+    en: 'To enable location: Tap the lock or tune icon in your address bar, allow Location access, and refresh.',
+  },
+  couldNotFindYou: {
+    pa: 'ਤੁਹਾਡੀ ਸਥਿਤੀ ਨਹੀਂ ਮਿਲ ਸਕੀ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ, ਜਾਂ ਸਥਾਨ ਚੁਣੋ।', // needs native-speaker review
+    hi: 'आपकी स्थिति नहीं मिल सकी। पुनः प्रयास करें, या स्थान चुनें।', // needs native-speaker review
+    en: "Couldn't find you. Try again, or search a place.",
+  },
+  insecureConnection: {
+    pa: 'ਸਥਾਨ ਸੇਵਾ ਲਈ ਸੁਰੱਖਿਅਤ ਕਨੈਕਸ਼ਨ (HTTPS) ਲੋੜੀਂਦਾ ਹੈ।', // needs native-speaker review
+    hi: 'स्थान सेवा के लिए सुरक्षित कनेक्शन (HTTPS) आवश्यक है।', // needs native-speaker review
+    en: 'Location requires a secure connection (HTTPS).',
+  },
+  roughAccuracy: {
+    pa: 'ਅੰਦਾਜ਼ਨ ਸ਼ੁੱਧਤਾ (±{meters} ਮੀ). ਰਿਪੋਰਟ ਕਰਦੇ ਸਮੇਂ ਪਿੰਨ ਬਦਲੀ ਜਾ ਸਕਦੀ ਹੈ।', // needs native-speaker review
+    hi: 'अनुमानित सटीकता (±{meters} मी). रिपोर्ट करते समय पिन बदली जा सकती है।', // needs native-speaker review
+    en: 'Rough accuracy (±{meters} m). Pin can be moved when reporting.',
+  },
+  freeTextUnavailable: {
+    pa: 'ਖੁੱਲ੍ਹੀ ਖੋਜ ਅਜੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਹੇਠਾਂ ਦਿੱਤਾ ਗਿਆ ਸਕੂਲ ਚੁਣੋ:', // needs native-speaker review
+    hi: 'मुक्त-पाठ खोज अभी उपलब्ध नहीं है। नीचे दिया गया ज्ञात स्कूल चुनें:', // needs native-speaker review
+    en: 'Free-text place search is not available yet. Choose a known campus:',
+  },
+  change: {
+    pa: 'ਬਦਲੋ', // needs native-speaker review
+    hi: 'बदलें', // needs native-speaker review
+    en: 'Change',
+  },
+  coverageNotice: {
+    pa: 'ਪੂਰਵ-ਅਨੁਮਾਨ ਅਤੇ ਟਰੈਕਿੰਗ ਸਿਰਫ਼ ਪੰਜਾਬ ਅਤੇ ਦਿੱਲੀ ਐਨਸੀਆਰ ਨੂੰ ਕਵਰ ਕਰਦੀ ਹੈ।', // needs native-speaker review
+    hi: 'पूर्वानुमान और निगरानी केवल पंजाब और दिल्ली एनसीआर को कवर करती है।', // needs native-speaker review
+    en: 'Hourly forecast and tracking covers Punjab and Delhi NCR only.',
+  },
+  accurateTo: {
+    pa: '{meters} ਮੀਟਰ ਤੱਕ ਸ਼ੁੱਧ', // needs native-speaker review
+    hi: '{meters} मीटर तक सटीक', // needs native-speaker review
+    en: 'accurate to {meters} metres',
+  },
+  nearestStation: {
+    pa: 'ਨੇੜਲਾ ਸਟੇਸ਼ਨ', // needs native-speaker review
+    hi: 'निकटतम स्टेशन', // needs native-speaker review
+    en: 'Nearest station',
+  },
+  kmAway: {
+    pa: '{km} ਕਿਲੋਮੀਟਰ ਦੂਰ', // needs native-speaker review
+    hi: '{km} किमी दूर', // needs native-speaker review
+    en: '{km} km away',
+  },
+  rightNow: {
+    pa: 'ਹੁਣ ਦੀ ਸਥਿਤੀ', // needs native-speaker review
+    hi: 'अभी की स्थिति', // needs native-speaker review
+    en: 'Right now',
+  },
+  whatToDoToday: {
+    pa: 'ਅੱਜ ਕੀ ਕਰਨਾ ਹੈ', // needs native-speaker review
+    hi: 'आज क्या करें', // needs native-speaker review
+    en: 'What to do today',
+  },
+  aroundYou: {
+    pa: 'ਤੁਹਾਡੇ ਆਲੇ-ਦੁਆਲੇ', // needs native-speaker review
+    hi: 'आपके आस-पास', // needs native-speaker review
+    en: 'Around you',
+  },
+  learnAir: {
+    pa: 'ਸਿੱਖੋ: ਹਵਾ ਵਿੱਚ ਕੀ ਹੈ', // needs native-speaker review
+    hi: 'सीखें: हवा में क्या है', // needs native-speaker review
+    en: "Learn: What's in the air",
+  },
+  playGame: {
+    pa: 'ਖੇਡੋ: ਫਿਲਟਰ ਫ੍ਰੈਂਜ਼ੀ', // needs native-speaker review
+    hi: 'खेलें: फ़िल्टर फ़्रेंज़ी', // needs native-speaker review
+    en: 'Play: Filter Frenzy',
+  },
+  details: {
+    pa: 'ਵੇਰਵੇ', // needs native-speaker review
+    hi: 'विवरण', // needs native-speaker review
+    en: 'Details',
+  },
+  actionItems: {
+    pa: 'ਕਰਨ ਯੋਗ ਕੰਮ', // needs native-speaker review
+    hi: 'कार्रवाई योग्य कदम', // needs native-speaker review
+    en: 'Action items',
+  },
+  firesSummary: {
+    pa: '{count} ਅੱਗ ਦੀਆਂ ਘਟਨਾਵਾਂ 25 ਕਿਲੋਮੀਟਰ ਦੇ ਅੰਦਰ, ਹਵਾ {dir} ਵੱਲੋਂ', // needs native-speaker review
+    hi: '25 किमी के भीतर {count} आग की घटनाएँ, हवा {dir} से', // needs native-speaker review
+    en: '{count} fires within 25 km, wind from the {dir}',
+  },
+  noFiresSummary: {
+    pa: '25 ਕਿਲੋਮੀਟਰ ਦੇ ਅੰਦਰ ਕੋਈ ਅੱਗ ਨਹੀਂ, ਹਵਾ {dir} ਵੱਲੋਂ', // needs native-speaker review
+    hi: '25 किमी के भीतर कोई आग नहीं, हवा {dir} से', // needs native-speaker review
+    en: '0 fires within 25 km, wind from the {dir}',
+  },
+  noFiresSeen: {
+    pa: 'ਪਿਛਲੇ ਸੈਟੇਲਾਈਟ ਗੇੜੇ ਤੋਂ 25 ਕਿਲੋਮੀਟਰ ਦੇ ਅੰਦਰ ਕੋਈ ਅੱਗ ਨਹੀਂ ਦਿਖੀ', // needs native-speaker review
+    hi: 'अंतिम सैटेलाइट पास के बाद से 25 किमी के भीतर कोई आग नहीं देखी गई', // needs native-speaker review
+    en: 'No fires seen within 25 km since the last satellite pass',
+  },
+  firesCountOnly: {
+    pa: '25 ਕਿਲੋਮੀਟਰ ਦੇ ਅੰਦਰ {count} ਅੱਗ ਦੀਆਂ ਘਟਨਾਵਾਂ', // needs native-speaker review
+    hi: '25 किमी के भीतर {count} आग की घटनाएँ', // needs native-speaker review
+    en: '{count} fires within 25 km',
+  },
+  firesUnavailable: {
+    pa: 'ਅੱਗ ਦਾ ਡਾਟਾ ਹਾਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ', // needs native-speaker review
+    hi: 'आग का डेटा अभी उपलब्ध नहीं है', // needs native-speaker review
+    en: 'Fire data not available right now',
+  },
+  nextHours: {
+    pa: 'ਅਗਲੇ ਘੰਟੇ', // needs native-speaker review
+    hi: 'अगले घंटे', // needs native-speaker review
+    en: 'Next hours',
+  },
+  forecastUnavailable: {
+    pa: 'ਅਨੁਮਾਨ ਹਾਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ', // needs native-speaker review
+    hi: 'पूर्वानुमान अभी उपलब्ध नहीं है', // needs native-speaker review
+    en: 'Forecast not available right now',
+  },
+  forecastCoverageNotice: {
+    pa: 'ਘੰਟੇਵਾਰ ਅਨੁਮਾਨ ਸਿਰਫ਼ ਪੰਜਾਬ ਅਤੇ ਦਿੱਲੀ ਐਨਸੀਆਰ ਨੂੰ ਕਵਰ ਕਰਦਾ ਹੈ।', // needs native-speaker review
+    hi: 'प्रति घंटा पूर्वानुमान केवल पंजाब और दिल्ली एनसीआर को कवर करता है।', // needs native-speaker review
+    en: 'Hourly forecast covers Punjab and Delhi NCR only.',
+  },
+  airWorseAfter: {
+    pa: '{time} ਤੋਂ ਬਾਅਦ ਹਵਾ ਹੋਰ ਖ਼ਰਾਬ ਹੋ ਸਕਦੀ ਹੈ।', // needs native-speaker review
+    hi: '{time} के बाद हवा और खराब हो सकती है।', // needs native-speaker review
+    en: 'Air should get worse after {time}.',
+  },
+  airImproveAfter: {
+    pa: '{time} ਤੋਂ ਬਾਅਦ ਹਵਾ ਵਿੱਚ ਸੁਧਾਰ ਹੋ ਸਕਦਾ ਹੈ।', // needs native-speaker review
+    hi: '{time} के बाद हवा में सुधार हो सकता है।', // needs native-speaker review
+    en: 'Air should improve after {time}.',
+  },
+  example: {
+    pa: 'ਉਦਾਹਰਨ', // needs native-speaker review
+    hi: 'उदाहरण', // needs native-speaker review
+    en: 'Example',
+  },
+  north: { pa: 'ਉੱਤਰ', hi: 'उत्तर', en: 'north' },
+  northEast: { pa: 'ਉੱਤਰ-ਪੂਰਬ', hi: 'उत्तर-पूर्व', en: 'north-east' },
+  east: { pa: 'ਪੂਰਬ', hi: 'पूर्व', en: 'east' },
+  southEast: { pa: 'ਦੱਖਣ-ਪੂਰਬ', hi: 'दक्षिण-पूर्व', en: 'south-east' },
+  south: { pa: 'ਦੱਖਣ', hi: 'दक्षिण', en: 'south' },
+  southWest: { pa: 'ਦੱਖਣ-ਪੱਛਮ', hi: 'दक्षिण-पश्चिम', en: 'south-west' },
+  west: { pa: 'ਪੱਛਮ', hi: 'पश्चिम', en: 'west' },
+  northWest: { pa: 'ਉੱਤਰ-ਪੱਛਮ', hi: 'उत्तर-पश्चिम', en: 'north-west' },
 } satisfies Record<string, Words>;
+
+export function getWindCompassDirection(deg: number): 'north' | 'northEast' | 'east' | 'southEast' | 'south' | 'southWest' | 'west' | 'northWest' {
+  const directions = [
+    'north',
+    'northEast',
+    'east',
+    'southEast',
+    'south',
+    'southWest',
+    'west',
+    'northWest',
+  ] as const;
+  const index = Math.round(((deg % 360) / 45)) % 8;
+  return directions[index];
+}
+
+export function formatFiresWindSummary(
+  firesCount: number,
+  wind?: { speed_kmh: number; direction_deg: number },
+  language: Language = 'en'
+): string | null {
+  if (!wind || typeof wind.direction_deg !== 'number') {
+    return firesCount > 0
+      ? WORDS.firesCountOnly[language].replace('{count}', String(firesCount))
+      : WORDS.noFiresSeen[language];
+  }
+  const dirKey = getWindCompassDirection(wind.direction_deg);
+  const dirWord = WORDS[dirKey][language];
+  const template = firesCount > 0 ? WORDS.firesSummary[language] : WORDS.noFiresSummary[language];
+  return template.replace('{count}', String(firesCount)).replace('{dir}', dirWord);
+}
+
+export function formatForecastHour(isoTime: string, language: Language = 'en'): string {
+  if (!isoTime) return '—';
+  try {
+    const timeMatch = isoTime.match(/T(\d{2}):/);
+    let h = 0;
+    if (timeMatch) {
+      h = parseInt(timeMatch[1], 10);
+    } else {
+      const d = new Date(isoTime);
+      if (isNaN(d.getTime())) return isoTime;
+      h = d.getHours();
+    }
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12} ${ampm}`;
+  } catch {
+    return isoTime;
+  }
+}
+
+const CATEGORY_SEVERITY_RANK: Record<Category, number> = {
+  good: 0,
+  satisfactory: 1,
+  moderate: 2,
+  poor: 3,
+  very_poor: 4,
+  severe: 5,
+};
+
+export function buildForecastTrendSentence(
+  hours: ForecastHour[],
+  language: Language = 'en'
+): string | null {
+  if (!hours || hours.length < 2) return null;
+  const startSeverity = CATEGORY_SEVERITY_RANK[hours[0].category];
+
+  // Check if air gets worse
+  const worseHour = hours.find((h) => CATEGORY_SEVERITY_RANK[h.category] > startSeverity);
+  if (worseHour) {
+    const timeStr = formatForecastHour(worseHour.time, language);
+    return WORDS.airWorseAfter[language].replace('{time}', timeStr);
+  }
+
+  // Check if air improves
+  const betterHour = hours.find((h) => CATEGORY_SEVERITY_RANK[h.category] < startSeverity);
+  if (betterHour) {
+    const timeStr = formatForecastHour(betterHour.time, language);
+    return WORDS.airImproveAfter[language].replace('{time}', timeStr);
+  }
+
+  return null;
+}
 
 export interface GasCard {
   pollutant: Pollutant;

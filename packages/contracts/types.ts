@@ -280,6 +280,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/complaints/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Track complaint status
+         * @description A citizen's status tracking for their complaint (received -> sent to officer -> merged or case opened -> acted on -> closed), with no officer names or other reporters' details.
+         */
+        get: operations["getComplaintStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/farm/coverage": {
         parameters: {
             query?: never;
@@ -776,7 +796,7 @@ export interface components {
         CaseSummary: {
             case: components["schemas"]["CommandCase"];
             /** @enum {string} */
-            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers";
+            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "dust" | "industrial";
             district: string;
             location: components["schemas"]["GeoPoint"];
             deadline: components["schemas"]["IndiaTimestamp"];
@@ -897,15 +917,26 @@ export interface components {
         /** @description A citizen's report. Kisan's farmer_support requests use FarmerSupportComplaint instead. */
         ComplaintInput: {
             /** @enum {string} */
-            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers";
+            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "dust" | "industrial";
             location: components["schemas"]["GeoPoint"];
-            description?: string;
-            evidence: components["schemas"]["EvidenceMetadata"][];
         };
         ComplaintResponse: {
             id: string;
             /** @enum {string} */
             status: "received";
+        };
+        ComplaintStatus: {
+            id: string;
+            /** @enum {string} */
+            status: "received" | "sent_to_officer" | "case_opened" | "merged" | "acted_on" | "closed";
+            stage_label: string;
+            explanation: string;
+            /** @enum {string} */
+            type?: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "dust" | "industrial" | "farmer_support";
+            received_at: components["schemas"]["IndiaTimestamp"];
+            updated_at?: components["schemas"]["IndiaTimestamp"];
+            description?: string;
+            evidence?: components["schemas"]["EvidenceMetadata"][];
         };
         /** Coverage */
         Coverage: {
@@ -3742,6 +3773,41 @@ export interface operations {
                 };
             };
             503: components["responses"]["IntakeUnavailable"];
+        };
+    };
+    getComplaintStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complaint ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status of the complaint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "complaint-8d2f41",
+                     *       "status": "case_opened",
+                     *       "stage_label": "Case opened",
+                     *       "explanation": "Your report has been verified and a case was opened with local authorities.",
+                     *       "type": "farm_fire",
+                     *       "received_at": "2026-10-23T14:02:00+05:30",
+                     *       "updated_at": "2026-10-23T14:05:00+05:30"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ComplaintStatus"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     farm_coverage: {

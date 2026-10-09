@@ -2,7 +2,7 @@
 //   { "error": { "code": "invalid_request", "message": "...", "details": [{ "field", "problem" }] } }
 import type { ZodError } from "zod";
 
-export type ErrorCode = "invalid_request" | "idempotency_conflict" | "unavailable";
+export type ErrorCode = "invalid_request" | "idempotency_conflict" | "unavailable" | "not_found";
 
 export interface ErrorDetail {
   field: string;
