@@ -1,0 +1,206 @@
+{
+  "$comment": "Kisan Saathi's Shop (K13): what stops stubble burning, to rent or buy. Rules: every figure names a source in `sources` and that source's checked_on date; nothing is guessed. No source says what a machine costs, so price_inr is null and the screen says to ask the CHC or dealer. Subsidy figures are the maximum per machine (inclusive of GST) from the 2025 CRM guidelines; the subsidy is that figure or the percentage of the price, whichever is lower. acres_per_day comes from the coverage engine (services/agent-kisan/src/agent_kisan/coverage.py) and is null for machines the engine doesn't know yet. Links are government pages only until the team decides about shops and manufacturers. src/__tests__/kisan-shop.test.ts checks all of this.",
+  "sources": {
+    "crm2025": {
+      "title": "Crop Residue Management: Operational Guidelines 2025, Annexures I and II",
+      "publisher": "Ministry of Agriculture & Farmers Welfare, Government of India (copy hosted by Punjab Agricultural University)",
+      "url": "https://www.pau.edu/content/banner/6757_2.pdf",
+      "checked_on": "2026-10-09"
+    },
+    "punjab_portal": {
+      "title": "Agriculture Mechanization portal (In-situ CRM and SMAM subsidy applications)",
+      "publisher": "Department of Agriculture & Farmers Welfare, Government of Punjab",
+      "url": "https://agrimachinerypb.com",
+      "checked_on": "2026-10-09"
+    },
+    "pusa_2020": {
+      "title": "Could fungus help stop stubble burning and reduce pollution in north India?",
+      "publisher": "Scroll.in, reporting ICAR-IARI figures (2020)",
+      "url": "https://scroll.in/article/975854/could-fungus-help-stop-stubble-burning-and-reduce-pollution-in-north-india",
+      "checked_on": "2026-10-09"
+    },
+    "coverage_engine": {
+      "title": "Typical acres per working day (replace with KVK numbers before quoting)",
+      "publisher": "Saans coverage engine, services/agent-kisan/src/agent_kisan/coverage.py",
+      "url": null,
+      "checked_on": "2026-10-09"
+    }
+  },
+  "items": [
+    {
+      "id": "happy_seeder",
+      "kind": "machine",
+      "engine_type": "happy_seeder",
+      "names": { "pa": "ਹੈਪੀ ਸੀਡਰ / ਸਮਾਰਟ ਸੀਡਰ", "hi": "हैप्पी सीडर / स्मार्ट सीडर", "en": "Happy Seeder / Smart Seeder" },
+      "does": {
+        "pa": "ਖੜ੍ਹੀ ਪਰਾਲੀ ਵਿੱਚ ਸਿੱਧੀ ਕਣਕ ਬੀਜਦਾ ਹੈ, ਪਰਾਲੀ ਖੇਤ ਵਿੱਚ ਹੀ ਰਹਿੰਦੀ ਹੈ।",
+        "hi": "खड़ी पराली में सीधे गेहूँ बोता है, पराली खेत में ही रहती है।",
+        "en": "Sows wheat straight into the standing stubble; the straw stays on the field."
+      },
+      "acres_per_day": 7,
+      "acres_source": "coverage_engine",
+      "price_inr": null,
+      "subsidy": [
+        {
+          "part": { "pa": "9 ਤੋਂ 12 ਫਾਲੇ", "hi": "9 से 12 टाइन", "en": "9 to 12 tines" },
+          "farmer": { "pct": 50, "max_inr": [81400, 90200] },
+          "chc": { "pct": 80, "max_inr": [130240, 144320] },
+          "source": "crm2025"
+        }
+      ],
+      "rent_from_chc": true,
+      "links": [{ "kind": "subsidy", "url": "https://agrimachinerypb.com", "source": "punjab_portal" }]
+    },
+    {
+      "id": "super_seeder",
+      "kind": "machine",
+      "engine_type": "super_seeder",
+      "names": { "pa": "ਸੁਪਰ ਸੀਡਰ", "hi": "सुपर सीडर", "en": "Super Seeder" },
+      "does": {
+        "pa": "ਇੱਕੋ ਵਾਰ ਵਿੱਚ ਪਰਾਲੀ ਕੱਟ ਕੇ ਮਿੱਟੀ ਵਿੱਚ ਮਿਲਾਉਂਦਾ ਹੈ ਅਤੇ ਕਣਕ ਬੀਜਦਾ ਹੈ।",
+        "hi": "एक ही बार में पराली काटकर मिट्टी में मिलाता है और गेहूँ बोता है।",
+        "en": "Cuts the straw, mixes it into the soil and sows wheat in one pass."
+      },
+      "acres_per_day": 5.5,
+      "acres_source": "coverage_engine",
+      "price_inr": null,
+      "subsidy": [
+        {
+          "part": null,
+          "farmer": { "pct": 50, "max_inr": [120000, 120000] },
+          "chc": { "pct": 80, "max_inr": [192000, 192000] },
+          "source": "crm2025"
+        }
+      ],
+      "rent_from_chc": true,
+      "links": [{ "kind": "subsidy", "url": "https://agrimachinerypb.com", "source": "punjab_portal" }]
+    },
+    {
+      "id": "mulcher_rmb",
+      "kind": "machine",
+      "engine_type": "mulcher_rmb",
+      "names": { "pa": "ਮਲਚਰ + ਉਲਟਾਵਾਂ ਹਲ", "hi": "मल्चर + पलटने वाला हल", "en": "Mulcher + RMB plough" },
+      "does": {
+        "pa": "ਮਲਚਰ ਪਰਾਲੀ ਨੂੰ ਬਾਰੀਕ ਕਰਦਾ ਹੈ, ਫਿਰ ਉਲਟਾਵਾਂ ਹਲ ਉਸਨੂੰ ਮਿੱਟੀ ਹੇਠ ਦੱਬ ਦਿੰਦਾ ਹੈ।",
+        "hi": "मल्चर पराली को बारीक करता है, फिर पलटने वाला हल उसे मिट्टी के नीचे दबा देता है।",
+        "en": "The mulcher shreds the straw, then the reversible plough turns it under the soil."
+      },
+      "acres_per_day": 4.5,
+      "acres_source": "coverage_engine",
+      "price_inr": null,
+      "subsidy": [
+        {
+          "part": { "pa": "ਮਲਚਰ, 5 ਤੋਂ 8 ਫੁੱਟ", "hi": "मल्चर, 5 से 8 फ़ुट", "en": "Mulcher, 5 to 8 ft" },
+          "farmer": { "pct": 50, "max_inr": [72500, 95700] },
+          "chc": { "pct": 80, "max_inr": [116000, 153120] },
+          "source": "crm2025"
+        },
+        {
+          "part": { "pa": "ਉਲਟਾਵਾਂ ਹਲ, 2 ਤੋਂ 4 ਬੌਟਮ", "hi": "पलटने वाला हल, 2 से 4 बॉटम", "en": "Reversible plough, 2 to 4 bottoms" },
+          "farmer": { "pct": 50, "max_inr": [70500, 125400] },
+          "chc": { "pct": 80, "max_inr": [112800, 200640] },
+          "source": "crm2025"
+        }
+      ],
+      "rent_from_chc": true,
+      "links": [{ "kind": "subsidy", "url": "https://agrimachinerypb.com", "source": "punjab_portal" }]
+    },
+    {
+      "id": "baler",
+      "kind": "machine",
+      "engine_type": "baler",
+      "names": { "pa": "ਬੇਲਰ + ਰੇਕ", "hi": "बेलर + रेक", "en": "Baler + rake" },
+      "does": {
+        "pa": "ਪਰਾਲੀ ਦੀਆਂ ਗੰਢਾਂ ਬਣਾਉਂਦਾ ਹੈ ਜੋ ਵੇਚੀਆਂ ਜਾਂ ਵਰਤੀਆਂ ਜਾ ਸਕਦੀਆਂ ਹਨ।",
+        "hi": "पराली की गाँठें बनाता है जो बेची या इस्तेमाल की जा सकती हैं।",
+        "en": "Packs the straw into bales you can sell or use."
+      },
+      "acres_per_day": 15,
+      "acres_source": "coverage_engine",
+      "price_inr": null,
+      "subsidy": [
+        {
+          "part": { "pa": "ਚੌਰਸ ਬੇਲਰ", "hi": "चौकोर बेलर", "en": "Rectangular baler" },
+          "farmer": { "pct": 50, "max_inr": [660000, 660000] },
+          "chc": { "pct": 80, "max_inr": [1056000, 1056000] },
+          "source": "crm2025"
+        },
+        {
+          "part": { "pa": "ਰੇਕ", "hi": "रेक", "en": "Straw rake" },
+          "farmer": { "pct": 50, "max_inr": [165000, 165000] },
+          "chc": { "pct": 80, "max_inr": [264000, 264000] },
+          "source": "crm2025"
+        }
+      ],
+      "rent_from_chc": true,
+      "links": [{ "kind": "subsidy", "url": "https://agrimachinerypb.com", "source": "punjab_portal" }]
+    },
+    {
+      "id": "zero_till_drill",
+      "kind": "machine",
+      "engine_type": null,
+      "names": { "pa": "ਜ਼ੀਰੋ ਟਿੱਲ ਡਰਿੱਲ", "hi": "ज़ीरो टिल ड्रिल", "en": "Zero-till drill" },
+      "does": {
+        "pa": "ਵਾਹੇ ਬਿਨਾਂ ਕਣਕ ਬੀਜਦੀ ਹੈ; ਪਰਾਲੀ ਪਹਿਲਾਂ ਕੱਟ ਕੇ ਖਿਲਾਰਨੀ ਪੈਂਦੀ ਹੈ।",
+        "hi": "जुताई के बिना गेहूँ बोती है; पराली पहले काटकर फैलानी पड़ती है।",
+        "en": "Sows wheat without ploughing; the straw has to be cut and spread first."
+      },
+      "acres_per_day": null,
+      "acres_source": null,
+      "price_inr": null,
+      "subsidy": [
+        {
+          "part": { "pa": "9 ਤੋਂ 15 ਫਾਲੇ", "hi": "9 से 15 टाइन", "en": "9 to 15 tines" },
+          "farmer": { "pct": 50, "max_inr": [24800, 33000] },
+          "chc": { "pct": 80, "max_inr": [39680, 52800] },
+          "source": "crm2025"
+        }
+      ],
+      "rent_from_chc": true,
+      "links": [{ "kind": "subsidy", "url": "https://agrimachinerypb.com", "source": "punjab_portal" }]
+    },
+    {
+      "id": "surface_seeder",
+      "kind": "machine",
+      "engine_type": null,
+      "names": { "pa": "ਸਰਫੇਸ ਸੀਡਰ", "hi": "सरफ़ेस सीडर", "en": "Surface Seeder" },
+      "does": {
+        "pa": "ਘੱਟ ਖ਼ਰਚੇ ਵਾਲਾ ਤਰੀਕਾ: ਬੀਜ ਅਤੇ ਖਾਦ ਖਿਲਾਰ ਕੇ ਪਰਾਲੀ ਨਾਲ ਢੱਕ ਦਿੰਦਾ ਹੈ।",
+        "hi": "कम खर्च वाला तरीका: बीज और खाद बिखेरकर पराली से ढक देता है।",
+        "en": "A low-cost option: spreads seed and fertiliser and covers them with the cut straw."
+      },
+      "acres_per_day": null,
+      "acres_source": null,
+      "price_inr": null,
+      "subsidy": [
+        {
+          "part": null,
+          "farmer": { "pct": 50, "max_inr": [44000, 44000] },
+          "chc": { "pct": 80, "max_inr": [70400, 70400] },
+          "source": "crm2025"
+        }
+      ],
+      "rent_from_chc": true,
+      "links": [{ "kind": "subsidy", "url": "https://agrimachinerypb.com", "source": "punjab_portal" }]
+    },
+    {
+      "id": "pusa_decomposer",
+      "kind": "decomposer",
+      "engine_type": null,
+      "names": { "pa": "ਪੂਸਾ ਡੀਕੰਪੋਜ਼ਰ", "hi": "पूसा डीकंपोज़र", "en": "PUSA bio-decomposer" },
+      "does": {
+        "pa": "ਸੂਖਮ ਜੀਵਾਂ ਦਾ ਘੋਲ, ਕੀਟਨਾਸ਼ਕ ਨਹੀਂ: ਪਰਾਲੀ ਤੇ ਛਿੜਕੋ ਤਾਂ ਉਹ ਖੇਤ ਵਿੱਚ ਹੀ ਗਲ ਜਾਂਦੀ ਹੈ। ਬਿਜਾਈ ਤੋਂ ਲਗਭਗ 20 ਤੋਂ 25 ਦਿਨ ਪਹਿਲਾਂ ਚਾਹੀਦਾ ਹੈ।",
+        "hi": "सूक्ष्म जीवों का घोल, कीटनाशक नहीं: पराली पर छिड़कें तो वह खेत में ही गल जाती है। बुआई से करीब 20 से 25 दिन पहले चाहिए।",
+        "en": "A spray of microbes, not a pesticide: the straw rots into the field. It needs about 20 to 25 days before sowing."
+      },
+      "acres_per_day": null,
+      "acres_source": null,
+      "min_window_days": 25,
+      "min_window_source": "coverage_engine",
+      "price_inr": { "amount": 20, "per": { "pa": "4 ਕੈਪਸੂਲਾਂ ਦਾ ਪੈਕ (2020)", "hi": "4 कैप्सूल का पैक (2020)", "en": "pack of 4 capsules (2020)" }, "source": "pusa_2020" },
+      "subsidy": [],
+      "rent_from_chc": false,
+      "links": []
+    }
+  ]
+}
