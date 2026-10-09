@@ -12,8 +12,11 @@ import {
  * - NEXT_PUBLIC_USE_MOCKS: 'true' to use local deterministic mocks, 'false' for live HTTP
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false'; // Defaults to true if unset
+export function isMockMode(): boolean {
+  return process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
+}
+
+export const USE_MOCKS = isMockMode();
 
 export interface AqiData {
   aqi: number;
@@ -57,6 +60,8 @@ export interface ComplaintPayload {
   photo?: string;
   school_id?: string;
   reported_by_role?: string;
+  idempotency_key?: string;
+  idempotencyKey?: string;
 }
 
 export interface ComplaintResponse {
@@ -78,7 +83,7 @@ function getBaseUrl(): string {
  * GET /v1/aqi?lat={lat}&lon={lon}
  */
 export async function getAqi(lat: number, lon: number): Promise<AqiData> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     return { ...DETERMINISTIC_EVENT.aqiReading };
   }
 
@@ -98,7 +103,7 @@ export async function getFires(
   lon: number,
   radiusKm = 10
 ): Promise<{ fires: FireData[] }> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     return {
       fires: [{ ...DETERMINISTIC_EVENT.upwindFire }],
     };
@@ -121,7 +126,7 @@ export async function getSchoolAdvisory(
   schoolId: string,
   role?: string
 ): Promise<SchoolAdvisoryData> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     return {
       school_id: schoolId || DETERMINISTIC_EVENT.school.id,
       school_name: DETERMINISTIC_EVENT.school.name,
@@ -156,7 +161,7 @@ export async function getSchoolAdvisory(
  * GET /v1/notifications
  */
 export async function getNotifications(): Promise<MockNotification[]> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     return [...notificationsStore];
   }
 
@@ -172,13 +177,86 @@ export async function getNotifications(): Promise<MockNotification[]> {
   }
 }
 
-function mapCategoryToCitizenType(category?: string): 'farm_fire' | 'garbage' | 'vehicle' | 'firecrackers' {
-  if (!category) return 'farm_fire';
-  const lower = category.toLowerCase();
-  if (lower.includes('firecracker')) return 'firecrackers';
-  if (lower.includes('vehicle') || lower.includes('idling') || lower.includes('traffic')) return 'vehicle';
-  if (lower.includes('waste') || lower.includes('garbage') || lower.includes('dust') || lower.includes('trash')) return 'garbage';
-  return 'farm_fire';
+/**
+ * Maps frontend UI incident categories to backend OpenAPI ComplaintInput citizen types.
+ *
+ * Supported Contract Types (CITIZEN_TYPES in services/command-api/inputs.ts):
+ * - 'farm_fire': Agricultural stubble burning, open field fires, smoke plumes ('Smoke', 'Stubble burning', 'farm_fire')
+ * - 'garbage': Open waste / trash burning ('Burning waste', 'garbage')
+ * - 'vehicle': Excessive vehicle exhaust / idling ('Vehicle idling', 'vehicle')
+ * - 'firecrackers': Fireworks / firecrackers emissions ('Firecrackers', 'firecrackers')
+ *
+ * Unsupported Categories (Explicitly rejected by the live intake contract):
+ * - 'Dust': Fugitive dust / construction dust (no intake route exists in CITIZEN_TYPES)
+ * - 'Industrial': Industrial stacks / factory pollution (no citizen route exists in CITIZEN_TYPES)
+ * - 'Other': Uncategorized reports
+ */
+export type SupportedCitizenType = 'farm_fire' | 'garbage' | 'vehicle' | 'firecrackers';
+
+export const SUPPORTED_COMPLAINT_CATEGORIES = {
+  'Smoke': 'farm_fire',
+  'Stubble burning': 'farm_fire',
+  'farm_fire': 'farm_fire',
+  'Burning waste': 'garbage',
+  'garbage': 'garbage',
+  'Vehicle idling': 'vehicle',
+  'vehicle': 'vehicle',
+  'Firecrackers': 'firecrackers',
+  'firecrackers': 'firecrackers',
+} as const;
+
+export function mapCategoryToCitizenType(category?: string): SupportedCitizenType | null {
+  if (!category) return null;
+  const trimmed = category.trim();
+  if (trimmed in SUPPORTED_COMPLAINT_CATEGORIES) {
+    return SUPPORTED_COMPLAINT_CATEGORIES[trimmed as keyof typeof SUPPORTED_COMPLAINT_CATEGORIES];
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower === 'smoke' || lower === 'stubble burning' || lower === 'farm fire' || lower === 'farm_fire') {
+    return 'farm_fire';
+  }
+  if (lower === 'burning waste' || lower === 'waste burning' || lower === 'garbage') {
+    return 'garbage';
+  }
+  if (lower === 'vehicle idling' || lower === 'vehicle' || lower === 'traffic idling') {
+    return 'vehicle';
+  }
+  if (lower === 'firecrackers' || lower === 'firecracker' || lower === 'fireworks') {
+    return 'firecrackers';
+  }
+  // Explicitly return null for unsupported categories (Dust, Industrial, Other, etc.)
+  return null;
+}
+
+/**
+ * Generates or preserves a stable Idempotency-Key (6-128 chars) for complaint submissions.
+ * Unchanged retries produce identical keys to avoid duplicate complaint creation.
+ */
+export function generateIdempotencyKey(payload: ComplaintPayload): string {
+  if (payload.idempotency_key && payload.idempotency_key.length >= 6 && payload.idempotency_key.length <= 128) {
+    return payload.idempotency_key;
+  }
+  if (payload.idempotencyKey && payload.idempotencyKey.length >= 6 && payload.idempotencyKey.length <= 128) {
+    return payload.idempotencyKey;
+  }
+
+  const cat = (payload.category || '').trim();
+  const desc = (payload.description || '').trim();
+  const lat = (payload.lat ?? payload.latitude ?? 0).toFixed(4);
+  const lon = (payload.lon ?? payload.longitude ?? 0).toFixed(4);
+  const school = (payload.school_id || '').trim();
+
+  const content = `${cat}:${desc}:${lat}:${lon}:${school}`;
+  let hash1 = 5381;
+  let hash2 = 52711;
+  for (let i = 0; i < content.length; i++) {
+    const code = content.charCodeAt(i);
+    hash1 = ((hash1 << 5) + hash1) ^ code;
+    hash2 = ((hash2 << 5) + hash2) ^ code;
+  }
+  const h1 = (hash1 >>> 0).toString(16).padStart(8, '0');
+  const h2 = (hash2 >>> 0).toString(16).padStart(8, '0');
+  return `idem-${h1}${h2}`;
 }
 
 /**
@@ -187,7 +265,9 @@ function mapCategoryToCitizenType(category?: string): 'farm_fire' | 'garbage' | 
 export async function submitComplaint(
   payload: ComplaintPayload
 ): Promise<ComplaintResponse> {
-  if (USE_MOCKS) {
+  const citizenType = mapCategoryToCitizenType(payload.category);
+
+  if (isMockMode()) {
     const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
     const newNotif: MockNotification = {
       id: `notif_${Date.now()}`,
@@ -209,15 +289,22 @@ export async function submitComplaint(
     };
   }
 
+  // Real backend requires an intentional, valid contract mapping
+  if (!citizenType) {
+    throw new Error(
+      `Unsupported complaint category: "${payload.category}". The intake contract only supports: Smoke (farm_fire), Burning waste (garbage), Vehicle idling (vehicle), and Firecrackers (firecrackers).`
+    );
+  }
+
   const base = getBaseUrl();
-  const lat = payload.lat ?? payload.latitude ?? 30.245;
-  const lon = payload.lon ?? payload.longitude ?? 75.842;
-  const idempotencyKey = `idem-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  const lat = Number(payload.lat ?? payload.latitude ?? 30.245);
+  const lon = Number(payload.lon ?? payload.longitude ?? 75.842);
+  const idempotencyKey = generateIdempotencyKey(payload);
 
   const body = {
-    type: mapCategoryToCitizenType(payload.category),
+    type: citizenType,
     location: { lat, lon },
-    description: payload.description || undefined,
+    description: payload.description ? payload.description.trim() : undefined,
     evidence: [],
   };
 

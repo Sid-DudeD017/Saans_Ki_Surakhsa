@@ -91,22 +91,43 @@ if [ "$POST_STATUS" = "201" ]; then
   CID=$(jq -r '.id // empty' "$WORK/complaint.json" 2>/dev/null || grep -o '"id":"[^"]*"' "$WORK/complaint.json" | cut -d: -f2 | tr -d '"')
   [ -n "$CID" ] || fail "POST /v1/complaints returned 201 but missing complaint id"
   echo "OK (201, complaint_id=$CID)"
-elif [ "$POST_STATUS" = "503" ]; then
-  # 503 occurs when the local stack (PostGIS/LocalStack) is not running in the current test environment.
-  # The endpoint must still correctly validate and return the expected error envelope.
+
+  # Verify idempotency: retrying with the exact same Idempotency-Key returns the same complaint ID
+  RETRY_STATUS=$(curl -s -o "$WORK/retry.json" -w "%{http_code}" -X POST "$URL/v1/complaints" \
+    -H "content-type: application/json" \
+    -H "Idempotency-Key: $IDEM" \
+    -d "$COMPLAINT_BODY")
+  [ "$RETRY_STATUS" = "201" ] || fail "Retry with same Idempotency-Key returned HTTP $RETRY_STATUS, expected 201"
+  RETRY_CID=$(jq -r '.id // empty' "$WORK/retry.json" 2>/dev/null || grep -o '"id":"[^"]*"' "$WORK/retry.json" | cut -d: -f2 | tr -d '"')
+  [ "$RETRY_CID" = "$CID" ] || fail "Retry with same Idempotency-Key returned id $RETRY_CID, expected $CID"
+  echo "OK (Idempotency verified: unchanged retry returned same complaint $CID)"
+elif [ "$POST_STATUS" = "503" ] && [ "${SMOKE_MODE:-full}" = "degraded" ]; then
+  # Degraded mode: explicitly requested via SMOKE_MODE=degraded when docker/PostGIS is unavailable.
   ERR_CODE=$(jq -r '.error.code // empty' "$WORK/complaint.json" 2>/dev/null || grep -o '"code":"[^"]*"' "$WORK/complaint.json" | cut -d: -f2 | tr -d '"')
   [ "$ERR_CODE" = "unavailable" ] || fail "Expected error.code 'unavailable', got: $(cat "$WORK/complaint.json")"
-  echo "OK (503 unavailable, contract-compliant error envelope when local stack is offline)"
+  echo "OK (DEGRADED MODE: 503 unavailable, local stack offline but error envelope valid)"
 else
-  fail "POST /v1/complaints returned unexpected status $POST_STATUS: $(cat "$WORK/complaint.json")"
+  fail "POST /v1/complaints failed with status $POST_STATUS: $(cat "$WORK/complaint.json" 2>/dev/null). Local stack dependency (PostGIS/LocalStack) is required for full golden path. Start the stack with 'npm run stack' or set SMOKE_MODE=degraded for offline envelope checks."
 fi
 
-printf '\n=============================================\n'
-printf 'GOLDEN PATH SMOKE TEST PASSED:\n'
-printf '  ✓ Web Shell (/)\n'
-printf '  ✓ Saans Shala (/shala)\n'
-printf '  ✓ Air Quality API (/v1/aqi)\n'
-printf '  ✓ School Advisory API (/v1/schools/school_demo_001/advisory)\n'
-printf '  ✓ Fire Tracking API (/v1/fires)\n'
-printf '  ✓ Incident Intake API (/v1/complaints)\n'
-printf '=============================================\n\n'
+if [ "${SMOKE_MODE:-full}" = "degraded" ]; then
+  printf '\n=============================================\n'
+  printf 'GOLDEN PATH SMOKE TEST PASSED (DEGRADED MODE):\n'
+  printf '  ✓ Web Shell (/)\n'
+  printf '  ✓ Saans Shala (/shala)\n'
+  printf '  ✓ Air Quality API (/v1/aqi)\n'
+  printf '  ✓ School Advisory API (/v1/schools/school_demo_001/advisory)\n'
+  printf '  ✓ Fire Tracking API (/v1/fires)\n'
+  printf '  ⚠ Incident Intake API (/v1/complaints - local stack offline)\n'
+  printf '=============================================\n\n'
+else
+  printf '\n=============================================\n'
+  printf 'GOLDEN PATH SMOKE TEST PASSED (FULL STACK):\n'
+  printf '  ✓ Web Shell (/)\n'
+  printf '  ✓ Saans Shala (/shala)\n'
+  printf '  ✓ Air Quality API (/v1/aqi)\n'
+  printf '  ✓ School Advisory API (/v1/schools/school_demo_001/advisory)\n'
+  printf '  ✓ Fire Tracking API (/v1/fires)\n'
+  printf '  ✓ Incident Intake API (/v1/complaints + Idempotency)\n'
+  printf '=============================================\n\n'
+fi

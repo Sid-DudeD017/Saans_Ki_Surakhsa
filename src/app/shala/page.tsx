@@ -7,6 +7,7 @@ import {
   getAqi,
   getSchoolAdvisory,
   submitComplaint,
+  mapCategoryToCitizenType,
   AqiData,
   SchoolAdvisoryData,
 } from '../../lib/api';
@@ -307,6 +308,11 @@ export default function ShalaPage() {
                         </button>
                       ))}
                     </div>
+                    {!mapCategoryToCitizenType(reportCategory) && (
+                      <div style={{ marginTop: '0.375rem', fontSize: '0.75rem', color: '#b45309' }}>
+                        ℹ️ Note: Live intake routes Smoke, Burning waste, Vehicle idling, and Firecrackers. &apos;{reportCategory}&apos; is recorded locally for campus monitoring.
+                      </div>
+                    )}
                   </div>
 
                   <div>

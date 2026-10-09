@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
-import { submitComplaint } from '../lib/api';
+import { submitComplaint, mapCategoryToCitizenType } from '../lib/api';
 import { Button } from './ui';
 
 export const ReportButton: React.FC = () => {
@@ -230,6 +230,11 @@ export const ReportButton: React.FC = () => {
                         )
                       )}
                     </div>
+                    {!mapCategoryToCitizenType(category) && (
+                      <div style={{ marginTop: '0.375rem', fontSize: '0.75rem', color: '#b45309' }}>
+                        ℹ️ Note: Live intake routes Smoke, Burning waste, Vehicle idling, and Firecrackers. &apos;{category}&apos; is recorded locally for campus monitoring.
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginBottom: '1.25rem' }}>
