@@ -1775,6 +1775,55 @@ paths:
       x-owner: P3
     servers:
       - url: /
+  /v1/notifications:
+    get:
+      summary: Get system and environmental notifications
+      operationId: get_notifications_v1_notifications_get
+      description: Returns active environmental alerts, GRAP escalation advisories, and school incident dispatch notifications for the current session.
+      responses:
+        "200":
+          description: List of active notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationItem"
+              examples:
+                active_notifications:
+                  summary: Active notifications list
+                  value:
+                    - id: notif_001
+                      title: GRAP Stage II Enacted
+                      message: Air quality worsened to Severe category in Sangrur corridor. Outdoor sports suspended.
+                      severity: alert
+                      timestamp: 2026-10-08T09:30:00+05:30
+                      read: false
+                      sourceModule: shala
+                    - id: notif_002
+                      title: Upwind Fire Detected
+                      message: Crop residue burning detected 4.2 km upwind (bearing 315°).
+                      severity: warning
+                      timestamp: 2026-10-08T09:20:00+05:30
+                      read: false
+                      sourceModule: ghar
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: invalid_request
+                  message: Failed to retrieve notifications.
+      tags:
+        - Shala
+      security: []
+      x-owner: P2
+    servers:
+      - url: /
+        description: Root server
   /v1/public/board:
     get:
       tags:
@@ -4218,6 +4267,49 @@ components:
         - located_by
       title: NearbyFires
       type: object
+    NotificationItem:
+      type: object
+      required:
+        - id
+        - title
+        - message
+        - severity
+        - timestamp
+        - read
+        - sourceModule
+      properties:
+        id:
+          type: string
+          description: Unique notification identifier.
+        title:
+          type: string
+          description: Notification headline.
+        message:
+          type: string
+          description: Detailed notification body.
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - alert
+          description: Severity level of notification.
+        timestamp:
+          type: string
+          description: ISO 8601 timestamp with +05:30 offset or relative time string.
+        read:
+          type: boolean
+          description: Whether the notification has been marked as read.
+        sourceModule:
+          type: string
+          enum:
+            - kisan
+            - shala
+            - ghar
+            - command
+          description: Platform source module that triggered the notification.
+      title: NotificationItem
+      description: A system or environmental alert notification.
     OfficerDecision:
       type: object
       required:
