@@ -122,6 +122,38 @@ paths:
                   message: this Idempotency-Key was used with a different request
         '503':
           $ref: '#/components/responses/IntakeUnavailable'
+  /v1/complaints/{id}:
+    get:
+      tags: [Command]
+      summary: Track complaint status
+      description: >-
+        A citizen's status tracking for their complaint (received -> sent to officer ->
+        merged or case opened -> acted on -> closed), with no officer names or other reporters' details.
+      operationId: getComplaintStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Complaint ID
+      responses:
+        '200':
+          description: Status of the complaint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplaintStatus'
+              example:
+                id: complaint-8d2f41
+                status: case_opened
+                stage_label: Case opened
+                explanation: Your report has been verified and a case was opened with local authorities.
+                type: farm_fire
+                received_at: '2026-10-23T14:02:00+05:30'
+                updated_at: '2026-10-23T14:05:00+05:30'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /v1/cases:
     get:
       tags: [Command]
@@ -505,9 +537,29 @@ components:
       properties:
         type:
           type: string
-          enum: [farm_fire, garbage, vehicle, firecrackers]
+          enum: [farm_fire, garbage, vehicle, firecrackers, dust, industrial]
         location:
           $ref: '#/components/schemas/GeoPoint'
+    ComplaintStatus:
+      type: object
+      required: [id, status, stage_label, explanation, received_at]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [received, sent_to_officer, case_opened, merged, acted_on, closed]
+        stage_label:
+          type: string
+        explanation:
+          type: string
+        type:
+          type: string
+          enum: [farm_fire, garbage, vehicle, firecrackers, dust, industrial, farmer_support]
+        received_at:
+          $ref: '#/components/schemas/IndiaTimestamp'
+        updated_at:
+          $ref: '#/components/schemas/IndiaTimestamp'
         description:
           type: string
           maxLength: 1000
@@ -705,7 +757,7 @@ components:
           $ref: '#/components/schemas/CommandCase'
         type:
           type: string
-          enum: [farm_fire, garbage, vehicle, firecrackers, farmer_support]
+          enum: [farm_fire, garbage, vehicle, firecrackers, farmer_support, dust, industrial]
         district:
           type: string
         location:

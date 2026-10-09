@@ -20,6 +20,16 @@
     "deadlineHours": 2,
     "penalty": true
   },
+  "dust": {
+    "authorities": ["Municipal body"],
+    "deadlineHours": 24,
+    "penalty": true
+  },
+  "industrial": {
+    "authorities": ["Pollution Control Board"],
+    "deadlineHours": 24,
+    "penalty": true
+  },
   "farmer_support": {
     "authorities": ["Agriculture department", "CHC"],
     "deadlineHours": 72,

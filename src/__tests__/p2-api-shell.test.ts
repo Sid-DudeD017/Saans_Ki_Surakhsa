@@ -28,7 +28,7 @@ describe('P2 API Client & Mock Backbone', () => {
 
   it('retrieves school advisory for active campus', async () => {
     const advisory = await getSchoolAdvisory('school_demo_001', 'student');
-    expect(advisory.school_name).toContain('Government Model School');
+    expect(advisory.school_name).toContain('Government Senior Secondary School');
     expect(advisory.aqi).toBe(287);
     expect(advisory.outdoor_activities_permitted).toBe(false);
   });

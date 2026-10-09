@@ -1,7 +1,7 @@
 // The HTTP side of intake: Request in, Response out, so the same code serves the Next.js routes
 // (src/app/v1/uploads, src/app/v1/complaints) and the Lambda handlers in template.yaml. The local stack's
 // wiring is in localStack.ts, kept apart so Lambda bundles don't carry it (or Cedar's wasm).
-import { submitComplaint } from "./complaints";
+import { getComplaintStatus, submitComplaint } from "./complaints";
 import type { IntakeDeps } from "./deps";
 import { invalid, zodDetails } from "./errors";
 import { UploadInput } from "./inputs";
@@ -33,4 +33,8 @@ export async function handleComplaints(request: Request, deps: IntakeDeps): Prom
   const read = await jsonBody(request);
   if (!read.ok) return read.response;
   return submitComplaint(deps, request.headers.get("idempotency-key"), read.body);
+}
+
+export async function handleGetComplaintStatus(request: Request, deps: IntakeDeps, id: string): Promise<Response> {
+  return getComplaintStatus(deps, id);
 }

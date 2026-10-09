@@ -1,367 +1,1185 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../lib/auth';
 import { useLanguage } from '../../lib/i18n';
-import {
-  getAqi,
-  getSchoolAdvisory,
-  submitComplaint,
-  mapCategoryToCitizenType,
-  AqiData,
-  SchoolAdvisoryData,
-} from '../../lib/api';
 import { Card, Button, Container, Stack, Badge, Alert } from '../../components/ui';
+import { ReportSheet } from './ReportSheet';
 import { AirBuddy } from './AirBuddy';
-import { CATEGORIES, CATEGORY_NAMES, WORDS, type Category } from './airQuality';
-import { AQI_FIXTURES } from './aqiFixtures';
-import { SCHOOLS, buildAdvisory, type SchoolAdvisory } from './advisory';
+import {
+  CATEGORIES,
+  CATEGORY_COLOURS,
+  CATEGORY_NAMES,
+  WORDS,
+  formatFiresWindSummary,
+  formatForecastHour,
+  buildForecastTrendSentence,
+  type Category,
+  type ForecastResponse,
+} from './airQuality';
+import type { SchoolAdvisory } from './advisory';
 import { FilterFrenzy } from './FilterFrenzy';
 import { GasCards } from './GasCards';
 import { PrincipalBoard } from './PrincipalBoard';
 import { RedZoneMap } from './RedZoneMap';
-import { DEMO_FIRES, DEMO_STATIONS } from './redZoneFixtures';
-import { USE_MOCKS, getAdvisory, getAir, getFires, type FirePoint } from './shalaApi';
-import type { AqiResponse } from './airQuality';
+import { DEMO_STATIONS } from './redZoneFixtures';
+import { USE_MOCKS } from './shalaApi';
+import {
+  useShalaAir,
+  formatMeasurementTime,
+  type ForecastStatus,
+} from './useShalaAir';
+import {
+  useLocation,
+  type Place,
+  type LocationStatus,
+} from '../../lib/useLocation';
+import schoolsConfig from '../../config/schools.json';
 
-const SCHOOL = SCHOOLS[0];
-const FIRE_RADIUS_KM = 25;
+function CampusOverviewSkeleton({ language }: { language: 'pa' | 'hi' | 'en' }) {
+  return (
+    <Card padding="lg">
+      <div
+        role="status"
+        aria-busy="true"
+        aria-label={WORDS.loadingAir[language]}
+        style={{ minHeight: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ width: '120px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '0.5rem' }} />
+            <div style={{ width: '260px', height: '24px', backgroundColor: '#cbd5e1', borderRadius: '4px', marginBottom: '0.5rem' }} />
+            <div style={{ width: '180px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ width: '80px', height: '48px', backgroundColor: '#cbd5e1', borderRadius: '6px', marginLeft: 'auto', marginBottom: '0.5rem' }} />
+            <div style={{ width: '100px', height: '20px', backgroundColor: '#e2e8f0', borderRadius: '9999px', marginLeft: 'auto' }} />
+          </div>
+        </div>
 
-export default function ShalaPage() {
-  const { role, user } = useAuth();
-  const { t, language } = useLanguage();
-  const [fixtureDay, setFixtureDay] = useState<Category>('poor');
-  // Mock mode: the example day drives everything. Live: P3's AQI and fires, and Shala's own advisory API.
-  const [live, setLive] = useState<{ air?: AqiResponse; advisory?: SchoolAdvisory; fires?: FirePoint[]; error?: string; firesError?: string }>({});
-  useEffect(() => {
-    if (USE_MOCKS) return;
-    let on = true;
-    const { lat, lon } = SCHOOL.location;
-    // The fires are extra: without them the map says so, and the rest of the page still works.
-    Promise.allSettled([getAir(lat, lon, 'poor'), getAdvisory(SCHOOL.id, 'poor'), getFires(lat, lon, FIRE_RADIUS_KM)]).then(([air, advisory, fires]) => {
-      if (!on) return;
-      const why = (r: PromiseSettledResult<unknown>) => (r.status === 'rejected' ? String((r.reason as Error)?.message ?? r.reason) : undefined);
-      setLive({
-        air: air.status === 'fulfilled' ? air.value : undefined,
-        advisory: advisory.status === 'fulfilled' ? advisory.value : undefined,
-        fires: fires.status === 'fulfilled' ? fires.value : [],
-        error: why(air) ?? why(advisory),
-        firesError: why(fires),
-      });
-    });
-    return () => {
-      on = false;
-    };
-  }, []);
-  const airDay = USE_MOCKS ? AQI_FIXTURES[fixtureDay] : live.air;
-  const schoolAdvisory = USE_MOCKS && airDay ? buildAdvisory(SCHOOL, airDay, new Date(airDay.data_timestamp)) : live.advisory;
-  const fires = USE_MOCKS ? DEMO_FIRES : (live.fires ?? []);
-  const stations = USE_MOCKS && airDay
-    ? DEMO_STATIONS.map((s) => ({ ...s, aqi: Math.max(0, Math.min(500, airDay.aqi + s.aqiOffset)) }))
-    : null;
-
-  const [aqiData, setAqiData] = useState<AqiData | null>(null);
-  const [advisory, setAdvisory] = useState<SchoolAdvisoryData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // 3-step reporting flow state
-  const [reportCategory, setReportCategory] = useState('Smoke');
-  const [reportDescription, setReportDescription] = useState(
-    'Dense smoke observed near playground boundary wall.'
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+            gap: '0.75rem',
+            marginTop: '1.25rem',
+            paddingTop: '1rem',
+            borderTop: '1px solid #e2e8f0',
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i}>
+              <div style={{ width: '70px', height: '12px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '0.375rem' }} />
+              <div style={{ width: '90px', height: '18px', backgroundColor: '#cbd5e1', borderRadius: '4px' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
-  const [reportSubmitted, setReportSubmitted] = useState<string | null>(null);
-  const [reportError, setReportError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+}
 
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([
-      getAqi(28.6472, 77.3058),
-      getSchoolAdvisory('school_demo_001', role),
-    ])
-      .then(([aqiRes, advRes]) => {
-        if (mounted) {
-          setAqiData(aqiRes);
-          setAdvisory(advRes);
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+function ForecastStripSkeleton({ language }: { language: 'pa' | 'hi' | 'en' }) {
+  return (
+    <Card padding="md" style={{ backgroundColor: '#ffffff' }}>
+      <div
+        role="status"
+        aria-busy="true"
+        aria-label={WORDS.loadingAir[language]}
+        style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ width: '120px', height: '20px', backgroundColor: '#cbd5e1', borderRadius: '4px' }} />
+          <div style={{ width: '60px', height: '16px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+        </div>
+        <div style={{ width: '220px', height: '16px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.75rem',
+            overflowX: 'hidden',
+            paddingBottom: '0.25rem',
+          }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                minWidth: '85px',
+                height: '110px',
+                backgroundColor: '#f1f5f9',
+                borderRadius: '0.5rem',
+                border: '1px solid #e2e8f0',
+                padding: '0.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ width: '40px', height: '14px', backgroundColor: '#cbd5e1', borderRadius: '3px' }} />
+              <div style={{ width: '55px', height: '18px', backgroundColor: '#e2e8f0', borderRadius: '9999px' }} />
+              <div style={{ width: '35px', height: '22px', backgroundColor: '#cbd5e1', borderRadius: '4px' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
-    return () => {
-      mounted = false;
-    };
-  }, [role]);
+function ForecastStrip({
+  forecast,
+  status,
+  language,
+  onRetry,
+  isExample,
+}: {
+  forecast: ForecastResponse | null;
+  status: ForecastStatus;
+  language: 'pa' | 'hi' | 'en';
+  onRetry: () => void;
+  isExample: boolean;
+}) {
+  if (status === 'loading') {
+    return <ForecastStripSkeleton language={language} />;
+  }
 
-  const handleReportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setReportError(null);
-    try {
-      const res = await submitComplaint({
-        category: reportCategory,
-        description: reportDescription,
-        latitude: SCHOOL.location.lat,
-        longitude: SCHOOL.location.lon,
-        lat: SCHOOL.location.lat,
-        lon: SCHOOL.location.lon,
-        photo: 'mock/photo/smoke_demo.jpg',
-        school_id: SCHOOL.id,
-        reported_by_role: role,
-      });
-      setReportSubmitted(res.ticket_id || res.id || 'SUBMITTED');
-    } catch (err) {
-      console.error('Failed to submit report', err);
-      setReportError(err instanceof Error ? err.message : 'Failed to submit incident report');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (status === 'no_coverage') {
+    return (
+      <Card padding="md" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.25rem' }}>ℹ️</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', marginBottom: '0.25rem' }}>
+              ⏱️ {WORDS.nextHours[language]}
+            </div>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+              {WORDS.forecastCoverageNotice[language]}
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (status === 'error' || !forecast) {
+    return (
+      <Card padding="md" style={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', marginBottom: '0.25rem' }}>
+              ⏱️ {WORDS.nextHours[language]}
+            </div>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+              {WORDS.forecastUnavailable[language]}
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onRetry}
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            🔄 {WORDS.retry[language]}
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  const hours12 = forecast.hours.slice(0, 12);
+  const trendSentence = buildForecastTrendSentence(hours12, language);
 
   return (
-    <Container maxWidth="md" style={{ paddingTop: '2rem', paddingBottom: '5rem' }}>
-      {/* Module Title Header */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-          <Badge variant="primary" size="md">
-            P2 MODULE
-          </Badge>
-          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-            School Air Quality & Child Health Intelligence
-          </span>
+    <Card padding="md" style={{ backgroundColor: '#ffffff' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {/* Title row with optional Example tag */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', fontWeight: 800 }}>
+            ⏱️ {WORDS.nextHours[language]}
+          </h2>
+          {isExample && (
+            <Badge variant="neutral" size="sm">
+              {WORDS.example[language]}
+            </Badge>
+          )}
         </div>
-        <h1 style={{ margin: '0.25rem 0', fontSize: '1.75rem', color: '#0f172a' }}>
-          🏫 Saans Shala
-        </h1>
-        <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569' }}>
-          Real-time CPCB air quality tracking, child-friendly advisories, and school incident reporting.
+
+        {/* Derived trend sentence if supported by data */}
+        {trendSentence && (
+          <div
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: '#334155',
+              padding: '0.35rem 0.6rem',
+              backgroundColor: '#f1f5f9',
+              borderRadius: '0.375rem',
+              lineHeight: 1.35,
+            }}
+          >
+            📈 {trendSentence}
+          </div>
+        )}
+
+        {/* Horizontally scrollable 12-hour strip */}
+        <div
+          role="region"
+          aria-label={WORDS.nextHours[language]}
+          style={{
+            display: 'flex',
+            gap: '0.75rem',
+            overflowX: 'auto',
+            paddingBottom: '0.5rem',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {hours12.map((h, i) => {
+            const timeLabel = formatForecastHour(h.time, language);
+            const categoryName = CATEGORY_NAMES[h.category][language];
+            const colours = CATEGORY_COLOURS[h.category];
+            const srText = `${timeLabel}: ${categoryName}, AQI ${h.aqi}`;
+
+            return (
+              <div
+                key={i}
+                role="group"
+                aria-label={srText}
+                style={{
+                  minWidth: '85px',
+                  flex: '0 0 auto',
+                  padding: '0.625rem 0.5rem',
+                  borderRadius: '0.5rem',
+                  backgroundColor: colours.tint,
+                  border: `1.5px solid ${colours.fill}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                {/* Hour */}
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>
+                  {timeLabel}
+                </div>
+
+                {/* AQI number */}
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: colours.ink, lineHeight: 1 }}>
+                  {h.aqi}
+                </div>
+
+                {/* Category name */}
+                <div
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 700,
+                    color: colours.ink,
+                    lineHeight: 1.2,
+                    padding: '0.1rem 0.35rem',
+                    borderRadius: '9999px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                  }}
+                >
+                  {categoryName}
+                </div>
+
+                {/* PM2.5 concentration */}
+                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>
+                  {h.pm25_ug_m3} µg/m³
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function LocationBar({
+  place,
+  status,
+  isRough,
+  language,
+  onAsk,
+  onOpenSearch,
+}: {
+  place: Place;
+  status: LocationStatus;
+  isRough: boolean;
+  language: 'pa' | 'hi' | 'en';
+  onAsk: () => void;
+  onOpenSearch: () => void;
+}) {
+  const isDevice = place.kind === 'device';
+  const district = place.district || 'Sangrur';
+
+  const srText = isDevice
+    ? `Location: near you, accurate to ${place.accuracyM} metres`
+    : `Location: showing your school, ${district}`;
+
+  return (
+    <div
+      role="region"
+      aria-label={srText}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
+        padding: '0.75rem 1rem',
+        backgroundColor: '#f8fafc',
+        borderRadius: '0.5rem',
+        border: '1px solid #e2e8f0',
+        fontSize: '0.875rem',
+        color: '#334155',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {status === 'asking' ? (
+          <>
+            <span>⏳</span>
+            <span style={{ fontWeight: 600, color: '#0369a1' }}>
+              {WORDS.findingYou[language]}
+            </span>
+          </>
+        ) : isDevice ? (
+          <>
+            <span style={{ fontWeight: 700, color: '#0f172a' }}>
+              📍 {WORDS.nearYou[language]}
+            </span>
+            <span style={{ color: '#64748b' }}>•</span>
+            <Badge variant="neutral" size="sm">
+              ±{place.accuracyM} m
+            </Badge>
+            {isRough && (
+              <Badge variant="warning" size="sm">
+                ⚠️ {WORDS.roughAccuracy[language].replace('{meters}', String(place.accuracyM))}
+              </Badge>
+            )}
+          </>
+        ) : status === 'denied' ? (
+          <>
+            <span style={{ color: '#dc2626' }}>🔒 {WORDS.locationOff[language]}</span>
+            <span style={{ color: '#64748b' }}>•</span>
+            <span>
+              {WORDS.showingSchool[language].replace('{district}', district)}
+            </span>
+          </>
+        ) : status === 'unavailable' ? (
+          <>
+            <span style={{ color: '#b45309' }}>⚠️ {WORDS.couldNotFindYou[language]}</span>
+            <span style={{ color: '#64748b' }}>•</span>
+            <span>
+              {WORDS.showingSchool[language].replace('{district}', district)}
+            </span>
+          </>
+        ) : status === 'insecure' ? (
+          <>
+            <span style={{ color: '#64748b' }}>🔒 {WORDS.insecureConnection[language]}</span>
+            <span style={{ color: '#64748b' }}>•</span>
+            <span>
+              {WORDS.showingSchool[language].replace('{district}', district)}
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontWeight: 600, color: '#0f172a' }}>
+              🏫 {WORDS.showingSchool[language].replace('{district}', district)}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {status !== 'insecure' && !isDevice && status !== 'asking' && (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={onAsk}
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            📍 {WORDS.useMyLocation[language]}
+          </Button>
+        )}
+        {status === 'unavailable' && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onAsk}
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            🔄 {WORDS.retry[language]}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onOpenSearch}
+          style={{ minHeight: '44px', minWidth: '44px' }}
+        >
+          🔍 {isDevice ? WORDS.change[language] : WORDS.searchPlace[language]}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function LocationPermissionCard({
+  language,
+  onAsk,
+  onDismiss,
+}: {
+  language: 'pa' | 'hi' | 'en';
+  onAsk: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <Card padding="md" style={{ backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>📍</span>
+          <div>
+            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: '#0369a1' }}>
+              {WORDS.seeAirWhereYouAre[language]}
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: '#334155', lineHeight: 1.4 }}>
+              {WORDS.locationRationale[language]}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onDismiss}
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            {WORDS.notNow[language]}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onAsk}
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            📍 {WORDS.useMyLocation[language]}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function PlaceSearchModal({
+  schools,
+  currentPlace,
+  language,
+  onSelectSchool,
+  onUseDevice,
+  canUseDevice,
+  onClose,
+}: {
+  schools: Array<{ id: string; name: string; district: string; location: { lat: number; lon: number } }>;
+  currentPlace: Place;
+  language: 'pa' | 'hi' | 'en';
+  onSelectSchool: (school: { id: string; name: string; district: string; location: { lat: number; lon: number } }) => void;
+  onUseDevice: () => void;
+  canUseDevice: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Card padding="lg" style={{ backgroundColor: '#ffffff', border: '2px solid #0284c7' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1.125rem', color: '#0f172a' }}>
+          🔍 {WORDS.searchPlace[language]}
+        </h3>
+        <Button variant="ghost" size="sm" onClick={onClose} style={{ minHeight: '44px', minWidth: '44px' }}>
+          ✕
+        </Button>
+      </div>
+
+      <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#64748b' }}>
+        <p style={{ margin: '0 0 0.5rem 0' }}>
+          ℹ️ {WORDS.freeTextUnavailable[language]}
         </p>
       </div>
 
-      <Stack gap="lg">
-        {/* Campus Overview Card */}
-        <Card padding="lg">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
-                📍 Demo Campus Specification
-              </span>
-              <h2 style={{ margin: '0.25rem 0', fontSize: '1.35rem', color: '#0f172a' }}>
-                {advisory?.school_name || 'Government Model School — Demo Campus'}
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.8125rem', color: '#64748b' }}>
-                East Delhi • Anand Vihar Environmental Monitoring Corridor
-              </p>
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
-                {aqiData?.aqi ?? 287}
+      <Stack gap="sm">
+        {schools.map((school) => {
+          const isSelected = currentPlace.kind === 'school' && currentPlace.id === school.id;
+          return (
+            <button
+              key={school.id}
+              type="button"
+              onClick={() => {
+                onSelectSchool(school);
+                onClose();
+              }}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.5rem',
+                border: `1.5px solid ${isSelected ? '#0284c7' : '#cbd5e1'}`,
+                backgroundColor: isSelected ? '#f0f9ff' : '#ffffff',
+                cursor: 'pointer',
+                textAlign: 'left',
+                minHeight: '44px',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.875rem' }}>
+                  🏫 {school.name}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  {school.district} • ({school.location.lat}°N, {school.location.lon}°E)
+                </div>
               </div>
-              <Badge variant="warning" size="sm" style={{ marginTop: '0.25rem' }}>
-                {aqiData?.category ?? 'Poor'} (GRAP {advisory?.grap_stage ?? 'Stage II'})
-              </Badge>
-            </div>
-          </div>
+              {isSelected && <Badge variant="primary" size="sm">Active</Badge>}
+            </button>
+          );
+        })}
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-              gap: '0.75rem',
-              marginTop: '1.25rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid #e2e8f0',
+        {canUseDevice && (
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => {
+              onUseDevice();
+              onClose();
             }}
+            style={{ marginTop: '0.5rem', minHeight: '44px', minWidth: '44px' }}
           >
-            <div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Dominant Pollutant</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-                {aqiData?.dominant_pollutant ?? 'PM2.5'}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>PM2.5 Level</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ea580c' }}>
-                {aqiData?.pm25 ?? 168} µg/m³
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Active Role</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0369a1', textTransform: 'capitalize' }}>
-                {role}
-              </div>
-            </div>
-          </div>
-        </Card>
+            📍 {WORDS.useMyLocation[language]}
+          </Button>
+        )}
+      </Stack>
+    </Card>
+  );
+}
 
-        {/* Air Buddy, the gas cards, the principal's board, the red-zone map and Filter Frenzy (P2) */}
-        {live.error && <Alert variant="danger">{live.error}</Alert>}
-        {airDay && (
-          <>
-            <AirBuddy category={airDay.category} language={language} aqi={airDay.aqi} />
-            {USE_MOCKS && (
-              <div role="group" aria-label={WORDS.exampleDay[language]} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: '#64748b' }}>
-                <span>{WORDS.exampleDay[language]}:</span>
-                {CATEGORIES.map((day) => (
-                  <Button key={day} size="sm" variant={day === fixtureDay ? 'primary' : 'secondary'} aria-pressed={day === fixtureDay} onClick={() => setFixtureDay(day)}>
-                    {CATEGORY_NAMES[day][language]}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {schoolAdvisory && (
-              <Card padding="lg">
-                <PrincipalBoard advisory={schoolAdvisory} language={language} />
-              </Card>
-            )}
-            <Card padding="lg">
-              <GasCards aqi={airDay} language={language} />
-            </Card>
-            <Card padding="lg">
-              <RedZoneMap
-                school={{ ...SCHOOL.location, name: SCHOOL.name }}
-                wind={airDay.wind}
-                fires={fires}
-                stations={stations}
-                language={language}
-                demo={USE_MOCKS}
-                firesUnavailable={live.firesError}
-              />
-            </Card>
-            <Card padding="lg">
-              <FilterFrenzy category={airDay.category} language={language} />
-            </Card>
-          </>
+function RoleAdvisoryCard({
+  advisory,
+  role,
+  language,
+}: {
+  advisory: SchoolAdvisory;
+  role: string;
+  language: 'pa' | 'hi' | 'en';
+}) {
+  const roleAdvisory =
+    role in advisory.role_advisories
+      ? advisory.role_advisories[role as keyof typeof advisory.role_advisories]
+      : null;
+  const summary = roleAdvisory?.summary || advisory.summary;
+  const actionItems = roleAdvisory?.action_items || [];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+          {roleAdvisory?.title || `${WORDS.todaysAdvisory[language]} (${role.charAt(0).toUpperCase() + role.slice(1)})`}
+        </h3>
+        {roleAdvisory && ('mask_recommended' in roleAdvisory ? roleAdvisory.mask_recommended : 'mask_mandated' in roleAdvisory ? roleAdvisory.mask_mandated : false) && (
+          <Badge variant="warning" size="sm">
+            😷 Mask recommended
+          </Badge>
+        )}
+      </div>
+
+      <p style={{ margin: 0, fontSize: '0.9rem', color: '#334155', lineHeight: 1.5, fontWeight: 500 }}>
+        {summary}
+      </p>
+
+      {actionItems.length > 0 && (
+        <div style={{ marginTop: '0.25rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+            {WORDS.actionItems[language]}:
+          </div>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.8125rem', color: '#475569', lineHeight: 1.5 }}>
+            {actionItems.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ShalaPage() {
+  const { role } = useAuth();
+  const { language } = useLanguage();
+  const [fixtureDay, setFixtureDay] = useState<Category>('poor');
+  const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [aroundYouOpen, setAroundYouOpen] = useState(false);
+  const [learnOpen, setLearnOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Shared privacy-first location hook
+  const {
+    place,
+    status: locationStatus,
+    ask: askLocation,
+    setPlace,
+    dismissPrompt,
+    promptDismissed,
+    isRough,
+  } = useLocation();
+
+  const {
+    status,
+    air,
+    advisory,
+    fires,
+    firesStatus,
+    firesError,
+    forecast,
+    forecastStatus,
+    forecastError,
+    error,
+    isStale,
+    staleHours,
+    refetch,
+    refetchForecast,
+    refetchFires,
+    fetchedForPlace,
+  } = useShalaAir(place, fixtureDay);
+
+  const isDeviceReading = fetchedForPlace?.kind === 'device' && place.kind === 'device';
+
+  const stations =
+    USE_MOCKS && air
+      ? DEMO_STATIONS.map((s) => ({
+          ...s,
+          aqi: Math.max(0, Math.min(500, air.aqi + s.aqiOffset)),
+        }))
+      : null;
+
+  const isStaff = role === 'teacher' || role === 'principal';
+
+  const stationLabel = air
+    ? air.station_name && air.city && !air.station_name.includes(air.city)
+      ? `${air.station_name}, ${air.city}`
+      : (air.station_name || air.city || 'CPCB')
+    : '';
+
+  const stationSubtitle = air
+    ? (() => {
+        if (isDeviceReading) {
+          const isFar = air.distance_km !== undefined && air.distance_km >= 0.5;
+          const distancePart = isFar
+            ? `${WORDS.nearestStation[language]}: ${stationLabel}, ${WORDS.kmAway[language].replace('{km}', String(air.distance_km))}`
+            : stationLabel;
+          const countPart = air.station_count
+            ? `${air.station_count} ${WORDS.stations[language]}`
+            : null;
+          const timePart = formatMeasurementTime(air.data_timestamp);
+
+          return [distancePart, countPart, timePart].filter(Boolean).join(' • ');
+        }
+
+        const schoolLocPart = place.district || air.city || 'Punjab';
+        const stationPart = air.station_name;
+        const countPart = air.station_count
+          ? `${air.station_count} ${WORDS.stations[language]}`
+          : null;
+        const timePart = formatMeasurementTime(air.data_timestamp);
+
+        return [schoolLocPart, stationPart, countPart, timePart].filter(Boolean).join(' • ');
+      })()
+    : '';
+
+  const roleAdviceSummary = advisory
+    ? (role in advisory.role_advisories
+        ? advisory.role_advisories[role as keyof typeof advisory.role_advisories]?.summary
+        : null) || advisory.summary
+    : null;
+
+  const firesSummary =
+    firesStatus === 'error'
+      ? `⚠️ ${WORDS.firesUnavailable[language]}`
+      : firesStatus === 'ok' && air
+      ? formatFiresWindSummary(fires.length, air.wind, language)
+      : null;
+
+
+
+  return (
+    <Container maxWidth="md" style={{ paddingTop: '1rem', paddingBottom: '4rem' }}>
+      {/* Clean minimal page title */}
+      <div style={{ marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', fontWeight: 800 }}>
+          🏫 Saans Shala
+        </h1>
+      </div>
+
+      <Stack gap="md">
+        {/* Section A: Location bar */}
+        <LocationBar
+          place={place}
+          status={locationStatus}
+          isRough={isRough}
+          language={language}
+          onAsk={askLocation}
+          onOpenSearch={() => setSearchDrawerOpen((open) => !open)}
+        />
+
+        {/* First visit permission prompt card */}
+        {locationStatus === 'idle' && !promptDismissed && place.kind === 'school' && (
+          <LocationPermissionCard
+            language={language}
+            onAsk={askLocation}
+            onDismiss={dismissPrompt}
+          />
         )}
 
-        {/* Today's Advisory Card */}
-        <Card padding="md">
-          <h3 style={{ margin: '0 0 0.375rem 0', fontSize: '1rem', color: '#0f172a' }}>
-            📋 Today&apos;s Advisory for {role.charAt(0).toUpperCase() + role.slice(1)}:
-          </h3>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>
-            {advisory?.summary ||
-              'GRAP Stage II active. Outdoor physical training is suspended. Keep classroom windows closed during high-traffic hours.'}
-          </p>
-        </Card>
+        {/* Location permission denied help banner */}
+        {locationStatus === 'denied' && (
+          <Alert variant="warning">
+            <div style={{ fontSize: '0.875rem' }}>
+              <strong>🔒 {WORDS.locationOff[language]}:</strong> {WORDS.howToEnableLocation[language]}
+            </div>
+          </Alert>
+        )}
 
-        {/* Rapid 3-Step Reporting Section */}
-        <div id="report">
+        {/* Place search modal / picker */}
+        {searchDrawerOpen && (
+          <PlaceSearchModal
+            schools={schoolsConfig.schools}
+            currentPlace={place}
+            language={language}
+            onSelectSchool={(school) => {
+              setPlace({
+                kind: 'school',
+                id: school.id,
+                label: school.name,
+                lat: school.location.lat,
+                lon: school.location.lon,
+                district: school.district,
+              });
+              setSearchDrawerOpen(false);
+            }}
+            onUseDevice={askLocation}
+            canUseDevice={locationStatus !== 'insecure'}
+            onClose={() => setSearchDrawerOpen(false)}
+          />
+        )}
+
+        {/* Section B: Right now - Honest 3-State Representation (loading / error / ok) */}
+        {status === 'loading' && <CampusOverviewSkeleton language={language} />}
+
+        {status === 'error' && (
           <Card padding="lg">
-            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.15rem', color: '#0f172a' }}>
-              📢 Report Smoke or Dust Incident
-            </h3>
-            <p style={{ margin: '0 0 1rem 0', fontSize: '0.8125rem', color: '#64748b' }}>
-              Reports are dispatched to the school response desk and local monitoring team.
-            </p>
-
-            {reportSubmitted ? (
-              <div style={{ backgroundColor: '#f0fdf4', padding: '1.25rem', borderRadius: '0.5rem', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                <span style={{ fontSize: '2rem' }}>✅</span>
-                <h4 style={{ margin: '0.25rem 0', color: '#166534' }}>Report Logged Successfully!</h4>
-                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', color: '#14532d' }}>
-                  Reference Ticket ID: <strong>#{reportSubmitted}</strong>
+            <div style={{ textAlign: 'center', padding: '1.5rem 1rem' }} role="alert">
+              <div style={{ fontSize: '2.25rem', marginBottom: '0.5rem' }}>⚠️</div>
+              <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#0f172a' }}>
+                {WORDS.noReading[language]}
+              </h2>
+              <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: '#64748b' }}>
+                {error || WORDS.noAdvice[language]}
+              </p>
+              {error && (error.toLowerCase().includes('coverage') || error.toLowerCase().includes('unsupported')) && (
+                <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.8125rem', color: '#b45309' }}>
+                  ℹ️ {WORDS.coverageNotice[language]}
                 </p>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setReportSubmitted(null);
-                    setReportError(null);
-                  }}
-                >
-                  Report Another Incident
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleReportSubmit}>
-                <Stack gap="md">
-                  {reportError && (
-                    <Alert variant="danger">
-                      {reportError}
-                    </Alert>
-                  )}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
-                      1. Pollution Source Category
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
-                      {['Smoke', 'Burning waste', 'Dust', 'Vehicle idling', 'Industrial', 'Other'].map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setReportCategory(cat)}
-                          style={{
-                            padding: '0.5rem',
-                            borderRadius: '0.375rem',
-                            border: `1.5px solid ${reportCategory === cat ? '#0369a1' : '#cbd5e1'}`,
-                            backgroundColor: reportCategory === cat ? '#e0f2fe' : '#ffffff',
-                            color: reportCategory === cat ? '#0369a1' : '#334155',
-                            fontWeight: 600,
-                            fontSize: '0.8125rem',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                    {!mapCategoryToCitizenType(reportCategory) && (
-                      <div style={{ marginTop: '0.375rem', fontSize: '0.75rem', color: '#b45309' }}>
-                        ℹ️ Note: Live intake routes Smoke, Burning waste, Vehicle idling, and Firecrackers. &apos;{reportCategory}&apos; is recorded locally for campus monitoring.
-                      </div>
+              )}
+              <Button variant="primary" size="md" onClick={refetch} style={{ minHeight: '44px', minWidth: '44px' }}>
+                🔄 {WORDS.retry[language]}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {status === 'ok' && air && (
+          <Card
+            padding="md"
+            style={{ backgroundColor: '#ffffff' }}
+            role="region"
+            aria-label={`Air quality ${air.aqi}, ${CATEGORY_NAMES[air.category].en.toLowerCase()}`}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {/* Header row: Status chip, Badges, AQI number and Category */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.025em' }}>
+                      📍 {isDeviceReading ? WORDS.nearYou[language] : (place.district ? `${place.district} Campus` : 'Campus Overview')}
+                    </span>
+                    {isDeviceReading && (
+                      <Badge variant="neutral" size="sm">
+                        ±{place.accuracyM} m
+                      </Badge>
+                    )}
+                    {isStale && (
+                      <Badge variant="warning" size="sm">
+                        ⏱️ {WORDS.staleReading[language]} ({WORDS.measuredAgo[language].replace('{hours}', String(staleHours))})
+                      </Badge>
                     )}
                   </div>
+                  <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+                    {WORDS.rightNow[language]}: {isDeviceReading ? WORDS.nearYou[language] : place.label}
+                  </h2>
+                </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.25rem' }}>
-                      2. Location
-                    </label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${SCHOOL.name} (${SCHOOL.location.lat}°N, ${SCHOOL.location.lon}°E)`}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        borderRadius: '0.375rem',
-                        border: '1px solid #cbd5e1',
-                        backgroundColor: '#f8fafc',
-                        fontSize: '0.8125rem',
-                        boxSizing: 'border-box',
-                      }}
-                    />
+                {/* Large AQI number + Category name beside colour */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', textAlign: 'right' }}>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                    {air.aqi}
                   </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.25rem' }}>
-                      3. Description & Details
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={reportDescription}
-                      onChange={(e) => setReportDescription(e.target.value)}
-                      required
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                    <span
                       style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        borderRadius: '0.375rem',
-                        border: '1px solid #cbd5e1',
+                        display: 'inline-block',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '9999px',
                         fontSize: '0.8125rem',
-                        boxSizing: 'border-box',
+                        fontWeight: 700,
+                        backgroundColor: CATEGORY_COLOURS[air.category].tint,
+                        color: CATEGORY_COLOURS[air.category].ink,
+                        border: `1.5px solid ${CATEGORY_COLOURS[air.category].fill}`,
+                        lineHeight: 1.2,
                       }}
-                    />
+                    >
+                      {CATEGORY_NAMES[air.category][language]}
+                    </span>
+                    {advisory?.grap_stage && advisory.grap_stage !== 'none' && (
+                      <Badge variant="neutral" size="sm">
+                        GRAP {advisory.grap_stage}
+                      </Badge>
+                    )}
                   </div>
+                </div>
+              </div>
 
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Submitting Report...' : 'Submit Incident (POST /v1/complaints)'}
-                  </Button>
-                </Stack>
-              </form>
-            )}
+              {/* One line of advice for current role (taken from existing advisory rules) */}
+              {roleAdviceSummary && (
+                <div
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: CATEGORY_COLOURS[air.category].tint,
+                    borderLeft: `4px solid ${CATEGORY_COLOURS[air.category].fill}`,
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: CATEGORY_COLOURS[air.category].ink,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  💡 {roleAdviceSummary}
+                </div>
+              )}
+
+              {/* Station summary & collapsible secondary details */}
+              <div style={{ fontSize: '0.8125rem', color: '#64748b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.25rem', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  {stationSubtitle}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((prev) => !prev)}
+                  aria-expanded={detailsOpen}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '0.25rem 0.5rem',
+                    color: '#0284c7',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    minHeight: '44px',
+                    minWidth: '44px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {detailsOpen ? '▲' : '▼'} {WORDS.details[language]}
+                </button>
+              </div>
+
+              {detailsOpen && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '0.5rem',
+                    paddingTop: '0.5rem',
+                    borderTop: '1px dashed #e2e8f0',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{WORDS.dominantPollutant[language]}</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+                      {air.dominant_pollutant}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>PM2.5</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ea580c' }}>
+                      {air.sub_indices?.pm25?.concentration !== undefined ? `${air.sub_indices.pm25.concentration} µg/m³` : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{WORDS.recordedAt[language]}</div>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>
+                      {formatMeasurementTime(air.data_timestamp)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{WORDS.source[language]}</div>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>
+                      {air.station_count ? `${air.station_count} ${WORDS.stations[language]}` : 'CPCB CAAQMS'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
+        )}
+
+        {/* Section C: What to do today */}
+        {status === 'ok' && advisory && (
+          <div id="what-to-do-today" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <h2 style={{ margin: '0.5rem 0 0.25rem 0', fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>
+              📋 {WORDS.whatToDoToday[language]}
+            </h2>
+
+            {/* SECTION_6_WRITTEN_SUMMARY_SLOT */}
+
+            {isStaff ? (
+              <>
+                {/* For teacher / principal: PrincipalBoard first, then role advisory */}
+                <Card padding="lg">
+                  <PrincipalBoard advisory={advisory} language={language} />
+                </Card>
+                <Card padding="md">
+                  <RoleAdvisoryCard advisory={advisory} role={role} language={language} />
+                </Card>
+              </>
+            ) : (
+              <>
+                {/* For student / parent / other: role advisory first, then PrincipalBoard */}
+                <Card padding="md">
+                  <RoleAdvisoryCard advisory={advisory} role={role} language={language} />
+                </Card>
+                <Card padding="lg">
+                  <PrincipalBoard advisory={advisory} language={language} />
+                </Card>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Section D: Next hours - 12-hour strip */}
+        {/* SECTION_5_HOURLY_FORECAST_SLOT */}
+        {status === 'ok' && (
+          <ForecastStrip
+            forecast={forecast}
+            status={forecastStatus}
+            language={language}
+            onRetry={refetchForecast}
+            isExample={USE_MOCKS}
+          />
+        )}
+
+        {/* Section E: Around you - Collapsible Red-Zone Map (Closed by default, renders only when opened) */}
+        {status === 'ok' && air && (
+          <details
+            open={aroundYouOpen}
+            onToggle={(e) => setAroundYouOpen(e.currentTarget.open)}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '0.75rem',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            <summary
+              style={{
+                padding: '0.875rem 1rem',
+                cursor: 'pointer',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: '#0f172a',
+                userSelect: 'none',
+              }}
+            >
+              <span>🗺️ {WORDS.aroundYou[language]}</span>
+              {firesSummary && (
+                <span
+                  style={{
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    color: firesStatus === 'error' ? '#b45309' : '#64748b',
+                  }}
+                >
+                  {firesSummary}
+                </span>
+              )}
+            </summary>
+            <div style={{ padding: '0 1rem 1rem 1rem' }}>
+              {aroundYouOpen && (
+                firesStatus === 'error' ? (
+                  <div
+                    style={{
+                      padding: '1.25rem 1rem',
+                      textAlign: 'center',
+                      backgroundColor: '#fffbeb',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #fef3c7',
+                    }}
+                  >
+                    <p style={{ margin: '0 0 0.75rem', color: '#92400e', fontSize: '0.875rem', fontWeight: 600 }}>
+                      ⚠️ {WORDS.firesUnavailable[language]}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={refetchFires}
+                      style={{ minHeight: '44px', minWidth: '44px' }}
+                    >
+                      🔄 {WORDS.retry[language]}
+                    </Button>
+                  </div>
+                ) : (
+                  <RedZoneMap
+                    school={{ lat: place.lat, lon: place.lon, name: place.label }}
+                    wind={air.wind}
+                    fires={fires}
+                    stations={stations}
+                    language={language}
+                    demo={USE_MOCKS}
+                    firesUnavailable={firesError}
+                  />
+                )
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* Section F: Learn - What's in the air (Closed by default, renders only when opened) */}
+        {status === 'ok' && air && (
+          <details
+            open={learnOpen}
+            onToggle={(e) => setLearnOpen(e.currentTarget.open)}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '0.75rem',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            <summary
+              style={{
+                padding: '0.875rem 1rem',
+                cursor: 'pointer',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: '#0f172a',
+                userSelect: 'none',
+              }}
+            >
+              <span>💨 {WORDS.learnAir[language]}</span>
+            </summary>
+            <div style={{ padding: '0 1rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {learnOpen && (
+                <>
+                  <AirBuddy category={air.category} language={language} aqi={air.aqi} />
+
+                  {/* Example-day fixture selector - ONLY visible in mock mode */}
+                  {USE_MOCKS && (
+                    <div
+                      role="group"
+                      aria-label={WORDS.exampleDay[language]}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        flexWrap: 'wrap',
+                        fontSize: '0.8125rem',
+                        color: '#64748b',
+                        padding: '0.5rem 0.75rem',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '0.375rem',
+                        border: '1px dashed #cbd5e1',
+                      }}
+                    >
+                      <span style={{ fontWeight: 600 }}>{WORDS.exampleDay[language]}:</span>
+                      {CATEGORIES.map((day) => (
+                        <Button
+                          key={day}
+                          size="sm"
+                          variant={day === fixtureDay ? 'primary' : 'secondary'}
+                          aria-pressed={day === fixtureDay}
+                          onClick={() => setFixtureDay(day)}
+                          style={{ minHeight: '44px', minWidth: '44px' }}
+                        >
+                          {CATEGORY_NAMES[day][language]}
+                        </Button>
+                      ))}
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: 'auto' }}>
+                        ({WORDS.exampleData[language]})
+                      </span>
+                    </div>
+                  )}
+
+                  <GasCards aqi={air} language={language} />
+                </>
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* Section G: Play */}
+        {status === 'ok' && air && (
+          <Card padding="lg">
+            <div style={{ marginBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', fontWeight: 700 }}>
+                🎮 {WORDS.playGame[language]}
+              </h3>
+            </div>
+            <FilterFrenzy category={air.category} language={language} />
+          </Card>
+        )}
+
+        {/* Section H: Report - 4-step report sheet with status tracking */}
+        <div id="report">
+          <ReportSheet
+            initialLocation={{
+              lat: place.lat,
+              lon: place.lon,
+              label: place.label,
+              accuracyM: place.kind === 'device' ? place.accuracyM : undefined,
+            }}
+            schoolLocation={
+              schoolsConfig.schools[0]
+                ? {
+                    lat: schoolsConfig.schools[0].location.lat,
+                    lon: schoolsConfig.schools[0].location.lon,
+                    label: schoolsConfig.schools[0].name,
+                  }
+                : undefined
+            }
+            role={role}
+            language={language}
+            isInline={true}
+          />
         </div>
       </Stack>
     </Container>
