@@ -27,6 +27,46 @@ Parameters:
   AppLogoutUrl:
     Type: String
     Default: "http://localhost:3000/logout"
+  BillingAlertEmail:
+    Type: String
+    Description: Who AWS Budgets emails when the Saans account's monthly cost passes $40 and $50
+    AllowedPattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+  SmsToSangrur:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: E.164 number that gets Sangrur's assignment and action-taken SMS (empty = no SMS)
+  SmsToPatiala:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: E.164 number that gets Patiala's assignment and action-taken SMS (empty = no SMS)
+  SmsToUnassigned:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: E.164 number for cases outside both districts (empty = no SMS)
+  SmsBackend:
+    Type: String
+    Default: outbox
+    AllowedValues: [outbox, aws]
+    Description: aws = AWS End User Messaging with the DLT sender and templates; outbox = write to a file (no real SMS)
+  SmsSenderId:
+    Type: String
+    Default: ""
+    Description: DLT-registered sender ID (origination identity) for SmsBackend aws
+  SmsEntityId:
+    Type: String
+    Default: ""
+    Description: DLT principal entity ID for SmsBackend aws
+  SmsTemplateAssignment:
+    Type: String
+    Default: ""
+    Description: 'DLT template ID for the text "You have been assigned case {#var#}"'
+  SmsTemplateActionTaken:
+    Type: String
+    Default: ""
+    Description: 'DLT template ID for the text "Action taken on case {#var#}: {#var#}"'
 Globals:
   Function:
     Runtime: nodejs22.x
@@ -41,6 +81,27 @@ Globals:
           Ref: EvidenceBucket
         SAANS_S3_ENDPOINT: ""
         NODE_OPTIONS: --enable-source-maps
+        SAANS_SMS_BACKEND:
+          Ref: SmsBackend
+        SAANS_SMS_REGION:
+          Ref: AWS::Region
+        SAANS_SMS_TO_SANGRUR:
+          Ref: SmsToSangrur
+        SAANS_SMS_TO_PATIALA:
+          Ref: SmsToPatiala
+        SAANS_SMS_TO_UNASSIGNED:
+          Ref: SmsToUnassigned
+        SAANS_SMS_SENDER_ID:
+          Ref: SmsSenderId
+        SAANS_SMS_ENTITY_ID:
+          Ref: SmsEntityId
+        SAANS_SMS_TEMPLATE_ASSIGNMENT:
+          Ref: SmsTemplateAssignment
+        SAANS_SMS_TEMPLATE_ACTION_TAKEN:
+          Ref: SmsTemplateActionTaken
+        SAANS_SMS_DLQ_URL:
+          Ref: NotificationFailureDLQ
+        SAANS_SMS_OUTBOX: /tmp/saans_sms.jsonl
 
 Resources:
   EvidenceBucket:
@@ -83,6 +144,12 @@ Resources:
             FunctionArn: {"Fn::GetAtt": ["AuthorizerFunction", "Arn"]}
             AuthorizerPayloadFormatVersion: '2.0'
             EnableSimpleResponses: true
+            # Lets API Gateway invoke the authorizer; without it every protected route answers 500.
+            EnableFunctionDefaultPermissions: true
+            # No caching: a decision for one route (whoami) must not be reused for another (a case).
+            Identity:
+              Headers: [Authorization]
+              ReauthorizeEvery: 0
 
   UploadsFunction:
     Type: AWS::Serverless::Function
@@ -493,6 +560,144 @@ Resources:
       BuildProperties:
         EntryPoints: [services/command-api/whoami.ts]
         Target: node22
+
+  CasesFunction:
+    # The officer's case API (G7): the same handlers as the Next.js routes. The authorizer signs the
+    # officer in; this function asks Verified Permissions about each case (services/command-api/avpAuthz.ts).
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/lambda.casesList
+      CodeUri: ../
+      Environment:
+        Variables:
+          VERIFIED_PERMISSIONS_POLICY_STORE_ID:
+            Ref: PolicyStore
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}"
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /v1/cases
+            Auth:
+              Authorizer: CustomAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/lambda.ts]
+        Target: node22
+        Sourcemap: true
+
+  CaseDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/lambda.caseDetail
+      CodeUri: ../
+      Environment:
+        Variables:
+          VERIFIED_PERMISSIONS_POLICY_STORE_ID:
+            Ref: PolicyStore
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}"
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /v1/cases/{id}
+            Auth:
+              Authorizer: CustomAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/lambda.ts]
+        Target: node22
+        Sourcemap: true
+
+  CaseActionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/lambda.caseAction
+      CodeUri: ../
+      Environment:
+        Variables:
+          VERIFIED_PERMISSIONS_POLICY_STORE_ID:
+            Ref: PolicyStore
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: verifiedpermissions:IsAuthorizedWithToken
+              Resource:
+                Fn::Sub: "arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}"
+        - SQSSendMessagePolicy:
+            QueueName:
+              Fn::GetAtt: [NotificationFailureDLQ, QueueName]
+        - Statement:
+            - Effect: Allow
+              Action: sms-voice:SendTextMessage
+              Resource: "*"
+      Events:
+        Post:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: POST
+            Path: /v1/cases/{id}/actions
+            Auth:
+              Authorizer: CustomAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/lambda.ts]
+        Target: node22
+        Sourcemap: true
+
+  MonthlyBudget:
+    # The $50 guardrail. AWS publishes billing metrics only in us-east-1, so a CloudWatch alarm in this
+    # ap-south-1 stack would never fire; Budgets is account-wide and works from any region.
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName:
+          Fn::Sub: saans-${Stage}-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: 50
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address:
+                Ref: BillingAlertEmail
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address:
+                Ref: BillingAlertEmail
 
   NotificationFailureDLQ:
     Type: AWS::SQS::Queue

@@ -29,7 +29,7 @@ const modules: Record<string, Record<string, unknown>> = {
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(11);
+    expect(functions.length).toBe(14);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -50,7 +50,10 @@ describe("infra/template.yaml", () => {
         .filter((e) => e.Type === "HttpApi")
         .map((e) => `${e.Properties.Method} ${e.Properties.Path}`),
     );
-    expect(paths.sort()).toEqual(["GET /health", "GET /v1/officer/whoami", "POST /v1/complaints", "POST /v1/uploads"]);
+    expect(paths.sort()).toEqual([
+      "GET /health", "GET /v1/cases", "GET /v1/cases/{id}", "GET /v1/officer/whoami",
+      "POST /v1/cases/{id}/actions", "POST /v1/complaints", "POST /v1/uploads",
+    ]);
   });
 });
 describe("template.yaml structural checks (migrated)", () => {
@@ -110,6 +113,39 @@ describe("template.yaml structural checks (migrated)", () => {
     expect(policy.Effect).toBe("Allow");
     expect(policy.Action).toBe("verifiedpermissions:IsAuthorizedWithToken");
     expect(policy.Resource["Fn::Sub"]).toBe("arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}");
+  });
+
+  it("puts the case API behind the Cognito authorizer, with Verified Permissions for each case", () => {
+    for (const name of ["CasesFunction", "CaseDetailFunction", "CaseActionFunction"]) {
+      const fn = resources[name].Properties as { Events: Record<string, { Properties: { Auth?: { Authorizer: string } } }>; Environment: { Variables: Record<string, unknown> }; Policies: unknown[] };
+      expect(Object.values(fn.Events).map((e) => e.Properties.Auth?.Authorizer), name).toEqual(["CustomAuthorizer"]);
+      expect(fn.Environment.Variables.VERIFIED_PERMISSIONS_POLICY_STORE_ID, name).toEqual({ Ref: "PolicyStore" });
+      expect(JSON.stringify(fn.Policies), name).toContain("verifiedpermissions:IsAuthorizedWithToken");
+    }
+    expect(JSON.stringify(resources.CaseActionFunction.Properties.Policies)).toContain("sms-voice:SendTextMessage");
+  });
+
+  it("lets API Gateway call the authorizer, and never reuses one route's decision for another", () => {
+    const auth = (resources.Api.Properties as { Auth: { Authorizers: { CustomAuthorizer: Record<string, unknown> } } }).Auth.Authorizers.CustomAuthorizer;
+    expect(auth.EnableFunctionDefaultPermissions).toBe(true);
+    expect(auth.Identity).toMatchObject({ ReauthorizeEvery: 0 });
+  });
+
+  it("emails at $40 and $50 a month (AWS Budgets, since billing metrics live only in us-east-1)", () => {
+    const budget = resources.MonthlyBudget.Properties as {
+      Budget: { BudgetType: string; TimeUnit: string; BudgetLimit: { Amount: number; Unit: string } };
+      NotificationsWithSubscribers: { Notification: { Threshold: number }; Subscribers: { SubscriptionType: string; Address: unknown }[] }[];
+    };
+    expect(resources.MonthlyBudget.Type).toBe("AWS::Budgets::Budget");
+    expect(budget.Budget).toMatchObject({ BudgetType: "COST", TimeUnit: "MONTHLY", BudgetLimit: { Amount: 50, Unit: "USD" } });
+    expect(budget.NotificationsWithSubscribers.map((n) => n.Notification.Threshold)).toEqual([80, 100]);
+    for (const n of budget.NotificationsWithSubscribers) expect(n.Subscribers).toEqual([{ SubscriptionType: "EMAIL", Address: { Ref: "BillingAlertEmail" } }]);
+  });
+
+  it("gives every function the SMS settings, with phone numbers hidden", () => {
+    const vars = template.Globals.Function.Environment.Variables;
+    for (const v of ["SAANS_SMS_BACKEND", "SAANS_SMS_TO_SANGRUR", "SAANS_SMS_TO_PATIALA", "SAANS_SMS_SENDER_ID", "SAANS_SMS_DLQ_URL"]) expect(vars[v], v).toBeDefined();
+    for (const p of ["SmsToSangrur", "SmsToPatiala", "SmsToUnassigned"]) expect(template.Parameters[p].NoEcho, p).toBe(true);
   });
 
   it("runs deadline escalation every minute", () => {

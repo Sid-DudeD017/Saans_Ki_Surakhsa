@@ -5,6 +5,7 @@ import { commandConfig } from "../command-api/config";
 import { newId, pool, s3Client, type IntakeDeps } from "../command-api/deps";
 import { escalateOverdue } from "../command-api/escalation";
 import { liveFires } from "../command-api/firms";
+import { notifierFromEnv } from "../command-api/notify";
 import { assign as assignStep, hashEvidence as hashStep, recordFailure as failureStep, triage as triageStep, validate as validateStep, type IntakeState } from "./steps";
 
 let deps: IntakeDeps | null = null;
@@ -23,6 +24,7 @@ function stepDeps(): IntakeDeps {
     },
     fires: liveFires(),
   };
+  deps.notify = notifierFromEnv(deps.db);
   return deps;
 }
 

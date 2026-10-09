@@ -101,6 +101,13 @@ CREATE TABLE IF NOT EXISTS districts (
   boundary  geography(Polygon, 4326) NOT NULL
 );
 
+-- SMS already sent (notify.ts), by idempotency key, so a retried step or a second Lambda never texts twice.
+-- Holds no phone numbers or message text.
+CREATE TABLE IF NOT EXISTS notifications_sent (
+  key      text PRIMARY KEY,
+  sent_at  timestamptz NOT NULL DEFAULT now()
+);
+
 -- Every action an officer took on a case. previous_case_version is the version they acted on.
 CREATE TABLE IF NOT EXISTS case_decisions (
   id                     text PRIMARY KEY,

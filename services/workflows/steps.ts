@@ -318,8 +318,10 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
       [deps.newId("case"), input.complaintId, t.district ?? helpLink?.district ?? null, t.authorities, t.penalty, deadline,
        verification, helpRequestId, helpLink && JSON.stringify(helpLink), observation && JSON.stringify(observation), summary(evidence), deps.now()],
     );
-    const { rows } = await deps.db.query<{ id: string }>("SELECT id FROM cases WHERE complaint_id = $1", [input.complaintId]);
+    const { rows } = await deps.db.query<{ id: string; district: string | null }>("SELECT id, district FROM cases WHERE complaint_id = $1", [input.complaintId]);
     await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
+    // Keyed by case, so a retry of this step texts nobody twice.
+    await deps.notify?.caseAssigned({ caseId: rows[0].id, district: rows[0].district });
     return { ...input, caseId: rows[0].id };
   });
 }
