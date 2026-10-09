@@ -835,6 +835,11 @@ export interface components {
              * @default 15
              */
             max_extra_min: number;
+            /**
+             * @description Share of PM2.5 the traveller's mask stops (0 = no mask). Dose is multiplied by (1 − mask_filtration).
+             * @default 0
+             */
+            mask_filtration: number;
         };
         /** CleanRouteResponse */
         CleanRouteResponse: {
@@ -1383,6 +1388,8 @@ export interface components {
             assumptions: {
                 [key: string]: unknown;
             };
+            /** @description today_plan, piece by piece, for screens that show it as a list */
+            plan?: components["schemas"]["IndoorPlanItem"][];
         };
         /** IndoorHour */
         IndoorHour: {
@@ -1390,6 +1397,16 @@ export interface components {
             time: string;
             indoor_pm25_ug_m3: number;
             outdoor_pm25_ug_m3: number;
+        };
+        /** IndoorPlanItem */
+        IndoorPlanItem: {
+            /**
+             * @description What the advice is about
+             * @enum {string}
+             */
+            kind: "windows" | "purifier" | "source" | "mask";
+            /** @description One piece of advice, in plain English */
+            text: string;
         };
         /**
          * KisanHelpRequest
