@@ -12,6 +12,7 @@
         "lambda:*",
         "logs:*",
         "s3:*",
+        "scheduler:*",
         "sqs:*",
         "states:*",
         "verifiedpermissions:*"
