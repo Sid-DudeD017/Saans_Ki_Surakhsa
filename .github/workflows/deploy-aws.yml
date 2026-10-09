@@ -45,9 +45,11 @@ jobs:
         run: sam validate --region ap-south-1 --template-file infra/template.yaml
 
       - name: Build SAM application
-        env:
-          NODE_PATH: ${{ github.workspace }}/node_modules
-        run: sam build --template-file infra/template.yaml
+        run: >-
+          env
+          PATH="$GITHUB_WORKSPACE/node_modules/.bin:$PATH"
+          NODE_PATH="$GITHUB_WORKSPACE/node_modules"
+          sam build --template-file infra/template.yaml
 
       - name: Deploy SAM application
         run: >-
