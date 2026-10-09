@@ -3,6 +3,7 @@ import { DynamoDBClient, CreateTableCommand, ListTablesCommand } from "@aws-sdk/
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { fetchFires } from "./fires";
 import { updateDataForLocation, getAqiForLocation } from "./index";
+import { liveDeps, refreshForecast } from "./forecast/service";
 
 const S3_BUCKET = "saans-raw-data";
 const DDB_TABLE = "saans_ingestion";
@@ -145,5 +146,13 @@ export async function runIngestion() {
     } catch (err) {
       console.warn("Fallback query failed.");
     }
+  }
+
+  // 3. Forecast grid, rebuilt when the stored one is 3 hours old
+  try {
+    const { store, build } = liveDeps();
+    console.log("Forecast grid:", await refreshForecast({ store, build }));
+  } catch (e) {
+    console.warn("Forecast grid refresh failed.", e instanceof Error ? e.message : e);
   }
 }

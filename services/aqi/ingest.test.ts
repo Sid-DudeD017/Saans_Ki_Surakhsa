@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runIngestion, setupAws, s3, docClient } from "./ingest";
 import * as index from "./index";
 import * as fires from "./fires";
+import * as forecast from "./forecast/service";
 
 vi.mock("@aws-sdk/client-s3", () => {
   return { 
@@ -35,6 +36,7 @@ describe("Ingestion Tests", () => {
     vi.spyOn(index, "updateDataForLocation").mockResolvedValue({ missingKeys: [], allFailed: false });
     vi.spyOn(index, "getAqiForLocation").mockResolvedValue({ data_timestamp: "2026-10-08T12:00:00+05:30" } as any);
     vi.spyOn(fires, "fetchFires").mockResolvedValue([]);
+    vi.spyOn(forecast, "refreshForecast").mockResolvedValue("built");
     
     process.env.NASA_FIRMS_MAP_KEY = "dummy";
     
@@ -42,11 +44,13 @@ describe("Ingestion Tests", () => {
     
     expect(index.updateDataForLocation).toHaveBeenCalled();
     expect(fires.fetchFires).toHaveBeenCalled();
+    expect(forecast.refreshForecast).toHaveBeenCalled();
   });
 
   it("A source failure does not terminate the whole ingestion process and existing persisted data can be used as fallback", async () => {
     vi.spyOn(index, "updateDataForLocation").mockResolvedValue({ missingKeys: [], allFailed: true });
     vi.spyOn(fires, "fetchFires").mockRejectedValue(new Error("Source down"));
+    vi.spyOn(forecast, "refreshForecast").mockRejectedValue(new Error("Open-Meteo down"));
     
     await runIngestion();
     
