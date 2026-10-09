@@ -44,6 +44,14 @@ npm run test
 npm run build
 ```
 
+### Kisan Saathi screens (P1)
+`/kisan` is the farmer's chat (hold the mic to talk, or type), the plan card and `/kisan/status/<session>`. With `NEXT_PUBLIC_USE_MOCKS` on (the default) it plays Gurpreet's conversation from the contract examples. To use the real agent, run it and point the app at it:
+```bash
+cd services/agent-kisan && SAANS_API_URL=http://localhost:3000 uv run python scripts/serve_scripted.py   # or uvicorn with Bedrock
+NEXT_PUBLIC_USE_MOCKS=false NEXT_PUBLIC_API_BASE_URL= KISAN_AGENT_URL=http://127.0.0.1:8001 npm run dev
+```
+The app forwards `/v1/agent/kisan/*` to `KISAN_AGENT_URL`. `serve_scripted.py` stands in for the language model only (Bedrock is blocked); speech, the read-back, filing to `/v1/complaints` and status are real.
+
 ### Complaint intake: the local stack (G5)
 `POST /v1/uploads` and `POST /v1/complaints` need PostGIS and LocalStack S3, run in Docker by `infra/compose.yaml`:
 ```bash
