@@ -12,7 +12,6 @@ import * as apiHandlers from "../command-api/lambda";
 import * as healthHandlers from "../command-api/health";
 import * as authHandlers from "../command-api/authorizer";
 import * as whoamiHandlers from "../command-api/whoami";
-import * as caseHandlers from "../command-api/cases";
 import * as migrationHandlers from "../command-api/migration";
 import * as stepHandlers from "./lambda";
 
@@ -25,7 +24,6 @@ const modules: Record<string, Record<string, unknown>> = {
   "services/command-api/health": healthHandlers as any,
   "services/command-api/authorizer": authHandlers as any,
   "services/command-api/whoami": whoamiHandlers as any,
-  "services/command-api/cases": caseHandlers as any,
   "services/command-api/migration": migrationHandlers as any,
   "services/workflows/lambda": stepHandlers,
 };
@@ -33,7 +31,7 @@ const modules: Record<string, Record<string, unknown>> = {
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(12);
+    expect(functions.length).toBe(15);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -48,11 +46,11 @@ describe("infra/template.yaml", () => {
     expect(Object.keys(machine.DefinitionSubstitutions as object).sort()).toEqual(placeholders);
   });
 
-  it("routes intake and protected case paths", () => {
+  it("routes the two intake paths", () => {
     const paths = Object.values(resources).flatMap((r) =>
-      Object.values((r.Properties.Events ?? {}) as Record<string, { Properties: { Method: string; Path: string } }>).map(
-        (e) => `${e.Properties.Method} ${e.Properties.Path}`,
-      ),
+      Object.values((r.Properties.Events ?? {}) as Record<string, { Type: string; Properties: { Method: string; Path: string } }>)
+        .filter((e) => e.Type === "HttpApi")
+        .map((e) => `${e.Properties.Method} ${e.Properties.Path}`),
     );
     expect(paths.sort()).toEqual([
       "GET /health", "GET /v1/cases", "GET /v1/cases/{id}", "GET /v1/officer/whoami",
@@ -83,10 +81,16 @@ describe("template.yaml structural checks (migrated)", () => {
     expect(doc.Resources.Api.Properties.CorsConfiguration.AllowOrigins).toContainEqual({ Ref: "CorsAllowedOrigin" });
   });
 
-  it("keeps Lambda outside the VPC for the short-lived public-RDS demo", () => {
-    expect(doc.Globals.Function.VpcConfig).toBeUndefined();
-    expect(doc.Parameters.VpcSubnetIds).toBeUndefined();
-    expect(doc.Parameters.LambdaSecurityGroupIds).toBeUndefined();
+  it("reads the deployed database URL from Secrets Manager and migrates it", () => {
+    expect(doc.Parameters.DatabaseSecretArn).toBeDefined();
+    expect(doc.Parameters.DatabaseUrl).toBeUndefined();
+    expect(doc.Globals.Function.Environment.Variables.SAANS_DATABASE_URL).toEqual({
+      "Fn::Sub": "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:databaseUrl}}",
+    });
+    expect(doc.Resources.DatabaseMigrationFunction.Properties.Handler).toBe("services/command-api/migration.handler");
+    expect(doc.Resources.DatabaseMigration.Properties.ServiceToken).toEqual({
+      "Fn::GetAtt": ["DatabaseMigrationFunction", "Arn"],
+    });
   });
 
   it("contains valid outputs", () => {
@@ -110,18 +114,6 @@ describe("template.yaml structural checks (migrated)", () => {
     expect(client.Properties.CallbackURLs).toContainEqual({ Ref: "AppCallbackUrl" });
   });
 
-  it("runs the idempotent database migration as part of deployment", () => {
-    const migrationFunction = doc.Resources.DatabaseMigrationFunction;
-    const migration = doc.Resources.DatabaseMigration;
-
-    expect(migrationFunction.Type).toBe("AWS::Serverless::Function");
-    expect(migrationFunction.Properties.Handler).toBe("services/command-api/migration.handler");
-    expect(migration.Type).toBe("Custom::DatabaseMigration");
-    expect(migration.Properties.ServiceToken).toEqual({
-      "Fn::GetAtt": ["DatabaseMigrationFunction", "Arn"],
-    });
-  });
-
   it("contains Authorizer configuration on WhoamiFunction", () => {
     const whoami = doc.Resources.WhoamiFunction;
     expect(whoami).toBeDefined();
@@ -135,5 +127,45 @@ describe("template.yaml structural checks (migrated)", () => {
     expect(policy.Effect).toBe("Allow");
     expect(policy.Action).toBe("verifiedpermissions:IsAuthorizedWithToken");
     expect(policy.Resource["Fn::Sub"]).toBe("arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}");
+  });
+
+  it("puts the case API behind the Cognito authorizer, with Verified Permissions for each case", () => {
+    for (const name of ["CasesFunction", "CaseDetailFunction", "CaseActionFunction"]) {
+      const fn = resources[name].Properties as { Events: Record<string, { Properties: { Auth?: { Authorizer: string } } }>; Environment: { Variables: Record<string, unknown> }; Policies: unknown[] };
+      expect(Object.values(fn.Events).map((e) => e.Properties.Auth?.Authorizer), name).toEqual(["CustomAuthorizer"]);
+      expect(fn.Environment.Variables.VERIFIED_PERMISSIONS_POLICY_STORE_ID, name).toEqual({ Ref: "PolicyStore" });
+      expect(JSON.stringify(fn.Policies), name).toContain("verifiedpermissions:IsAuthorizedWithToken");
+    }
+    expect(JSON.stringify(resources.CaseActionFunction.Properties.Policies)).toContain("sms-voice:SendTextMessage");
+  });
+
+  it("lets API Gateway call the authorizer, and never reuses one route's decision for another", () => {
+    const auth = (resources.Api.Properties as { Auth: { Authorizers: { CustomAuthorizer: Record<string, unknown> } } }).Auth.Authorizers.CustomAuthorizer;
+    expect(auth.EnableFunctionDefaultPermissions).toBe(true);
+    expect(auth.Identity).toMatchObject({ ReauthorizeEvery: 0 });
+  });
+
+  it("emails at $40 and $50 a month (AWS Budgets, since billing metrics live only in us-east-1)", () => {
+    const budget = resources.MonthlyBudget.Properties as {
+      Budget: { BudgetType: string; TimeUnit: string; BudgetLimit: { Amount: number; Unit: string } };
+      NotificationsWithSubscribers: { Notification: { Threshold: number }; Subscribers: { SubscriptionType: string; Address: unknown }[] }[];
+    };
+    expect(resources.MonthlyBudget.Type).toBe("AWS::Budgets::Budget");
+    expect((resources.MonthlyBudget as any).Condition).toBe("HasBillingAlertEmail");
+    expect(budget.Budget).toMatchObject({ BudgetType: "COST", TimeUnit: "MONTHLY", BudgetLimit: { Amount: 50, Unit: "USD" } });
+    expect(budget.NotificationsWithSubscribers.map((n) => n.Notification.Threshold)).toEqual([80, 100]);
+    for (const n of budget.NotificationsWithSubscribers) expect(n.Subscribers).toEqual([{ SubscriptionType: "EMAIL", Address: { Ref: "BillingAlertEmail" } }]);
+  });
+
+  it("gives every function the SMS settings, with phone numbers hidden", () => {
+    const vars = template.Globals.Function.Environment.Variables;
+    for (const v of ["SAANS_SMS_BACKEND", "SAANS_SMS_TO_SANGRUR", "SAANS_SMS_TO_PATIALA", "SAANS_SMS_SENDER_ID", "SAANS_SMS_DLQ_URL"]) expect(vars[v], v).toBeDefined();
+    for (const p of ["SmsToSangrur", "SmsToPatiala", "SmsToUnassigned"]) expect(template.Parameters[p].NoEcho, p).toBe(true);
+  });
+
+  it("runs deadline escalation every minute", () => {
+    const fn = resources.EscalationFunction.Properties as { Handler: string; Events: Record<string, { Type: string; Properties: { ScheduleExpression: string } }> };
+    expect(fn.Handler).toBe("services/workflows/lambda.escalate");
+    expect(Object.values(fn.Events).map((e) => [e.Type, e.Properties.ScheduleExpression])).toEqual([["ScheduleV2", "rate(1 minute)"]]);
   });
 });

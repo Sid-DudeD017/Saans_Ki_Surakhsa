@@ -3,6 +3,8 @@ import { CognitoJwtVerifierSingleUserPool } from "aws-jwt-verify/cognito-verifie
 import { VerifiedPermissionsClient, IsAuthorizedWithTokenCommand } from "@aws-sdk/client-verifiedpermissions";
 
 export interface APIGatewayRequestAuthorizerEventV2 {
+  /** "GET /v1/cases/{id}": the route as template.yaml declares it, without the stage prefix. */
+  routeKey?: string;
   requestContext?: {
     http?: {
       method: string;
@@ -33,16 +35,19 @@ export const setAvpClientForTest = (mockClient: any) => {
 };
 
 const routeMap: Record<string, string> = {
-    "GET /v1/officer/whoami": "whoami",
-    "GET /v1/cases": "list",
-    "GET /v1/cases/{id}": "detail",
-    "POST /v1/cases/{id}/actions": "record_action",
+    "GET /v1/officer/whoami": "whoami"
 };
 
-function normalizedRoute(method: string, path: string) {
-    if (method === "GET" && /^\/v1\/cases\/[^/]+$/.test(path)) return "GET /v1/cases/{id}";
-    if (method === "POST" && /^\/v1\/cases\/[^/]+\/actions$/.test(path)) return "POST /v1/cases/{id}/actions";
-    return `${method} ${path}`;
+// The case API: here only "a signed-in officer of exactly one district"; the case Lambda then asks
+// Verified Permissions per case, with the district read from the database (avp.ts, avpAuthz.ts).
+const caseRoutes = new Set(["GET /v1/cases", "GET /v1/cases/{id}", "POST /v1/cases/{id}/actions"]);
+
+/** The route's key: API Gateway's routeKey, else method and path with any stage prefix and case id folded. */
+export function routeOf(event: APIGatewayRequestAuthorizerEventV2): string {
+    if (event.routeKey) return event.routeKey;
+    const method = event.requestContext?.http?.method || "";
+    const path = (event.requestContext?.http?.path || "").replace(/^\/(?!v1\/|health)[^/]+(?=\/)/, "");
+    return `${method} ${path.replace(/^\/v1\/cases\/[^/]+/, "/v1/cases/{id}")}`;
 }
 
 export const authorizer = async (event: APIGatewayRequestAuthorizerEventV2): Promise<APIGatewaySimpleAuthorizerResult> => {
@@ -85,19 +90,14 @@ export const authorizer = async (event: APIGatewayRequestAuthorizerEventV2): Pro
         }
         const district = hasSangrur ? "sangrur" : "patiala";
         
-        const method = event.requestContext?.http?.method || "";
-        const rawPath = event.requestContext?.http?.path || "";
-        const matchedAction = routeMap[normalizedRoute(method, rawPath)];
+        const route = routeOf(event);
+        if (caseRoutes.has(route)) {
+            return { isAuthorized: true, context: { subject: payload.sub, role: "officer", district } };
+        }
+        const matchedAction = routeMap[route];
 
         if (!matchedAction) {
             return { isAuthorized: false, context: { error: "unauthorized" } };
-        }
-
-        // Case resources must be loaded from the database before Cedar can safely evaluate
-        // their district. The route authorizer authenticates those requests; the case handler
-        // then calls IsAuthorizedWithToken with the real case ID and trusted district.
-        if (matchedAction !== "whoami") {
-            return { isAuthorized: true, context: { subject: payload.sub, role: "officer", district } };
         }
 
         const res = await c.send(new IsAuthorizedWithTokenCommand({

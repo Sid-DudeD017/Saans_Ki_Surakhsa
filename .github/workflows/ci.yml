@@ -115,7 +115,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Intake on PostGIS + LocalStack
+      - name: Intake, triage and cases on PostGIS + LocalStack
         env:
           SAANS_DATABASE_URL: postgres://saans:saans@127.0.0.1:5433/saans
-        run: npx vitest run services/command-api/intake.stack.test.ts
+        run: npx vitest run services/command-api/intake.stack.test.ts services/command-api/triage.stack.test.ts services/command-api/cases.stack.test.ts services/command-api/lambda.cases.stack.test.ts
+
+  golden-path:
+    # G6: scripts/smoke.sh over HTTP against the app on the local stack (infra/compose.yaml, which the script
+    # starts): the shell, Shala, air data, then Command's farmer -> report -> linked case -> Cedar -> action.
+    # No API keys here: /v1/fires answers 503 sources_unavailable, which the script accepts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Golden path smoke test
+        run: npm run smoke
+
+      - name: Local stack logs on failure
+        if: failure()
+        run: docker compose -f infra/compose.yaml logs --tail 100

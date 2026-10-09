@@ -2,7 +2,10 @@
 # G6 Golden Path integration smoke test: `npm run smoke` (or bash scripts/smoke.sh).
 # Verifies the full user journey:
 #   Air data (/v1/aqi) -> Fire tracking (/v1/fires) -> Shala advisory (/v1/schools/{id}/advisory)
-#   -> Shala UI (/shala) -> Complaint report intake (/v1/complaints).
+#   -> Shala UI (/shala) -> Complaint report intake (/v1/complaints)
+#   -> Command (P4): a farmer files for help -> a citizen reports a fire nearby -> the case links to the
+#      farmer's request -> Cedar keeps other districts out -> a second report merges -> the officer sends
+#      the machine. Runs CI's golden-path job (.github/workflows/ci.yml) on PostGIS and LocalStack.
 # Uses an app already running at SMOKE_URL if there is one; otherwise starts the app on port 3100.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -110,6 +113,94 @@ else
   fail "POST /v1/complaints failed with status $POST_STATUS: $(cat "$WORK/complaint.json" 2>/dev/null). Local stack dependency (PostGIS/LocalStack) is required for full golden path. Start the stack with 'npm run stack' or set SMOKE_MODE=degraded for offline envelope checks."
 fi
 
+if [ "${SMOKE_MODE:-full}" != "degraded" ]; then
+  # ---- Command (P4): help before penalty, end to end over HTTP ----
+  SDM="Authorization: Bearer local-officer-sangrur"      # demo identities, infra/config/officers.local.json
+  PATIALA="Authorization: Bearer local-officer-patiala"
+  STATE="Authorization: Bearer local-state-command"
+  # Somewhere new in Sangrur each run, so earlier runs' reports (150 m, 6 h) don't merge with this one.
+  FARM_LAT=$(awk -v r="$RANDOM" 'BEGIN { printf "%.5f", 30.10 + r / 32768 * 0.20 }')
+  FARM_LON=$(awk -v r="$RANDOM" 'BEGIN { printf "%.5f", 75.75 + r / 32768 * 0.30 }')
+  near() { awk -v a="$1" -v m="$2" 'BEGIN { printf "%.6f", a + m / 111195 }'; } # m metres north
+
+  file_complaint() { # body file -> complaint id
+    local out="$WORK/filed.json"
+    local status
+    status=$(curl -s -o "$out" -w "%{http_code}" -X POST "$URL/v1/complaints" -H "content-type: application/json" \
+      -H "Idempotency-Key: smoke-p4-$(date +%s)-$RANDOM" --data @"$1")
+    [ "$status" = "201" ] || fail "POST /v1/complaints ($1) returned $status: $(cat "$out")"
+    jq -r .id "$out"
+  }
+
+  case_for() { # complaint id -> case id, waiting for the workflow (pages through the state queue)
+    for _ in $(seq 1 40); do
+      local cursor="" found=""
+      while :; do
+        curl -s -H "$STATE" "$URL/v1/cases?limit=100${cursor:+&cursor=$cursor}" >"$WORK/queue.json"
+        found=$(jq -r --arg id "$1" '.cases[] | select(.case.incidentReportId == $id) | .case.id' "$WORK/queue.json")
+        cursor=$(jq -r '.next_cursor // empty' "$WORK/queue.json")
+        [ -n "$found" ] || [ -z "$cursor" ] && break
+      done
+      [ -n "$found" ] && { echo "$found"; return; }
+      sleep 0.5
+    done
+    fail "no case for complaint $1"
+  }
+
+  say "7. Farmer files for help (Kisan Saathi's farmer_support complaint)"
+  HELP_ID="kisan-smoke-$(date +%s)-$RANDOM"
+  jq --arg id "$HELP_ID" --argjson lat "$FARM_LAT" --argjson lon "$FARM_LON" --arg key "smoke-$RANDOM$RANDOM" '
+    .components.schemas.FarmerSupportComplaint.examples[0]
+    | .location = {lat: $lat, lon: $lon}
+    | .help_request.id = $id | .help_request.farmLocation = {lat: $lat, lon: $lon}
+    | .support_request.idempotency_key = $key | .support_request.farm.lat = $lat | .support_request.farm.lon = $lon' \
+    packages/contracts/proposals/p1-kisan.openapi.json >"$WORK/farmer.json"
+  HELP_CASE=$(case_for "$(file_complaint "$WORK/farmer.json")")
+  echo "OK (help request $HELP_ID, case $HELP_CASE)"
+
+  say "8. A citizen reports a farm fire 300 m away; the case links to the farmer's open request"
+  FIRE_LAT=$(near "$FARM_LAT" 300)
+  jq -n --argjson lat "$FIRE_LAT" --argjson lon "$FARM_LON" \
+    '{type: "farm_fire", location: {lat: $lat, lon: $lon}, description: "Golden path smoke test: smoke over the paddy", evidence: []}' >"$WORK/fire.json"
+  FIRE_COMPLAINT=$(file_complaint "$WORK/fire.json")
+  FIRE_CASE=$(case_for "$FIRE_COMPLAINT")
+  curl -s -H "$SDM" "$URL/v1/cases/$FIRE_CASE" >"$WORK/case.json"
+  jq -e --arg id "$HELP_ID" '.case.helpRequestId == $id and .helpRequest.status == "OPEN" and .report.district == "Sangrur"
+    and (.helpLink.distanceMeters | . > 250 and . < 350) and (.case.recommendationReason | contains("acres still need"))' "$WORK/case.json" >/dev/null \
+    || fail "the fire case doesn't show the farmer's open help request first: $(cat "$WORK/case.json")"
+  echo "OK (case $FIRE_CASE, $(jq -r .helpLink.distanceMeters "$WORK/case.json") m from the farm, machine $(jq -r '.recommendedMachine.id // "none free"' "$WORK/case.json"))"
+
+  say "9. Cedar: no sign-in is 401, another district's officer is 403"
+  [ "$(curl -s -o /dev/null -w "%{http_code}" "$URL/v1/cases/$FIRE_CASE")" = 401 ] || fail "an unsigned request wasn't refused with 401"
+  [ "$(curl -s -o /dev/null -w "%{http_code}" -H "$PATIALA" "$URL/v1/cases/$FIRE_CASE")" = 403 ] || fail "the Patiala officer could open a Sangrur case"
+  curl -s -H "$PATIALA" "$URL/v1/cases?limit=100" | jq -e --arg id "$FIRE_CASE" 'all(.cases[]; .case.id != $id)' >/dev/null || fail "the Patiala queue lists a Sangrur case"
+  echo "OK (401 unsigned, 403 for Patiala, absent from Patiala's queue)"
+
+  say "10. A second report of the same fire, 100 m away, merges into the case"
+  jq -n --argjson lat "$(near "$FIRE_LAT" 100)" --argjson lon "$FARM_LON" \
+    '{type: "farm_fire", location: {lat: $lat, lon: $lon}, description: "Golden path smoke test: same fire, seen from the road", evidence: []}' >"$WORK/fire2.json"
+  file_complaint "$WORK/fire2.json" >/dev/null
+  for _ in $(seq 1 40); do
+    [ "$(curl -s -H "$SDM" "$URL/v1/cases/$FIRE_CASE" | jq -r .reports)" = 2 ] && break
+    sleep 0.5
+  done
+  [ "$(curl -s -H "$SDM" "$URL/v1/cases/$FIRE_CASE" | jq -r .reports)" = 2 ] || fail "the second report didn't merge into $FIRE_CASE"
+  echo "OK (case $FIRE_CASE has 2 reports)"
+
+  say "11. The Sangrur officer sends the machine; the farmer's request is matched"
+  VERSION=$(curl -s -H "$SDM" "$URL/v1/cases/$FIRE_CASE" | jq -r .case.version)
+  jq -n --argjson v "$VERSION" '{action: "APPROVE", selectedMachineId: "demo-chc-c:happy_seeder",
+    reason: "Golden path smoke test: send the machine before any penalty", previousCaseVersion: $v}' >"$WORK/approve.json"
+  act() { curl -s -o "$WORK/act.json" -w "%{http_code}" -X POST -H "$1" -H "content-type: application/json" --data @"$WORK/approve.json" "$URL/v1/cases/$FIRE_CASE/actions"; }
+  [ "$(act "$PATIALA")" = 403 ] || fail "the Patiala officer could act on a Sangrur case: $(cat "$WORK/act.json")"
+  ACT_STATUS=$(act "$SDM")
+  { [ "$ACT_STATUS" = 200 ] && jq -e '.status == "ACTION_APPROVED"' "$WORK/act.json" >/dev/null; } || fail "APPROVE returned $ACT_STATUS: $(cat "$WORK/act.json")"
+  curl -s -H "$SDM" "$URL/v1/cases/$FIRE_CASE" >"$WORK/case.json"
+  jq -e '.helpRequest.status == "MATCHED" and (.decisions | map(.action) | index("APPROVE")) != null and (.decisions[-1].officerId == "officer-sangrur")' "$WORK/case.json" >/dev/null \
+    || fail "after APPROVE the help request isn't matched: $(cat "$WORK/case.json")"
+  echo "OK (ACTION_APPROVED by officer-sangrur, help request MATCHED)"
+fi
+
 if [ "${SMOKE_MODE:-full}" = "degraded" ]; then
   printf '\n=============================================\n'
   printf 'GOLDEN PATH SMOKE TEST PASSED (DEGRADED MODE):\n'
@@ -129,5 +220,6 @@ else
   printf '  ✓ School Advisory API (/v1/schools/school_demo_001/advisory)\n'
   printf '  ✓ Fire Tracking API (/v1/fires)\n'
   printf '  ✓ Incident Intake API (/v1/complaints + Idempotency)\n'
+  printf '  ✓ Command: farmer files -> fire reported -> linked case -> 401/403 -> merge -> machine sent\n'
   printf '=============================================\n\n'
 fi

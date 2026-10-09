@@ -91,7 +91,9 @@ Saans Ki Surakhsa is an emergency intake system tracking stubble burning and res
 
 ## Configuration
 
-Set the following variables in your frontend or `.env` to connect to the deployed AWS resources.
+Set the following variables in your frontend or `.env` to connect to the deployed AWS resources. The
+values below are the current development stack outputs (`ApiUrl`, `CognitoUserPoolId`,
+`CognitoClientId`, `CognitoDomain`):
 
 ```env
 # Frontend API and Cognito
@@ -109,7 +111,19 @@ The frontend application has no client secret. Never commit AWS credentials, dat
 When calling the command API, send the Cognito access token as:
 `Authorization: Bearer <access-token>`
 
+### Case API on AWS
+`GET /v1/cases`, `GET /v1/cases/{id}` and `POST /v1/cases/{id}/actions` run as Lambdas behind the Cognito
+authorizer. The authorizer signs the officer in (the `officer` group plus exactly one district group); each
+Lambda then asks Verified Permissions about the case itself, with the district read from the database
+(`services/command-api/avpAuthz.ts`). Locally, the same routes use demo officers and
+`infra/policies/saans.cedar` instead (`services/command-api/authz.ts`).
+
 ### Notifications
+A new case texts its district's number, and an officer sending a machine or recording the action taken
+texts it again (`services/command-api/notify.ts`). The numbers are deploy parameters (`SmsToSangrur`,
+`SmsToPatiala`, `SmsToUnassigned`; locally `SAANS_SMS_TO_*`), never committed. Already-sent messages are
+remembered in PostGIS (`notifications_sent`), so a retried step doesn't text twice; a failed send never
+fails the case.
 The application supports sending Indian DLT-registered SMS messages via AWS End User Messaging SMS. 
 For local development or environments without approved DLT templates, use the **outbox fallback** by setting:
 `SAANS_SMS_BACKEND=outbox`
@@ -117,9 +131,9 @@ For local development or environments without approved DLT templates, use the **
 **Security Warning**: The `.outbox/` file contains highly sensitive phone numbers and message data. It must never be committed to version control and is git-ignored by default.
 
 ## Limitations and Current State
-- `SmsSender` is invoked for workflow assignment and officer assignment/action handling; AWS failures
-  are sent to the encrypted `NotificationFailureDLQ` without message text or phone numbers.
-- Durable production idempotency requires a real durable `IdempotencyStore` implementation.
+- SMS is wired to case assignment and officer actions, but no message has reached a real phone yet.
+- The SMS idempotency store is PostGIS (`notifications_sent`); a send that succeeds just before the database
+  write fails can still repeat once.
 - Indian SMS requires completed DLT registration and real-phone verification before it can be used.
 - The `outbox` may be selected as the approved fallback in the interim.
 - Real Cognito/Verified Permissions behavior must be verified after deployment.

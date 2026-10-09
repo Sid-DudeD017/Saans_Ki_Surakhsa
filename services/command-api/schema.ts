@@ -2,6 +2,9 @@
 // repeat, so there is no migration tool yet. Locations are geography points (lon, lat order inside
 // PostGIS; lat and lon everywhere else).
 export const SCHEMA = `
+-- One statement list is one implicit transaction, so this lock makes two processes migrating at once
+-- (parallel test files, two Lambdas) take turns instead of racing on CREATE TABLE.
+SELECT pg_advisory_xact_lock(7243);
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- One row per presigned upload POST /v1/uploads handed out.
@@ -73,6 +76,50 @@ CREATE TABLE IF NOT EXISTS cases (
   updated_at           timestamptz NOT NULL DEFAULT now()
 );
 
+-- How a fire report's case was linked to a farmer's open help request: distance, and whether another
+-- request was about as close. Added after G5, so it is an ALTER that is safe to repeat.
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS help_link jsonb;
+
+-- Triage (Stage 3), added after G5: the FIRMS fire that corroborated a farm-fire report, and when a missed
+-- deadline sent the case up, and to whom.
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS observation jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_at timestamptz;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_to text[];
+
+-- Reports merged into an existing case as duplicates (same type, close by, soon after). The case's own
+-- report is cases.complaint_id; these are the others. complaint_id is the key, so a retry can't add one twice.
+CREATE TABLE IF NOT EXISTS case_reports (
+  complaint_id  text PRIMARY KEY REFERENCES complaints(id),
+  case_id       text NOT NULL REFERENCES cases(id),
+  distance_m    double precision NOT NULL,
+  merged_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- The district outlines from infra/config/districts.json, for the jurisdiction lookup. migrate() rewrites them.
+CREATE TABLE IF NOT EXISTS districts (
+  name      text PRIMARY KEY,
+  boundary  geography(Polygon, 4326) NOT NULL
+);
+
+-- SMS already sent (notify.ts), by idempotency key, so a retried step or a second Lambda never texts twice.
+-- Holds no phone numbers or message text.
+CREATE TABLE IF NOT EXISTS notifications_sent (
+  key      text PRIMARY KEY,
+  sent_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Every action an officer took on a case. previous_case_version is the version they acted on.
+CREATE TABLE IF NOT EXISTS case_decisions (
+  id                     text PRIMARY KEY,
+  case_id                text NOT NULL REFERENCES cases(id),
+  officer_id             text NOT NULL,
+  action                 text NOT NULL,
+  selected_machine_id    text,
+  reason                 text NOT NULL,
+  previous_case_version  integer NOT NULL,
+  created_at             timestamptz NOT NULL DEFAULT now()
+);
+
 -- Every state the intake workflow entered, left or failed in, so both paths can be seen.
 CREATE TABLE IF NOT EXISTS workflow_events (
   id            bigserial PRIMARY KEY,
@@ -87,5 +134,9 @@ CREATE TABLE IF NOT EXISTS workflow_events (
 CREATE INDEX IF NOT EXISTS complaints_location ON complaints USING gist (location);
 CREATE INDEX IF NOT EXISTS cases_location ON cases USING gist (location);
 CREATE INDEX IF NOT EXISTS help_requests_location ON help_requests USING gist (location);
+CREATE INDEX IF NOT EXISTS case_decisions_case ON case_decisions (case_id, created_at);
+CREATE INDEX IF NOT EXISTS cases_deadline ON cases (deadline, id);
+CREATE INDEX IF NOT EXISTS case_reports_case ON case_reports (case_id);
+CREATE INDEX IF NOT EXISTS districts_boundary ON districts USING gist (boundary);
 CREATE INDEX IF NOT EXISTS workflow_events_complaint ON workflow_events (complaint_id, id);
 `;

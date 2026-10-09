@@ -67,5 +67,25 @@
   "purifier": {
     "suggested_air_changes_per_h": 5,
     "source": "When the home has no purifier, the plan suggests one with a CADR of 5 room volumes an hour: AHAM's sizing rule (CADR in cfm at least two-thirds of the floor area in ft²) works out to 5 air changes an hour under an 8 ft (2.4 m) ceiling."
+  },
+  "rooms": {
+    "kitchen": {
+      "area_m2": 8,
+      "windows": 1,
+      "ceiling_height_m": 2.7,
+      "source": "typical two-bedroom flat; starting assumption, not a measurement"
+    },
+    "master_bedroom": {
+      "area_m2": 14,
+      "windows": 1,
+      "ceiling_height_m": 2.7,
+      "source": "typical two-bedroom flat; starting assumption, not a measurement"
+    },
+    "living_room": {
+      "area_m2": 18,
+      "windows": 2,
+      "ceiling_height_m": 2.7,
+      "source": "typical two-bedroom flat; starting assumption, not a measurement"
+    }
   }
 }

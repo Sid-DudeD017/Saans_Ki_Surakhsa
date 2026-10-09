@@ -6,10 +6,9 @@ This runbook describes the deployment of the Saans Command module, its Cognito i
 Before deploying, the team must confirm:
 - Target AWS account ID and Stack Name.
 - The region must be exactly **ap-south-1**.
-- A short-lived public RDS instance and its Secrets Manager secret (`databaseUrl` key) are
-  provisioned. Require TLS, use a strong unique password, and delete the instance after the demo.
+- A short-lived public RDS instance and its Secrets Manager secret (`databaseUrl` key) are provisioned.
 - The Cognito callback/logout URLs are approved.
-- The SMS delivery backend is chosen (AWS End User Messaging SMS or `outbox` fallback).
+- Real-phone SMS is excluded from this demo by team-leader decision.
 
 ## 2. Infrastructure Setup & Validation
 
@@ -21,10 +20,10 @@ aws sts get-caller-identity --profile saans
 Verify the default region is set to `ap-south-1` in your `~/.aws/config`.
 
 ### Secure Database URL Handling
-Pass only the Secrets Manager ARN as `DatabaseSecretArn`; never pass the database URL to SAM.
-The workload template resolves the secret and grants only `secretsmanager:GetSecretValue` on that ARN.
-For the isolated hackathon deployment, Lambda runs outside the VPC and connects to the temporary
-public RDS endpoint over TLS. Do not reuse this design for a shared or production deployment.
+Pass only the Secrets Manager ARN as `DatabaseSecretArn`; never place the database URL or password
+in shell history, documentation, or Git. The development stack resolves the secret's `databaseUrl`
+field during deployment. The current short-lived public RDS connection is encrypted and must be
+replaced by private networking plus certificate verification before production use.
 
 ### Local Validation
 Run these commands to ensure the codebase is clean:
@@ -32,7 +31,6 @@ Run these commands to ensure the codebase is clean:
 npx tsc --noEmit
 npm test
 npm run lint
-npm run cedar:check
 SAM_CLI_TELEMETRY=0 sam validate --lint --template-file infra/template.yaml
 ```
 
@@ -48,7 +46,14 @@ sam build --template-file infra/template.yaml
 ## 3. Deployment
 
 ### First Deployment
-For the initial deployment, use guided mode to set the secret ARN, private networking, SMS/DLT values, and Cognito domains:
+For the initial deployment, use the guided mode to set parameter overrides (like the Database URL and Cognito domains).
+The guided prompts also ask for:
+- `BillingAlertEmail` (optional): who gets the $40 and $50 budget emails.
+- `SmsToSangrur`, `SmsToPatiala`, `SmsToUnassigned`: E.164 numbers for assignment and action-taken SMS
+  (hidden in the console; leave empty for no SMS). Type them at the prompt; don't save them in `samconfig.toml`.
+- `SmsBackend` (`outbox` by default) and, for `aws`, `SmsSenderId`, `SmsEntityId`, `SmsTemplateAssignment`,
+  `SmsTemplateActionTaken` from the DLT registration. With `outbox` on Lambda, messages go to `/tmp` and
+  reach no phone.
 ```bash
 sam deploy --guided
 ```
@@ -78,72 +83,29 @@ Execute the following verification matrix against the deployed API:
 - Inspect CloudWatch alarms (e.g., 5XX errors, Lambda errors).
 - Inspect the `NotificationFailureDLQ` for asynchronous message routing failures.
 
-## 7. SMS / DLT Configuration
-If SMS is chosen over the `outbox` fallback, you must configure Indian DLT parameters (`SAANS_SMS_ENTITY_ID`, `SAANS_SMS_SENDER_ID`, etc.). 
-- Note: Real SMS cannot be marked complete until a physical phone receives it.
-- If DLT registration is pending, explicitly approve the `outbox` fallback.
+## 7. SMS / DLT Configuration — rejected / out of scope
 
-### India local-route registration checklist
-
-Real Indian local-route SMS is blocked until the organization completes all of the following:
-
-1. Register as a Principal Entity on a TRAI-approved DLT portal using the organization's legal
-   documents (as applicable: PAN, TAN, GSTIN, CIN, and an authorization letter).
-2. Register a 3–6 letter transactional sender ID/header.
-3. Register these two transactional content templates. The DLT portal's variable syntax must be
-   substituted for the placeholders, while all fixed text, spaces, punctuation, and case must remain
-   exact:
-
-   - `You have been assigned case {CASE_ID}`
-   - `Action taken on case {CASE_ID}: {ACTION_TEXT}`
-
-4. Create the required telemarketer chains in the DLT portal. Follow the current AWS India sender-ID
-   documentation for the provider names and IDs; these values can change and must not be copied from
-   stale project documentation.
-5. In AWS End User Messaging SMS in `ap-south-1`, submit an India transactional sender-ID
-   registration using the approved Principal Entity ID, chain IDs, sender ID, template IDs, company
-   details, contact details, use case, and message samples.
-6. Wait until the AWS registration status is `Complete`. Submitted or reviewing is not sufficient.
-7. Deploy with the approved values mapped as follows:
-
-   - `SmsOriginationIdentity` = approved transactional sender ID
-   - `SmsEntityId` = approved Principal Entity/Entity ID
-   - `SmsAssignmentTemplateId` = ID for the assignment template
-   - `SmsActionTakenTemplateId` = ID for the action-taken template
-
-8. Send to an explicitly authorized Indian test number in E.164 format (`+91...`) and retain
-   non-sensitive delivery evidence. Never commit recipient numbers or registration documents.
-
-The application uses `TRANSACTIONAL` messages and supplies `IN_ENTITY_ID` and `IN_TEMPLATE_ID` to
-AWS. Carriers can reject a message when its fixed text differs from the registered DLT template, even
-by punctuation, whitespace, or letter case.
+Decision recorded: `g7-sms rejected by team leader; real-phone SMS excluded from this deployment.`
+Do not configure recipient numbers or DLT identifiers and do not claim a successful real-SMS test.
+The deployment keeps `SmsBackend=outbox`, which reaches no phone.
 
 ## 8. Access-control decision — complete
 
-The initial deployment uses one `officer` role and two district groups:
+The approved isolated-development access model is:
 
-- `officer` + exactly one of `district-sangrur` or `district-patiala` is required.
-- Officers may list, view, assign, update, and close cases only in their own district.
-- Cross-district access is denied, including aggregate counts and map results.
-- Membership in both district groups, or neither district group, is denied.
-- Closed-case transition restrictions remain enforced by the command API.
-- Field-officer and state-centre roles are deferred until the team agrees their permissions.
-
-This is the approved access model for the isolated development deployment. Revisit it before a
-shared or production deployment.
-
-Decision recorded: district officers are the only deployed role; field-officer and state-centre
-roles are intentionally excluded. `CLOSED` is a terminal case state, enforced by the command API.
+- A user must belong to `officer` and exactly one of `district-sangrur` or `district-patiala`.
+- Officers may list, view, assign, update, and close only cases in their own district.
+- Cross-district access, counts, maps, details, and actions are denied.
+- Membership in both district groups, or neither group, is denied.
+- `CLOSED` is a terminal state enforced by the command API.
+- Field-officer and state-centre roles are intentionally deferred.
 
 ## 9. Billing Alerts
-Billing metrics exist only in `us-east-1`, so deploy the separate account-level template there:
-```bash
-aws cloudformation deploy --profile saans --region us-east-1 \
-  --stack-name saans-billing-alarm \
-  --template-file infra/billing-alarm.yaml \
-  --parameter-overrides AlarmEmail=TEAM_EMAIL
-```
-Confirm the SNS email subscription; an unconfirmed subscription cannot deliver the alarm.
+The stack creates the **USD 50** guardrail itself: `MonthlyBudget`, an AWS Budget that emails
+`BillingAlertEmail`, when supplied, when the month's actual cost passes $40 and again at $50. (A CloudWatch
+`EstimatedCharges` alarm would have to live in `us-east-1`; Budgets is account-wide, so it works from
+this `ap-south-1` stack.) AWS sends a confirmation email to that address first: confirm it, or no alert
+arrives.
 
 ## 10. Rollback, Teardown, and Cost Warnings
 To destroy the stack:

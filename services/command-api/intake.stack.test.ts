@@ -59,8 +59,11 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     return fetch(target.upload_url, { method: "PUT", headers: target.headers, body: new Uint8Array(bytes) });
   }
 
+  // Each report somewhere new in a wide box south of where the other stack tests and the smoke test file,
+  // since reports within 150 m and 6 hours of an open case merge into it (a local database keeps them all).
+  const spot = () => ({ lat: Math.round((23.5 + Math.random() * 4.8) * 1e5) / 1e5, lon: Math.round((69 + Math.random() * 5) * 1e5) / 1e5 });
   function report(evidence: unknown[] = [], extra: Record<string, unknown> = {}) {
-    return { type: "farm_fire", location: { lat: 30.266, lon: 76.04 }, description: "Smoke over the field by the canal", evidence, ...extra };
+    return { type: "farm_fire", location: spot(), description: "Smoke over the field by the canal", evidence, ...extra };
   }
 
   function evidenceFor(target: { object_key: string }, bytes: Buffer) {
@@ -78,7 +81,8 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     expect(target.expires_at).toMatch(/\+05:30$/);
     expect((await put(target, PHOTO)).status).toBe(200);
 
-    const res = await handleComplaints(post("/v1/complaints", report([evidenceFor(target, PHOTO)]), { "Idempotency-Key": randomUUID() }), deps);
+    const fire = report([evidenceFor(target, PHOTO)]);
+    const res = await handleComplaints(post("/v1/complaints", fire, { "Idempotency-Key": randomUUID() }), deps);
     expect(res.status).toBe(201);
     const { id, status } = await res.json();
     expect(status).toBe("received");
@@ -99,7 +103,7 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     expect((cases[0].deadline as Date).getTime() - complaint.received_at.getTime()).toBe(4 * 3600_000);
     const { rows: [where] } = await db.query<{ lat: number; lon: number }>(
       "SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon FROM cases WHERE complaint_id = $1", [id]);
-    expect(where).toEqual({ lat: 30.266, lon: 76.04 });
+    expect(where).toEqual(fire.location);
 
     const { rows: events } = await db.query<{ state: string; event: string }>(
       "SELECT state, event FROM workflow_events WHERE complaint_id = $1 ORDER BY id", [id]);
@@ -114,9 +118,10 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
 
   it("a retry with the same key and body returns the first answer and adds no row", async () => {
     const key = randomUUID();
-    const first = await (await handleComplaints(post("/v1/complaints", report(), { "Idempotency-Key": key }), deps)).json();
+    const fire = report();
+    const first = await (await handleComplaints(post("/v1/complaints", fire, { "Idempotency-Key": key }), deps)).json();
     // Same JSON, fields in another order.
-    const body = JSON.stringify({ evidence: [], description: "Smoke over the field by the canal", location: { lon: 76.04, lat: 30.266 }, type: "farm_fire" });
+    const body = JSON.stringify({ evidence: [], description: "Smoke over the field by the canal", location: { lon: fire.location.lon, lat: fire.location.lat }, type: "farm_fire" });
     const again = await handleComplaints(post("/v1/complaints", body, { "Idempotency-Key": key }), deps);
     expect(again.status).toBe(201);
     expect(again.headers.get("Idempotent-Replayed")).toBe("true");
@@ -128,8 +133,9 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
 
   it("ten retries at once still make one complaint and one case", async () => {
     const key = randomUUID();
+    const fire = report();
     const answers = await Promise.all(Array.from({ length: 10 }, () =>
-      handleComplaints(post("/v1/complaints", report(), { "Idempotency-Key": key }), deps).then((r) => r.json())));
+      handleComplaints(post("/v1/complaints", fire, { "Idempotency-Key": key }), deps).then((r) => r.json())));
     expect(new Set(answers.map((a) => a.id)).size).toBe(1);
     expect(await caseFor(answers[0].id)).toHaveLength(1);
   });

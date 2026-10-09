@@ -1,8 +1,15 @@
-// Lambda entry points for POST /v1/uploads and POST /v1/complaints behind API Gateway (HTTP API,
-// payload 2.0), as infra/template.yaml wires them. They run the same handlers as the Next.js routes.
+// Lambda entry points behind API Gateway (HTTP API, payload 2.0), as infra/template.yaml wires them:
+// uploads and complaints, and the officer's case API behind the Cognito authorizer. They run the same
+// handlers as the Next.js routes; on AWS the case rules are Verified Permissions (avpAuthz.ts).
+import { avpCaseAuthz } from "./avpAuthz";
+import { actOnCase, getCase, listCases } from "./cases";
+import type { Officer } from "./caseAuthz";
 import { commandConfig } from "./config";
 import { newId, pool, s3Client, type IntakeDeps } from "./deps";
+import { errorResponse } from "./errors";
+import { liveFires } from "./firms";
 import { handleComplaints, handleUploads } from "./http";
+import { notifierFromEnv } from "./notify";
 
 interface HttpApiEvent {
   rawPath: string;
@@ -10,7 +17,13 @@ interface HttpApiEvent {
   headers?: Record<string, string | undefined>;
   body?: string;
   isBase64Encoded?: boolean;
-  requestContext: { http: { method: string }; domainName?: string };
+  pathParameters?: Record<string, string | undefined>;
+  requestContext: {
+    http: { method: string };
+    domainName?: string;
+    /** What authorizer.ts returned for a signed-in officer. */
+    authorizer?: { lambda?: { subject?: string; role?: string; district?: string } };
+  };
 }
 
 interface HttpApiResult {
@@ -35,6 +48,8 @@ export function awsDeps(): IntakeDeps {
     config,
     now: () => new Date(),
     newId,
+    fires: liveFires(),
+    authz: avpCaseAuthz(),
     startWorkflow: async (complaintId: string) => {
       const arn = process.env.SAANS_STATE_MACHINE_ARN;
       if (!arn) throw new Error("SAANS_STATE_MACHINE_ARN is missing");
@@ -52,6 +67,7 @@ export function awsDeps(): IntakeDeps {
       }
     },
   };
+  deps.notify = notifierFromEnv(deps.db);
   return deps;
 }
 
@@ -67,6 +83,25 @@ function toRequest(event: HttpApiEvent): Request {
   });
 }
 
+// #26's Cognito groups name districts in lowercase; the case data uses the names in districts.json.
+const DISTRICT_NAMES: Record<string, string> = { sangrur: "Sangrur", patiala: "Patiala" };
+
+/** The officer the authorizer signed in, with their token for Verified Permissions; null without one. */
+export function officerOf(event: HttpApiEvent): Officer | null {
+  const claims = event.requestContext.authorizer?.lambda;
+  const auth = event.headers?.authorization ?? event.headers?.Authorization ?? "";
+  const token = /^Bearer\s+(\S+)$/i.exec(auth)?.[1];
+  const district = claims?.district && DISTRICT_NAMES[claims.district];
+  if (!claims?.subject || !district || !token) return null;
+  return { id: claims.subject, name: claims.subject, role: "district_officer", district, token };
+}
+
+async function asOfficer(event: HttpApiEvent, handler: (deps: IntakeDeps, officer: Officer) => Promise<Response>) {
+  const officer = officerOf(event);
+  if (!officer) return toResult(errorResponse(401, "unauthorized", "sign in as an officer to see cases"));
+  return toResult(await handler(awsDeps(), officer));
+}
+
 async function toResult(response: Response): Promise<HttpApiResult> {
   return { statusCode: response.status, headers: Object.fromEntries(response.headers), body: await response.text() };
 }
@@ -77,4 +112,19 @@ export async function uploads(event: HttpApiEvent) {
 
 export async function complaints(event: HttpApiEvent) {
   return toResult(await handleComplaints(toRequest(event), awsDeps()));
+}
+
+export async function casesList(event: HttpApiEvent) {
+  return asOfficer(event, (d, officer) => listCases(d, new URL(toRequest(event).url), officer));
+}
+
+export async function caseDetail(event: HttpApiEvent) {
+  return asOfficer(event, (d, officer) => getCase(d, event.pathParameters?.id ?? "", officer));
+}
+
+export async function caseAction(event: HttpApiEvent) {
+  return asOfficer(event, async (d, officer) => {
+    const body = await toRequest(event).json().catch(() => undefined);
+    return actOnCase(d, event.pathParameters?.id ?? "", body, officer);
+  });
 }
