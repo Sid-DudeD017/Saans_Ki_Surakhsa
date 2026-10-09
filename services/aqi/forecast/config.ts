@@ -46,8 +46,8 @@ export const BIAS = {
    * OpenAQ's, since it is the hourly reading and data.gov.in's feed gives min/max/average values.
    */
   sameStationKm: 0.5,
-  /** Readings outside this range are faults, not air. */
-  minUgM3: 0,
+  /** Readings outside this range are faults, not air: even a clean day here reads well above 2 µg/m³. */
+  minUgM3: 2,
   maxUgM3: 1000,
 } as const;
 
@@ -58,16 +58,22 @@ export const PLUME = {
    * GFAS fire emissions at ~45 km and this layer should add local detail, not a second copy.
    */
   kgPerMJ: 0.02,
-  /** VIIRS sees a fire once; a stubble fire burns for a few hours. We assume 3 hours at the seen FRP. */
-  burnHours: 3,
+  /**
+   * VIIRS sees a fire once. A field's straw burns out quickly, so we assume 1 hour at the seen FRP; with 3 hours
+   * the first live run put thousands of µg/m³ 10 km from 3 MW fires.
+   */
+  burnHours: 1,
   /** A puff is released every 15 minutes, and moved along the hourly wind in 15-minute steps. */
   stepMinutes: 15,
   /** Puffs are dropped after 12 hours; by then they're spread over tens of km. */
   maxAgeHours: 12,
   /** Horizontal spread: Briggs rural, neutral (class D), σ = 0.08·x·(1 + 0.0001·x)^−½, at least half a cell. */
   minSigmaM: 500,
-  /** Smoke is mixed through the boundary layer; Open-Meteo's height is floored here (night inversions). */
-  minMixingM: 100,
+  /**
+   * Smoke is mixed through the boundary layer. Open-Meteo's height falls below 100 m on still nights, but hot
+   * smoke rises above that, so it is floored at 300 m.
+   */
+  minMixingM: 300,
   /** FIRMS VIIRS confidence 'l' (low) is left out. */
   minConfidence: ['n', 'h', 'nominal', 'high'],
   /** Scale on the whole layer, for calibration against stations. */
