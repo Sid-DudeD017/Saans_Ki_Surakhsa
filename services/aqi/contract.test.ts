@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET as getAqi } from "../../src/app/v1/aqi/route";
 import { GET as getFires } from "../../src/app/v1/fires/route";
+import { GET as getForecast } from "../../src/app/v1/aqi/forecast/route";
+import { POST as postIndoor } from "../../src/app/v1/indoor/estimate/route";
+import { liveForecast } from "./forecast/live";
 import { NextRequest } from "next/server";
+
+vi.mock("./forecast/live", () => ({
+  liveForecast: {
+    current: vi.fn()
+  }
+}));
 
 describe("Contract Tests - API Handlers", () => {
   const mockFetch = vi.fn();
@@ -112,6 +121,106 @@ describe("Contract Tests - API Handlers", () => {
       // Ensure no extra fields
       expect((fire as any).brightness_c).toBeUndefined();
       expect((fire as any).confidence_pct).toBeUndefined();
+    }
+  });
+
+  it("validates /v1/aqi/forecast output matches ForecastResponse schema", async () => {
+    const mockSnapshot = {
+      version: 1,
+      generated_at: "2026-10-09T08:00:00.000Z",
+      start: "2026-10-09T00:00:00.000Z",
+      hours: 24,
+      step_deg: 0.25,
+      anchors: [[114, 308], [114, 309], [115, 308], [115, 309]],
+      pm25: Array(4).fill(Array(24).fill(50)),
+      wind_u: Array(4).fill(Array(24).fill(0)),
+      wind_v: Array(4).fill(Array(24).fill(0)),
+      mixing_m: Array(4).fill(Array(24).fill(500)),
+      fires: [],
+      stations: [],
+      sources: { open_meteo: 'ok', cpcb: 'ok', openaq: 'ok', firms: 'ok' }
+    };
+    (liveForecast.current as any).mockResolvedValue(mockSnapshot);
+
+    const req = new Request("http://localhost:3000/v1/aqi/forecast?lat=28.6&lon=77.2");
+    const res = await getForecast(req);
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    
+    expect(typeof data.lat).toBe("number");
+    expect(typeof data.lon).toBe("number");
+    expect(typeof data.generated_at).toBe("string");
+    expect(data.generated_at).toMatch(/\+05:30$/);
+    expect(Array.isArray(data.hours)).toBe(true);
+    expect(typeof data.model).toBe("string");
+    expect(typeof data.model_version).toBe("string");
+    
+    if (data.hours.length > 0) {
+      const h = data.hours[0];
+      expect(typeof h.time).toBe("string");
+      expect(h.time).toMatch(/\+05:30$/);
+      expect(typeof h.pm25_ug_m3).toBe("number");
+      expect(typeof h.aqi).toBe("number");
+      expect(typeof h.category).toBe("string");
+      expect(h.category).toMatch(/^[a-z_]+$/);
+    }
+  });
+
+  it("validates /v1/indoor/estimate output matches IndoorEstimateResponse schema", async () => {
+    const mockSnapshot = {
+      version: 1,
+      generated_at: "2026-10-09T08:00:00.000Z",
+      start: "2026-10-09T00:00:00.000Z",
+      hours: 72,
+      step_deg: 0.25,
+      anchors: [[114, 308], [114, 309], [115, 308], [115, 309]],
+      pm25: Array(4).fill(Array(72).fill(50)),
+      wind_u: Array(4).fill(Array(72).fill(0)),
+      wind_v: Array(4).fill(Array(72).fill(0)),
+      mixing_m: Array(4).fill(Array(72).fill(500)),
+      fires: [],
+      stations: [],
+      sources: { open_meteo: 'ok', cpcb: 'ok', openaq: 'ok', firms: 'ok' }
+    };
+    (liveForecast.current as any).mockResolvedValue(mockSnapshot);
+
+    const req = new Request("http://localhost:3000/v1/indoor/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat: 28.6,
+        lon: 77.2,
+        room_area_m2: 20,
+        windows: 1,
+        windows_open: true
+      })
+    });
+    const res = await postIndoor(req);
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    
+    expect(typeof data.indoor_pm25_now_ug_m3).toBe("number");
+    expect(typeof data.outdoor_pm25_now_ug_m3).toBe("number");
+    expect(typeof data.today_plan).toBe("string");
+    expect(typeof data.assumptions).toBe("object");
+    expect(Array.isArray(data.hourly_series)).toBe(true);
+    expect(Array.isArray(data.plan)).toBe(true);
+    
+    if (data.hourly_series.length > 0) {
+      const h = data.hourly_series[0];
+      expect(typeof h.time).toBe("string");
+      expect(h.time).toMatch(/\+05:30$/);
+      expect(typeof h.indoor_pm25_ug_m3).toBe("number");
+      expect(typeof h.outdoor_pm25_ug_m3).toBe("number");
+    }
+
+    if (data.plan.length > 0) {
+      const p = data.plan[0];
+      expect(typeof p.kind).toBe("string");
+      expect(p.kind).toMatch(/^[a-z_]+$/);
+      expect(typeof p.text).toBe("string");
     }
   });
 

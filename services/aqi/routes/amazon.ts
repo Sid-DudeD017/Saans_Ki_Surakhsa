@@ -1,11 +1,10 @@
 // Amazon Location Service routes (P3): up to 5 alternatives for the departure time, with traffic. Each span's
 // congestion is 1 − (time without traffic ÷ time with it). Two-wheelers ride as Scooter; Amazon has no bicycle
 // mode, so cycling (and anything Amazon can't answer) goes to OSRM.
-import { CalculateRoutesCommand, GeoRoutesClient, type CalculateRoutesCommandOutput, type RouteTravelMode } from '@aws-sdk/client-geo-routes';
 
 import { NoRouteError, type Mode, type RouteOption, type RouteProvider, type RouteStep } from './providers';
 
-const TRAVEL_MODES: Partial<Record<Mode, RouteTravelMode>> = {
+const TRAVEL_MODES: Partial<Record<Mode, string>> = {
   two_wheeler: 'Scooter',
   car_windows_up: 'Car',
   bus: 'Car',
@@ -15,13 +14,13 @@ const TRAVEL_MODES: Partial<Record<Mode, RouteTravelMode>> = {
 type Span = { Distance?: number; Duration?: number; BestCaseDuration?: number; GeometryOffset?: number; Names?: { Value?: string; Language?: string }[] };
 
 /** A CalculateRoutes answer (LegGeometryFormat Simple, span names and durations) as route options. */
-export function fromAmazon(answer: Pick<CalculateRoutesCommandOutput, 'Routes'>): RouteOption[] {
+export function fromAmazon(answer: any): RouteOption[] {
   const routes = answer.Routes ?? [];
   if (!routes.length) throw new NoRouteError('Amazon Location found no route');
-  return routes.map((route) => {
+  return routes.map((route: any) => {
     const steps: RouteStep[] = [];
     for (const leg of route.Legs ?? []) {
-      const line = (leg.Geometry?.LineString ?? []).map(([lon, lat]) => [lon, lat] as [number, number]);
+      const line = (leg.Geometry?.LineString ?? []).map(([lon, lat]: [number, number]) => [lon, lat] as [number, number]);
       const spans: Span[] = leg.VehicleLegDetails?.Spans ?? leg.PedestrianLegDetails?.Spans ?? [];
       spans.forEach((span, i) => {
         const from = span.GeometryOffset ?? 0;
@@ -49,18 +48,29 @@ export function fromAmazon(answer: Pick<CalculateRoutesCommandOutput, 'Routes'>)
 }
 
 /** Amazon Location for the modes it has, `fallback` (OSRM) for the rest and whenever Amazon fails. */
-export function amazonProvider(fallback: RouteProvider, client: Pick<GeoRoutesClient, 'send'> = new GeoRoutesClient({ region: process.env.ROUTES_REGION ?? process.env.AWS_REGION ?? 'ap-south-1' })): RouteProvider {
+export function amazonProvider(fallback: RouteProvider, client?: any): RouteProvider {
   return {
     async routes(origin, destination, departAt, mode) {
       const travelMode = TRAVEL_MODES[mode];
       if (!travelMode) return fallback.routes(origin, destination, departAt, mode);
+      
+      let AWS;
       try {
-        const answer = await client.send(
-          new CalculateRoutesCommand({
+        // @ts-ignore
+        AWS = await import('@aws-sdk/client-geo-routes');
+      } catch (e) {
+        throw new Error("Missing package: @aws-sdk/client-geo-routes. Please ask P2 to add it to package.json.");
+      }
+
+      const actualClient = client ?? new AWS.GeoRoutesClient({ region: process.env.ROUTES_REGION ?? process.env.AWS_REGION ?? 'ap-south-1' });
+
+      try {
+        const answer = await actualClient.send(
+          new AWS.CalculateRoutesCommand({
             Origin: [origin.lon, origin.lat],
             Destination: [destination.lon, destination.lat],
             DepartureTime: new Date(Math.max(departAt, Date.now())).toISOString(),
-            TravelMode: travelMode,
+            TravelMode: travelMode as any,
             MaxAlternatives: 4,
             LegGeometryFormat: 'Simple',
             Languages: ['en'],

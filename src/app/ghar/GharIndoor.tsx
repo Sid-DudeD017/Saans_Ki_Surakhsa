@@ -2,7 +2,7 @@
 
 // Ghar ki Hawa's indoor estimate (P3): the Sharma example worked through, then this room now, the next 24 hours
 // and today's plan, for a room you can change.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 import { steadyIndoor, type IndoorEstimate, type IndoorRequest, type PlanItem } from '../../../packages/aqi/indoor';
 import { INDOOR_DEFAULTS } from '../../../packages/aqi/indoorDefaults';
@@ -10,6 +10,18 @@ import { Alert, Button, Card } from '../../components/ui';
 import { USE_MOCKS, getIndoorEstimate } from './gharApi';
 import { IndoorChart } from './IndoorChart';
 import { SHARMA_BEDROOM } from './sharma';
+import { ReportButton } from '../../components/ReportButton';
+import { getAqi, type AqiData } from '../../lib/api';
+
+// TODO(P2 labels.ts): Replace with imported labels when available.
+const CATEGORY_LABELS: Record<string, string> = {
+  good: 'good',
+  satisfactory: 'satisfactory',
+  moderate: 'moderate',
+  poor: 'poor',
+  very_poor: 'very_poor',
+  severe: 'severe'
+};
 
 const D = INDOOR_DEFAULTS;
 const shut = { penetration: D.ventilation.closed.penetration, airExchangePerH: D.ventilation.closed.air_exchange_per_h, depositionPerH: D.deposition_per_h.value };
@@ -42,17 +54,44 @@ function Step({ value, what, tone }: { value: number; what: string; tone: string
   );
 }
 
+import type { components } from '../../../packages/contracts/types';
+
+type AqiWireResponse = components['schemas']['AqiResponse'];
+
 export function GharIndoor() {
   const [room, setRoom] = useState<IndoorRequest>(SHARMA_BEDROOM);
   const [result, setResult] = useState<{ estimate?: IndoorEstimate; error?: string }>({});
 
+  const [aqiResult, setAqiResult] = useState<{ data?: AqiWireResponse; error?: string; loading?: boolean; empty?: boolean; stale?: boolean }>({ loading: true });
+
+  const fetchAqi = useCallback(() => {
+    setAqiResult({ loading: true });
+    getAqi(room.lat, room.lon).then(
+      (data) => {
+        const wireData = data as unknown as AqiWireResponse;
+        if (!wireData || wireData.aqi === undefined) {
+          setAqiResult({ empty: true });
+        } else {
+          setAqiResult({ data: wireData, stale: wireData.stale });
+        }
+      },
+      (e: Error) => setAqiResult({ error: e.message })
+    );
+  }, [room.lat, room.lon]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAqi();
+  }, [fetchAqi]);
+
+  const [isFetching, setIsFetching] = useState(true);
+
   useEffect(() => {
     let on = true;
-    // A short wait, so typing a number asks once.
     const timer = setTimeout(() => {
       getIndoorEstimate(room).then(
-        (estimate) => on && setResult({ estimate }),
-        (e: Error) => on && setResult({ error: e.message }),
+        (estimate) => { if (on) { setResult({ estimate }); setIsFetching(false); } },
+        (e: Error) => { if (on) { setResult({ error: e.message }); setIsFetching(false); } },
       );
     }, 250);
     return () => {
@@ -61,7 +100,10 @@ export function GharIndoor() {
     };
   }, [room]);
 
-  const set = <K extends keyof IndoorRequest>(key: K, value: IndoorRequest[K]) => setRoom((r) => ({ ...r, [key]: value }));
+  const set = <K extends keyof IndoorRequest>(key: K, value: IndoorRequest[K]) => {
+    setIsFetching(true);
+    setRoom((r) => ({ ...r, [key]: value }));
+  };
   const num = (key: 'room_area_m2' | 'windows' | 'purifier_cadr_m3_h' | 'smokers', min: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
     if (Number.isFinite(v) && v >= min) set(key, key === 'windows' || key === 'smokers' ? Math.round(v) : v);
@@ -71,6 +113,38 @@ export function GharIndoor() {
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
+      <Card padding="lg">
+        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem', color: '#0f172a' }}>Outside Air (AQI)</h2>
+        {aqiResult.loading && <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Loading outdoor AQI...</p>}
+        {aqiResult.empty && <p style={{ fontSize: '0.9rem', color: '#64748b' }}>No data available for this location.</p>}
+        {aqiResult.error && (
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <Alert variant="danger" title="API Error">{aqiResult.error}</Alert>
+            <Button variant="secondary" size="sm" onClick={fetchAqi}>Retry</Button>
+          </div>
+        )}
+        {aqiResult.data && (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem' }}>
+              <Step value={aqiResult.data.aqi} what="AQI" tone={aqiResult.data.aqi > 200 ? '#b45309' : '#0369a1'} />
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0f172a', textTransform: 'capitalize' }}>
+                  {CATEGORY_LABELS[aqiResult.data.category.toLowerCase()] || aqiResult.data.category.toLowerCase()}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#475569' }}>Category</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#0f172a' }}>
+                  {aqiResult.data.dominant_pollutant}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#475569' }}>Dominant Pollutant</div>
+              </div>
+            </div>
+            {aqiResult.stale && <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#b45309', fontWeight: 'bold' }}>⚠️ Data is old</p>}
+          </div>
+        )}
+      </Card>
+
       <Card padding="lg">
         <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem', color: '#0f172a' }}>The Sharma family&apos;s bedroom</h2>
         <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>A 40 m³ room in Noida on a smoggy morning. Same air outside, three different rooms.</p>
@@ -127,20 +201,25 @@ export function GharIndoor() {
 
       {e && (
         <Card padding="lg">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-            <Step value={e.outdoor_pm25_now_ug_m3} what="Outside now, µg/m³" tone="#b45309" />
-            <Step value={e.indoor_pm25_now_ug_m3} what="This room now" tone="#0369a1" />
+          <div style={{ opacity: isFetching ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <Step value={e.outdoor_pm25_now_ug_m3} what="Outside now, µg/m³" tone="#b45309" />
+              <Step value={e.indoor_pm25_now_ug_m3} what="This room now" tone="#0369a1" />
+            </div>
+            <IndoorChart series={e.hourly_series} />
+            <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>Today&apos;s plan</h3>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.6rem' }}>
+              {e.plan.map((p) => (
+                <li key={p.text} style={{ display: 'grid', gridTemplateColumns: '1.75rem 1fr', gap: '0.5rem', fontSize: '0.95rem', lineHeight: 1.5, color: '#1e293b' }}>
+                  <span aria-hidden>{ICONS[p.kind]}</span>
+                  <span style={{ minWidth: 0 }}>{p.text}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <IndoorChart series={e.hourly_series} />
-          <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>Today&apos;s plan</h3>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.6rem' }}>
-            {e.plan.map((p) => (
-              <li key={p.text} style={{ display: 'grid', gridTemplateColumns: '1.75rem 1fr', gap: '0.5rem', fontSize: '0.95rem', lineHeight: 1.5, color: '#1e293b' }}>
-                <span aria-hidden>{ICONS[p.kind]}</span>
-                <span style={{ minWidth: 0 }}>{p.text}</span>
-              </li>
-            ))}
-          </ul>
+          <div style={{ marginTop: '1.5rem' }}>
+            <ReportButton />
+          </div>
           <details style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#475569' }}>
             <summary style={{ cursor: 'pointer' }}>What the model assumed</summary>
             <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
