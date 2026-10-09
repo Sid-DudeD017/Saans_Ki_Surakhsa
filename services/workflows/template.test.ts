@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 
+import { vi } from "vitest";
+vi.mock("aws-jwt-verify", () => ({ CognitoJwtVerifier: { create: vi.fn() } }));
 import * as apiHandlers from "../command-api/lambda";
+import * as healthHandlers from "../command-api/health";
+import * as authHandlers from "../command-api/authorizer";
+import * as whoamiHandlers from "../command-api/whoami";
 import * as stepHandlers from "./lambda";
 
 const root = join(__dirname, "../..");
@@ -15,13 +20,16 @@ const asl = readFileSync(join(root, "services/workflows/complaint-intake.asl.jso
 const resources: Record<string, { Type: string; Properties: Record<string, unknown> }> = template.Resources;
 const modules: Record<string, Record<string, unknown>> = {
   "services/command-api/lambda": apiHandlers,
+  "services/command-api/health": healthHandlers as any,
+  "services/command-api/authorizer": authHandlers as any,
+  "services/command-api/whoami": whoamiHandlers as any,
   "services/workflows/lambda": stepHandlers,
 };
 
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(7);
+    expect(functions.length).toBe(10);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -42,6 +50,65 @@ describe("infra/template.yaml", () => {
         (e) => `${e.Properties.Method} ${e.Properties.Path}`,
       ),
     );
-    expect(paths.sort()).toEqual(["POST /v1/complaints", "POST /v1/uploads"]);
+    expect(paths.sort()).toEqual(["GET /health", "GET /v1/officer/whoami", "POST /v1/complaints", "POST /v1/uploads"]);
+  });
+});
+describe("template.yaml structural checks (migrated)", () => {
+  const doc = YAML.parse(readFileSync(join(root, "infra/template.yaml"), "utf8"));
+
+  it("contains HealthFunction with GET /health route", () => {
+    expect(doc.Resources.HealthFunction).toBeDefined();
+    expect(doc.Resources.HealthFunction.Properties.Events.Get.Properties.Path).toBe("/health");
+  });
+
+  it("does not contain unused SQS DLQ", () => {
+    expect(doc.Resources.FailureDLQ).toBeUndefined();
+  });
+
+  it("contains properly dimensioned Alarms", () => {
+    expect(doc.Resources.Api5xxAlarm.Properties.Dimensions).toContainEqual({ Name: "Stage", Value: { Ref: "Stage" } });
+    expect(doc.Resources.UploadsErrorAlarm).toBeDefined();
+    expect(doc.Resources.ComplaintsErrorAlarm).toBeDefined();
+  });
+
+  it("contains configurable CORS on Api", () => {
+    expect(doc.Parameters.CorsAllowedOrigin).toBeDefined();
+    expect(doc.Resources.Api.Properties.CorsConfiguration.AllowOrigins).toContainEqual({ Ref: "CorsAllowedOrigin" });
+  });
+
+  it("contains valid outputs", () => {
+    expect(doc.Outputs.ApiUrl).toBeDefined();
+    expect(doc.Outputs.EvidenceBucketName).toBeDefined();
+    expect(doc.Outputs.IntakeStateMachineArn).toBeDefined();
+    expect(doc.Outputs.CognitoUserPoolId).toBeDefined();
+    expect(doc.Outputs.CognitoClientId).toBeDefined();
+    expect(doc.Outputs.CognitoDomain).toBeDefined();
+  });
+
+  it("contains Cognito user pool, three groups, and client", () => {
+    expect(doc.Resources.CognitoUserPool).toBeDefined();
+    expect(doc.Resources.OfficerGroup).toBeDefined();
+    expect(doc.Resources.DistrictSangrurGroup).toBeDefined();
+    expect(doc.Resources.DistrictPatialaGroup).toBeDefined();
+
+    const client = doc.Resources.CognitoUserPoolClient;
+    expect(client.Properties.GenerateSecret).toBe(false);
+    expect(client.Properties.AllowedOAuthFlows).toContain("code");
+    expect(client.Properties.CallbackURLs).toContainEqual({ Ref: "AppCallbackUrl" });
+  });
+
+  it("contains Authorizer configuration on WhoamiFunction", () => {
+    const whoami = doc.Resources.WhoamiFunction;
+    expect(whoami).toBeDefined();
+    expect(whoami.Properties.Events.Get.Properties.Auth.Authorizer).toBe("CustomAuthorizer");
+  });
+
+  it("contains policy-store environment configuration and least-privilege IAM for AuthorizerFunction", () => {
+    const auth = doc.Resources.AuthorizerFunction;
+    expect(auth.Properties.Environment.Variables.VERIFIED_PERMISSIONS_POLICY_STORE_ID).toEqual({ Ref: "PolicyStore" });
+    const policy = auth.Properties.Policies[0].Statement[0];
+    expect(policy.Effect).toBe("Allow");
+    expect(policy.Action).toBe("verifiedpermissions:IsAuthorizedWithToken");
+    expect(policy.Resource["Fn::Sub"]).toBe("arn:aws:verifiedpermissions:${AWS::Region}:${AWS::AccountId}:policy-store/${PolicyStore}");
   });
 });
