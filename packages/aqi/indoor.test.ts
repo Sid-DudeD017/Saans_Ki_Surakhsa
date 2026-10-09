@@ -105,12 +105,29 @@ describe('hour by hour', () => {
     // Lit at 21:00, so 5 hours in: (S/V)/(a + k)·(1 − e^(−0.8·5)).
     expect(c).toBeCloseTo((85_000 / 40 / 0.8) * (1 - Math.exp(-4)), 0);
   });
+
+  it('respects custom meal times, using existing defaults when omitted, without changing duration or meaning', () => {
+    const at = (h: number) => Date.parse('2026-10-08T18:30:00Z') + h * H;
+    const all = { cooking_fuel: 'biomass', smokers: 0, incense: false, mosquito_coils: false } as const;
+    
+    // Existing caller behavior (omitted meal times) - default is [7, 8], [12.5, 13.5], [19.5, 20.5]
+    expect(sourcesAt(at(7.5), all)).toHaveProperty('cooking');
+    expect(sourcesAt(at(8.5), all)).not.toHaveProperty('cooking');
+    
+    // Custom meal times (e.g., shifted by 1 hour) - each is 1 hour duration
+    const customMeals: [number, number][] = [[8, 9], [13, 14], [20, 21]];
+    const customD = { ...D, cooking: { ...D.cooking, hours: customMeals } };
+    
+    expect(sourcesAt(at(7.5), all, customD)).not.toHaveProperty('cooking');
+    expect(sourcesAt(at(8.5), all, customD)).toHaveProperty('cooking');
+    expect(sourcesAt(at(9.5), all, customD)).not.toHaveProperty('cooking');
+  });
 });
 
 describe('the defaults', () => {
   it('every value has a source', () => {
     const sources = JSON.stringify(raw).match(/"(source|hours_source)":/g) ?? [];
-    expect(sources.length).toBe(3 + 1 + 1 + 1 + 6 + 3 + 1);
+    expect(sources.length).toBe(3 + 1 + 1 + 1 + 6 + 3 + 1 + 3);
     expect(Object.values(D.cooking.fuels).every((f) => f.source.length > 10)).toBe(true);
   });
 
@@ -195,6 +212,15 @@ describe("today's plan", () => {
   it('counts cooking in the room when the room is where you cook', () => {
     const e = estimateIndoor({ ...sharma, purifier_cadr_m3_h: 0, cooking_fuel: 'lpg' }, () => 20, T0);
     expect(e.plan.map((p) => p.text)).toContainEqual(expect.stringMatching(/^Cooking on LPG adds up to \d+ µg\/m³ at meal times/));
+  });
+
+  it('uses custom meal times without modifying the shared defaults', () => {
+    const customReq: IndoorRequest = { ...sharma, cooking_fuel: 'lpg', meal_times_h: [[6, 7], [11, 12], [18, 19]] };
+    const e = estimateIndoor(customReq, () => 20, T0);
+    // Custom meal times shouldn't affect the base assumptions mapping structure
+    expect(e.assumptions.sources_mg_h).toHaveProperty('cooking');
+    // Ensure D itself wasn't mutated
+    expect(D.cooking.hours[0]).toEqual([7, 8]);
   });
 });
 

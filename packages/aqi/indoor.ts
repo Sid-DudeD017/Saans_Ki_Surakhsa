@@ -39,6 +39,7 @@ export interface IndoorRequest {
   smokers: number;
   incense: boolean;
   mosquito_coils: boolean;
+  meal_times_h?: [number, number][];
 }
 
 /** Shut windows, one open (single-sided airing), or two or more open (cross-ventilation). */
@@ -120,6 +121,12 @@ export function simulateIndoor(room: Room, outdoorAt: OutdoorAt, times: number[]
 export interface PlanItem {
   kind: 'windows' | 'purifier' | 'source' | 'mask';
   text: string;
+  key?: string;
+  from?: string;
+  to?: string;
+  pm25?: number;
+  sourceType?: string;
+  purifierCadr?: number;
 }
 
 export interface IndoorEstimate {
@@ -166,7 +173,8 @@ const SOURCE_WORDS: Record<string, (z: number, fuel: CookingFuel) => string> = {
  * POST /v1/indoor/estimate's answer: the room now, the next 72 hours in India time, and a plan for the rest of
  * today (at least the next 12 hours) from what the model says each choice would do.
  */
-export function estimateIndoor(req: IndoorRequest, outdoorAt: OutdoorAt, now: number, d: IndoorDefaults = INDOOR_DEFAULTS): IndoorEstimate {
+export function estimateIndoor(req: IndoorRequest, outdoorAt: OutdoorAt, now: number, defaultD: IndoorDefaults = INDOOR_DEFAULTS): IndoorEstimate {
+  const d = req.meal_times_h ? { ...defaultD, cooking: { ...defaultD.cooking, hours: req.meal_times_h } } : defaultD;
   const volume = req.room_area_m2 * req.ceiling_height_m;
   const ventilation = ventilationFor(req.windows, req.windows_open);
   const sources: SourceSwitches = { cooking_fuel: req.cooking_fuel, smokers: req.smokers, incense: req.incense, mosquito_coils: req.mosquito_coils };
@@ -188,17 +196,17 @@ export function estimateIndoor(req: IndoorRequest, outdoorAt: OutdoorAt, now: nu
   // Windows
   const outNow = outdoor[0] ?? 0;
   if (ventilation !== 'closed' && outNow > AIRING_UG_M3) {
-    plan.push({ kind: 'windows', text: `Shut the windows now: it's ${Math.round(outNow)} µg/m³ outside, and an open room soon matches it.` });
+    plan.push({ kind: 'windows', key: 'windows_shut_now', pm25: Math.round(outNow), text: `Shut the windows now: it's ${Math.round(outNow)} µg/m³ outside, and an open room soon matches it.` });
   }
   const air = block(outToday, false);
   const airMean = Math.round((outToday[air] + outToday[air + 1]) / 2);
   const airSpan = `${clock(horizon[air])}–${clock(horizon[air] + 2 * HOUR_MS)}`;
   if (outToday.every((v) => v <= AIRING_UG_M3)) {
-    plan.push({ kind: 'windows', text: `The air outside stays under ${AIRING_UG_M3} µg/m³: open the windows whenever you like.` });
+    plan.push({ kind: 'windows', key: 'windows_always_open', pm25: AIRING_UG_M3, text: `The air outside stays under ${AIRING_UG_M3} µg/m³: open the windows whenever you like.` });
   } else if (airMean <= AIRING_UG_M3) {
-    plan.push({ kind: 'windows', text: `Open the windows ${airSpan}, when the air outside is cleanest (about ${airMean} µg/m³), and keep them shut the rest of the day.` });
+    plan.push({ kind: 'windows', key: 'windows_open_time', from: clock(horizon[air]), to: clock(horizon[air] + 2 * HOUR_MS), pm25: airMean, text: `Open the windows ${airSpan}, when the air outside is cleanest (about ${airMean} µg/m³), and keep them shut the rest of the day.` });
   } else {
-    plan.push({ kind: 'windows', text: `Keep the windows shut: outside stays above ${AIRING_UG_M3} µg/m³. If the room needs air, open them ${airSpan}, when it's least bad (about ${airMean} µg/m³).` });
+    plan.push({ kind: 'windows', key: 'windows_shut_always', from: clock(horizon[air]), to: clock(horizon[air] + 2 * HOUR_MS), pm25: airMean, text: `Keep the windows shut: outside stays above ${AIRING_UG_M3} µg/m³. If the room needs air, open them ${airSpan}, when it's least bad (about ${airMean} µg/m³).` });
   }
 
   // Purifier
@@ -207,13 +215,13 @@ export function estimateIndoor(req: IndoorRequest, outdoorAt: OutdoorAt, now: nu
     const withIt = mean(simulateIndoor(shut, outdoorAt, horizon, d));
     plan.push(
       without <= 15
-        ? { kind: 'purifier', text: `The room stays clean without the purifier today (about ${Math.round(without)} µg/m³).` }
-        : { kind: 'purifier', text: `Run the purifier with the windows shut: the room stays near ${Math.round(withIt)} µg/m³ instead of ${Math.round(without)}.` },
+        ? { kind: 'purifier', key: 'purifier_not_needed', pm25: Math.round(without), text: `The room stays clean without the purifier today (about ${Math.round(without)} µg/m³).` }
+        : { kind: 'purifier', key: 'purifier_run', pm25: Math.round(withIt), text: `Run the purifier with the windows shut: the room stays near ${Math.round(withIt)} µg/m³ instead of ${Math.round(without)}.` },
     );
   } else if (without > 30) {
     const cadr = Math.max(50, Math.round((d.purifier.suggested_air_changes_per_h * volume) / 50) * 50);
     const withOne = mean(simulateIndoor({ ...shut, cadrM3H: cadr }, outdoorAt, horizon, d));
-    plan.push({ kind: 'purifier', text: `A purifier with a CADR of about ${cadr} m³/h would bring this room from ${Math.round(without)} to ${Math.round(withOne)} µg/m³.` });
+    plan.push({ kind: 'purifier', key: 'purifier_buy', purifierCadr: cadr, pm25: Math.round(withOne), text: `A purifier with a CADR of about ${cadr} m³/h would bring this room from ${Math.round(without)} to ${Math.round(withOne)} µg/m³.` });
   }
 
   // Indoor sources: how much each adds at its worst over the next 24 hours, with the windows shut
@@ -228,7 +236,7 @@ export function estimateIndoor(req: IndoorRequest, outdoorAt: OutdoorAt, now: nu
   for (const [name, switches] of only) {
     const one = simulateIndoor({ ...shut, sources: { cooking_fuel: 'none', smokers: 0, incense: false, mosquito_coils: false, ...switches } }, outdoorAt, day, d);
     const added = Math.round(Math.max(0, ...one.map((v, i) => v - base[i])));
-    if (added >= 5) plan.push({ kind: 'source', text: SOURCE_WORDS[name](added, req.cooking_fuel) });
+    if (added >= 5) plan.push({ kind: 'source', key: `source_${name}`, sourceType: req.cooking_fuel, pm25: added, text: SOURCE_WORDS[name](added, req.cooking_fuel) });
   }
 
   // Mask
@@ -236,6 +244,10 @@ export function estimateIndoor(req: IndoorRequest, outdoorAt: OutdoorAt, now: nu
     const w = block(outToday, true);
     plan.push({
       kind: 'mask',
+      key: 'mask_outside',
+      from: clock(horizon[w]),
+      to: clock(horizon[w] + 2 * HOUR_MS),
+      pm25: Math.round((outToday[w] + outToday[w + 1]) / 2),
       text: `Wear an N95 outside, most of all ${clock(horizon[w])}–${clock(horizon[w] + 2 * HOUR_MS)} (about ${Math.round((outToday[w] + outToday[w + 1]) / 2)} µg/m³).`,
     });
   }

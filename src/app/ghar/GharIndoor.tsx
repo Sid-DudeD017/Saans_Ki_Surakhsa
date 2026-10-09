@@ -13,6 +13,8 @@ import { CATEGORY_LABELS, CATEGORY_COLORS, getPm25Category } from './labels';
 import type { components } from '../../../packages/contracts/types';
 import { loadHomeState, saveHomeState, addRoomToState, removeRoomFromState, updateRoomState, type RoomState, type HomeState, DEFAULT_HOME } from './homeState';
 import { LocationBar } from './LocationBar';
+import { useHomeLocation, EXAMPLE_LOCATION } from './useLocation';
+import { HomePlan } from './HomePlan';
 
 const D = INDOOR_DEFAULTS;
 const ICONS: Record<PlanItem['kind'], string> = { windows: '🪟', purifier: '🌀', source: '🔥', mask: '😷' };
@@ -43,7 +45,7 @@ type AqiWireResponse = components['schemas']['AqiResponse'];
 export function GharIndoor() {
   const { t } = useLanguage();
   
-  const { location, saveLocation, isReady: locationReady } = useLocation();
+  const { location, saveLocation, isReady: locationReady } = useHomeLocation();
 
   // Initialise from localStorage
   const [home, setHome] = useState<HomeState>(() => loadHomeState());
@@ -87,17 +89,16 @@ export function GharIndoor() {
     const req = home.rooms[0]?.request;
     if (!req) return;
     
-    getAqi(req.lat, req.lon).then(
-      (data) => {
+    getAqi(req.lat, req.lon)
+      .then((data) => {
         const wireData = data as unknown as AqiWireResponse;
         if (!wireData || wireData.aqi === undefined) {
           setAqiResult({ empty: true });
         } else {
           setAqiResult({ data: wireData, stale: wireData.stale });
         }
-      },
-      (e: Error) => setAqiResult({ error: e.message })
-    );
+      })
+      .catch((e: Error) => setAqiResult({ error: e.message }));
   }, [home.rooms[0]?.request.lat, home.rooms[0]?.request.lon]);
 
   useEffect(() => {
@@ -200,6 +201,9 @@ export function GharIndoor() {
           <Button size="sm" variant="secondary" onClick={() => setHome({ rooms: [] })}>Start over</Button>
         </div>
       </Card>
+
+      {/* Merged Plan and Summary */}
+      <HomePlan rooms={home.rooms.map(r => ({ id: r.id, name: r.name, estimate: estimates[r.id]?.estimate }))} />
       
       {USE_MOCKS && (
         <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
@@ -247,14 +251,14 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
     let on = true;
     setResult(prev => ({ ...prev, isFetching: true, error: undefined, errorCode: undefined }));
     const timer = setTimeout(() => {
-      getIndoorEstimate(room.request).then(
-        (estimate) => { 
+      getIndoorEstimate(room.request)
+        .then((estimate) => { 
           if (on) { 
             setResult({ estimate, isFetching: false, lastSuccessTime: Date.now(), retryTick: undefined });
             onEstimate({ estimate, isFetching: false });
           } 
-        },
-        (error) => { 
+        })
+        .catch((error) => { 
           if (on) { 
             setResult(prev => ({ ...prev, error: error.message, errorCode: error.code, isFetching: false }));
             onEstimate({ error: error.message, isFetching: false });
@@ -265,8 +269,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               }, 60000);
             }
           } 
-        }
-      );
+        });
     }, 250);
     return () => { on = false; clearTimeout(timer); };
   }, [room.request, result.retryTick]);

@@ -13,7 +13,7 @@ const STORAGE_KEY = 'saans_home_location';
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export function useLocation() {
+export function useHomeLocation() {
   const [location, setLocationState] = useState<LocationState>(EXAMPLE_LOCATION);
   const [isReady, setIsReady] = useState(false);
 

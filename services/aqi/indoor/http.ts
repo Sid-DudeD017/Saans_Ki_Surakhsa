@@ -22,6 +22,7 @@ const Body = z.object({
   smokers: z.int().min(0).default(0),
   incense: z.boolean().default(false),
   mosquito_coils: z.boolean().default(false),
+  meal_times_h: z.array(z.tuple([z.number(), z.number()])).optional(),
 });
 
 export async function answerIndoor(request: Request, current: () => Promise<ForecastSnapshot | null>, now = Date.now()) {

@@ -100,7 +100,9 @@ export function loadHomeState(): HomeState {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.rooms) && parsed.rooms.length > 0) {
-        if (parsed.rooms[0].name && parsed.rooms[0].request) {
+        // Ensure ALL rooms have the 'ui' property to avoid crashes from old legacy data
+        const isValid = parsed.rooms.every((r: any) => r.name && r.request && r.ui);
+        if (isValid) {
           return parsed;
         }
       }

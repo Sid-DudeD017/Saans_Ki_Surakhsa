@@ -212,6 +212,15 @@ export async function updateDataForLocation(lat: number, lon: number, keys: { op
   if (!keys.openaq) missingKeys.push("OPENAQ_API_KEY");
   if (!keys.cpcb) missingKeys.push("CPCB_API_KEY");
 
+  // Prevent rate limits: Check if we have recent readings (e.g. < 15 mins old)
+  const existingReadings = await storage.getLatestReadings(lat, lon, 50);
+  if (existingReadings.length > 0) {
+    const newest = Math.max(...existingReadings.map(r => new Date(r.timestamp).getTime()));
+    if (Date.now() - newest < 15 * 60 * 1000) {
+      return { missingKeys, allFailed: false }; // Skip fetch, we have fresh data
+    }
+  }
+
   let cpcbData: NormalizedReading[] = [];
   let openaqData: NormalizedReading[] = [];
   let omData: { readings: NormalizedReading[], weather: WeatherData } | null = null;
@@ -222,19 +231,19 @@ export async function updateDataForLocation(lat: number, lon: number, keys: { op
       cpcbData = await fetchCPCB(lat, lon, keys.cpcb);
       successCount++;
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error("CPCB error:", e); }
 
   try {
     if (keys.openaq) {
       openaqData = await fetchOpenAQ(lat, lon, 50, keys.openaq);
       successCount++;
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error("OpenAQ error:", e); }
 
   try {
     omData = await fetchOpenMeteo(lat, lon);
     successCount++;
-  } catch (e) { /* ignore */ }
+  } catch (e) { console.error("Open-Meteo error:", e); }
 
   if (successCount === 0) {
     return { missingKeys, allFailed: true };
@@ -242,7 +251,9 @@ export async function updateDataForLocation(lat: number, lon: number, keys: { op
 
   const allReadings = [...cpcbData, ...openaqData, ...(omData?.readings || [])];
   if (allReadings.length > 0) {
-    await storage.saveReadings(allReadings);
+    // Add a synthetic timestamp to track when we fetched, as some APIs return older timestamps
+    const fetchTime = new Date().toISOString();
+    await storage.saveReadings(allReadings.map(r => ({ ...r, timestamp: fetchTime })));
   }
   if (omData?.weather) {
     await storage.saveWeather(lat, lon, omData.weather);

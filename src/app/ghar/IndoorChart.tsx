@@ -16,7 +16,14 @@ export function IndoorChart({ series }: { series: IndoorEstimate['hourly_series'
   const x = (i: number) => PAD.left + (i / (hours.length - 1)) * (W - PAD.left - PAD.right);
   const y = (v: number) => PAD.top + (1 - v / max) * (H - PAD.top - PAD.bottom);
   const line = (pick: (h: (typeof hours)[number]) => number) => hours.map((h, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(pick(h)).toFixed(1)}`).join(' ');
-  const ticks = Array.from({ length: max / 50 + 1 }, (_, i) => i * 50).filter((v, _, all) => all.length <= 7 || v % 100 === 0);
+  
+  // Calculate dynamic ticks to avoid overlapping on high values (like 3000 µg/m³)
+  let step = 50;
+  if (max > 2000) step = 500;
+  else if (max > 1000) step = 250;
+  else if (max > 500) step = 100;
+  
+  const ticks = Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step);
 
   return (
     <figure style={{ margin: 0 }}>
