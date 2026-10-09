@@ -881,6 +881,13 @@
             "minimum": 0,
             "default": 15,
             "description": "Maximum extra minutes over the fastest route the user is willing to accept"
+          },
+          "mask_filtration": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 0.95,
+            "default": 0,
+            "description": "Share of PM2.5 the traveller's mask stops (0 = no mask). Dose is multiplied by (1 − mask_filtration)."
           }
         },
         "required": ["origin", "destination", "depart_at", "mode"],

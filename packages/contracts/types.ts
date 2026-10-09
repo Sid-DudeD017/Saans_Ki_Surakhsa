@@ -835,6 +835,11 @@ export interface components {
              * @default 15
              */
             max_extra_min: number;
+            /**
+             * @description Share of PM2.5 the traveller's mask stops (0 = no mask). Dose is multiplied by (1 − mask_filtration).
+             * @default 0
+             */
+            mask_filtration: number;
         };
         /** CleanRouteResponse */
         CleanRouteResponse: {
