@@ -7,8 +7,9 @@ export interface FirePoint {
   frp: number;
 }
 
-export async function fetchFires(bbox: string, mapKey: string): Promise<FirePoint[]> {
-  const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${mapKey}/VIIRS_SNPP_NRT/${bbox}/1`;
+/** FIRMS VIIRS (Suomi-NPP) fires in a bbox. dayRange 1 is today's UTC date only; 2 adds yesterday. */
+export async function fetchFires(bbox: string, mapKey: string, dayRange = 1): Promise<FirePoint[]> {
+  const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${mapKey}/VIIRS_SNPP_NRT/${bbox}/${dayRange}`;
   const res = await fetch(url);
   if (!res.ok) {
     if (res.status === 401 || res.status === 403 || res.status === 404) {
@@ -39,11 +40,10 @@ export async function fetchFires(bbox: string, mapKey: string): Promise<FirePoin
     
     // ISO 8601 with +05:30
     const rawDate = cols[acqDateIdx];
-    let rawTime = cols[acqTimeIdx];
-    if (rawTime.length === 4) {
-      rawTime = rawTime.slice(0, 2) + ":" + rawTime.slice(2) + ":00";
-    }
-    
+    // FIRMS writes HHMM in UTC without leading zeros: "803" is 08:03, "5" is 00:05.
+    const hhmm = cols[acqTimeIdx].trim().padStart(4, "0");
+    const rawTime = hhmm.slice(0, 2) + ":" + hhmm.slice(2) + ":00";
+
     // FIRMS is in UTC. We convert it to +05:30.
     const utcDate = new Date(`${rawDate}T${rawTime}Z`);
     const offsetMs = 5.5 * 60 * 60 * 1000;

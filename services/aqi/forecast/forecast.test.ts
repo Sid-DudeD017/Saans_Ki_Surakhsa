@@ -184,14 +184,29 @@ describe('reading the upstreams', () => {
     expect(seen[0].url).toContain('datetime_min=2026-10-09T02%3A00%3A00.000Z');
   });
 
+  it('fetches the rest of OpenAQ\'s pages together once page 1 gives the count', async () => {
+    const pages: number[] = [];
+    const fake = vi.fn(async (u: string) => {
+      const n = Number(new URL(u).searchParams.get('page'));
+      pages.push(n);
+      const r = { datetime: { utc: '2026-10-09T04:00:00Z' }, value: 100 + n, coordinates: { latitude: 28.6, longitude: 77.2 }, locationsId: n };
+      return new Response(JSON.stringify({ meta: { found: 2500 }, results: n < 3 ? Array.from({ length: 1000 }, () => r) : [r] }));
+    }) as unknown as typeof fetch;
+    const obs = await fetchOpenAq(fake, 'k', Date.parse('2026-10-09T05:00:00Z'));
+    expect(pages.sort()).toEqual([1, 2, 3]);
+    expect(obs).toHaveLength(2001);
+  });
+
   it('keeps FIRMS fires at nominal or high confidence, with power, in the regions', async () => {
     const at = '2026-10-09T13:30:00+05:30';
-    const fires = await fetchRegionFires('k', async () => [
+    const asked: unknown[][] = [];
+    const fires = await fetchRegionFires('k', async (...args: unknown[]) => (asked.push(args), [
       { lat: 30.3, lon: 75.9, acquisition_time: at, satellite: 'N', confidence: 'n', frp: 6.2 },
       { lat: 30.3, lon: 75.9, acquisition_time: at, satellite: 'N', confidence: 'l', frp: 3 },
       { lat: 30.3, lon: 75.9, acquisition_time: at, satellite: 'N', confidence: 'h', frp: NaN },
       { lat: 26.9, lon: 75.8, acquisition_time: at, satellite: 'N', confidence: 'h', frp: 9 },
-    ]);
+    ]));
+    expect(asked[0].slice(1)).toEqual(['k', 2]);
     expect(fires).toEqual([{ lat: 30.3, lon: 75.9, seen_at: '2026-10-09T08:00:00.000Z', frp_mw: 6.2 }]);
   });
 });
@@ -208,8 +223,10 @@ describe('the smoke plume', () => {
 
   it('keeps the mass it releases: concentration × mixing height, summed over the ground, is the puffs released', () => {
     const plume = new Plume(new Grid(snapshot({ u: east, mixing: () => 800 })), [fire]);
-    // At hour 4 the puffs released at hours 2.00, 2.25 … 4.00 are out: nine of them.
-    const released = 9 * emissionUgPerS(10) * PLUME.stepMinutes * 60;
+    // At hour 4, every puff released from hour 2 up to hour 4 (or until the fire burns out) is out.
+    const dt = PLUME.stepMinutes / 60;
+    const puffs = Math.min(PLUME.burnHours / dt, 2 / dt + 1);
+    const released = puffs * emissionUgPerS(10) * PLUME.stepMinutes * 60;
     let total = 0;
     const cell = 0.2; // km
     for (let e = -5; e <= 45; e += cell) for (let n = -5; n <= 5; n += cell) {
@@ -222,11 +239,12 @@ describe('the smoke plume', () => {
   it('goes downwind, not upwind, and thins under a deeper mixing layer', () => {
     const low = new Plume(new Grid(snapshot({ u: east, mixing: () => 400 })), [fire]);
     const high = new Plume(new Grid(snapshot({ u: east, mixing: () => 1600 })), [fire]);
+    // Seen at hour 2, burning for an hour at 18 km/h: at hour 3 its first puff is 18 km downwind.
     const down = offset(fire, 18, 0);
     const up = offset(fire, -18, 0);
-    expect(low.at(down.lat, down.lon, 4)).toBeGreaterThan(10);
-    expect(low.at(up.lat, up.lon, 4)).toBeLessThan(1e-6);
-    expect(low.at(down.lat, down.lon, 4) / high.at(down.lat, down.lon, 4)).toBeCloseTo(4, 6);
+    expect(low.at(down.lat, down.lon, 3)).toBeGreaterThan(10);
+    expect(low.at(up.lat, up.lon, 3)).toBeLessThan(1e-6);
+    expect(low.at(down.lat, down.lon, 3) / high.at(down.lat, down.lon, 3)).toBeCloseTo(4, 6);
   });
 
   it('follows the wind when it turns: east for an hour, then north', () => {
@@ -240,11 +258,11 @@ describe('the smoke plume', () => {
     expect(plume.at(straight.lat, straight.lon, 6)).toBeLessThan(1e-6);
   });
 
-  it('a fire burns for 3 hours, puffs last 12, and fires without power or after the grid add nothing', () => {
+  it('a fire burns for an hour, puffs last 12, and fires without power or after the grid add nothing', () => {
     const plume = new Plume(new Grid(snapshot({ u: () => 0.5 })), [fire, { ...fire, frp_mw: 0 }, { ...fire, seen_at: hourIso(500) }]);
     expect(plume.puffCount).toBe(PLUME.burnHours * (60 / PLUME.stepMinutes));
     expect(plume.at(fire.lat, fire.lon, 3)).toBeGreaterThan(0);
-    expect(plume.at(fire.lat, fire.lon, 2 + 3 + 12 + 1)).toBe(0);
+    expect(plume.at(fire.lat, fire.lon, 2 + PLUME.burnHours + PLUME.maxAgeHours + 1)).toBe(0);
     expect(plume.at(fire.lat, fire.lon, 1)).toBe(0);
   });
 
@@ -266,6 +284,7 @@ describe('the station bias', () => {
         ob({ id: 'cpcb-future', time: '2026-10-09T07:00:00Z' }),
         ob({ id: 'cpcb-mumbai', lat: 19.07, lon: 72.87 }),
         ob({ id: 'cpcb-neg', pm25: -4 }),
+        ob({ id: 'openaq-stuck', source: 'openaq', ...offset(SANGRUR, 60, 0), pm25: 0.9 }),
         ob({ id: 'cpcb-huge', pm25: 1500 }),
         ob({ id: 'cpcb-a', time: '2026-10-09T04:00:00Z', pm25: 100 }),
         ob({ id: 'cpcb-a', time: '2026-10-09T05:00:00Z', pm25: 110 }),
