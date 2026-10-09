@@ -3,12 +3,14 @@
 // (KISAN_AGENT_URL); deployed, the API gateway routes the same paths. With NEXT_PUBLIC_USE_MOCKS on
 // (the default), the contract's own examples answer instead: Gurpreet's conversation, read back, filed.
 import type { components } from '../../../packages/contracts/types';
-import { mockMessage, mockStatus, mockVoice } from './mock';
+import { mockMessage, mockPhoto, mockStatus, mockVoice } from './mock';
 
 export type MessageResponse = components['schemas']['MessageResponse'];
 export type QuickReply = components['schemas']['QuickReply'];
 export type KisanStatus = components['schemas']['KisanStatusResponse'];
 export type StatusEntry = components['schemas']['StatusEntry'];
+export type PhotoResponse = components['schemas']['PhotoResponse'];
+export type MachineGuess = components['schemas']['MachineGuess'];
 export type Language = 'pa' | 'hi' | 'en';
 
 /** One line of the read-back card (agent_kisan/readback.py). */
@@ -83,6 +85,18 @@ export function sendVoice(audio: Blob, filename: string, language: Language, ses
   form.append('language', language);
   if (sessionId) form.append('session_id', sessionId);
   return call('/v1/agent/kisan/voice', { method: 'POST', body: form });
+}
+
+/**
+ * A machine photo (K7). The agent cleans it (faces blurred, metadata removed), keeps only that copy, and
+ * guesses the machine. With a session, the photo's GPS can become the farm's location there.
+ */
+export function sendPhoto(photo: Blob, filename: string, sessionId: string | null): Promise<PhotoResponse> {
+  if (USE_MOCKS) return mockPhoto();
+  const form = new FormData();
+  form.append('photo', photo, filename);
+  if (sessionId) form.append('session_id', sessionId);
+  return call('/v1/agent/kisan/photo', { method: 'POST', body: form });
 }
 
 export function getStatus(sessionId: string): Promise<KisanStatus> {

@@ -1,7 +1,7 @@
 // NEXT_PUBLIC_USE_MOCKS: Gurpreet's conversation from P1's contract examples, which contract.py records
 // from real calls to the agent. The first message gets the read-back, the next one files it. The
 // proposal is loaded only when mocks are on, so it stays out of the normal bundle.
-import type { KisanStatus, Language, MessageResponse } from './kisanApi';
+import type { KisanStatus, Language, MessageResponse, PhotoResponse } from './kisanApi';
 
 type Proposal = { paths: Record<string, Record<string, { responses: Record<string, { content: Record<string, { example: unknown }> }> }>> };
 
@@ -42,4 +42,10 @@ export async function mockStatus(sessionId: string): Promise<KisanStatus> {
   await pause();
   const status = await example<KisanStatus>('/v1/agent/kisan/sessions/{session_id}/status', 'get');
   return { ...status, helpRequestId: `kisan-${sessionId}` };
+}
+
+/** The contract's photo example: a Super Seeder, 86% sure. */
+export async function mockPhoto(): Promise<PhotoResponse> {
+  await pause();
+  return example<PhotoResponse>('/v1/agent/kisan/photo');
 }
