@@ -8,12 +8,18 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { runIntake } from "../workflows/local";
+import { LOCAL_OFFICERS } from "./authz";
 import { actOnCase, getCase, listCases } from "./cases";
 import { commandConfig } from "./config";
 import { ensureBucket, migrate, newId, pool, s3Client, type IntakeDeps } from "./deps";
 import { handleComplaints } from "./http";
 
 const stack = !!process.env.SAANS_DATABASE_URL;
+const as = (id: string) => LOCAL_OFFICERS.find((o) => o.id === id)!;
+const sdm = as("officer-sangrur"); // Kisan's example farm is in Sangrur, so linked cases are too
+const field = as("field-sangrur");
+const patiala = as("officer-patiala");
+const state = as("state-command");
 const kisan = JSON.parse(readFileSync(join(__dirname, "../../packages/contracts/proposals/p1-kisan.openapi.json"), "utf8")).components.schemas
   .FarmerSupportComplaint.examples[0];
 
@@ -36,8 +42,9 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
       await runIntake(deps, id, async () => {});
     },
   };
-  // Somewhere new in Punjab each run, so requests left by earlier runs are never this close.
-  const HERE = { lat: 29.7 + Math.random() * 1.6, lon: 74.6 + Math.random() * 1.8 };
+  // Somewhere new each run, in a wide box west of both demo districts (infra/config/districts.json starts at
+  // 75.6° E, and HERE goes at most 20 km east), so help requests left by earlier runs are rarely within 5 km.
+  const HERE = { lat: 29 + Math.random() * 3.3, lon: 72 + Math.random() * 3.1 };
 
   beforeAll(async () => {
     await migrate(db);
@@ -66,7 +73,8 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
   }
 
   const citizenReports = (at: { lat: number; lon: number }) => file({ type: "farm_fire", location: at, description: "Smoke over the paddy by the canal", evidence: [] });
-  const detail = async (caseId: string) => (await getCase(deps, caseId)).json();
+  // The state command centre sees every district; the tests that act sign in as the district's officers.
+  const detail = async (caseId: string) => (await getCase(deps, caseId, state)).json();
 
   it("links a fire report to the nearest open help request, and the case shows it before any penalty", async () => {
     const near = await farmerFiles(HERE);
@@ -115,12 +123,17 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
     const spot = offset(HERE, -20_000, 0);
     const help = await farmerFiles(spot);
     const caseId = await citizenReports(offset(spot, 100, 100));
-    const act = async (body: unknown, officer?: string) => {
+    const act = async (body: unknown, officer = sdm) => {
       const res = await actOnCase(deps, caseId, body, officer);
       return { status: res.status, body: await res.json() };
     };
+    const approveBody = { action: "APPROVE", selectedMachineId: "demo-chc-a:happy_seeder", reason: "Send the Happy Seeder first", previousCaseVersion: 1 };
 
-    const approve = await act({ action: "APPROVE", selectedMachineId: "demo-chc-a:happy_seeder", reason: "Send the Happy Seeder first", previousCaseVersion: 1 }, "officer-sangrur-1");
+    // Cedar: another district's officer, the state centre and a field officer can't send the machine.
+    for (const who of [patiala, state, field]) expect((await act(approveBody, who)).status).toBe(403);
+    expect((await getCase(deps, caseId, patiala)).status).toBe(403);
+
+    const approve = await act(approveBody);
     expect(approve).toMatchObject({ status: 200, body: { status: "ACTION_APPROVED", version: 2 } });
     const { rows } = await db.query<{ status: string; body: { status: string } }>("SELECT status, body FROM help_requests WHERE id = $1", [help]);
     expect([rows[0].status, rows[0].body.status]).toEqual(["MATCHED", "MATCHED"]);
@@ -128,32 +141,32 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
     const stale = await act({ action: "REJECT", reason: "No", previousCaseVersion: 1 });
     expect(stale).toMatchObject({ status: 409, body: { error: { code: "version_conflict" } } });
 
-    expect((await act({ action: "RECORD_ACTION_TAKEN", reason: "Machine on the field at 16:00", previousCaseVersion: 2 })).body).toMatchObject({ status: "ACTION_APPROVED", version: 3 });
+    expect((await act({ action: "RECORD_ACTION_TAKEN", reason: "Machine on the field at 16:00", previousCaseVersion: 2 }, field)).body).toMatchObject({ status: "ACTION_APPROVED", version: 3 });
     expect((await act({ action: "CLOSE", reason: "Field sown, no burning", previousCaseVersion: 3 })).body).toMatchObject({ status: "CLOSED", version: 4 });
     expect((await act({ action: "CLOSE", reason: "again", previousCaseVersion: 4 })).body.error.code).toBe("conflict");
 
     const d = await detail(caseId);
     expect(d.decisions.map((x: { action: string; officerId: string; previousCaseVersion: number }) => [x.action, x.officerId, x.previousCaseVersion])).toEqual([
-      ["APPROVE", "officer-sangrur-1", 1],
-      ["RECORD_ACTION_TAKEN", "officer-demo", 2],
-      ["CLOSE", "officer-demo", 3],
+      ["APPROVE", "officer-sangrur", 1],
+      ["RECORD_ACTION_TAKEN", "field-sangrur", 2],
+      ["CLOSE", "officer-sangrur", 3],
     ]);
     expect(d.report.status).toBe("CLOSED");
   });
 
   it("refuses a bad action and an unknown case", async () => {
     const caseId = await citizenReports(offset(HERE, 0, 40_000));
-    const bad = await actOnCase(deps, caseId, { action: "FINE", reason: "", previousCaseVersion: 0 });
+    const bad = await actOnCase(deps, caseId, { action: "FINE", reason: "", previousCaseVersion: 0 }, state);
     expect(bad.status).toBe(400);
     expect((await bad.json()).error.details.map((d: { field: string }) => d.field)).toEqual(["body.action", "body.reason", "body.previousCaseVersion"]);
-    expect((await getCase(deps, "case-nope")).status).toBe(404);
+    expect((await getCase(deps, "case-nope", state)).status).toBe(404);
   });
 
   it("lists the queue nearest deadline first, a page at a time, filtered by district and status", async () => {
     const all: { case: { id: string }; deadline: string }[] = [];
     let cursor: string | null = null;
     do {
-      const res = await listCases(deps, new URL(`http://saans.test/v1/cases?limit=50${cursor ? `&cursor=${cursor}` : ""}`));
+      const res = await listCases(deps, new URL(`http://saans.test/v1/cases?limit=50${cursor ? `&cursor=${cursor}` : ""}`), state);
       expect(res.status).toBe(200);
       const page: { cases: { case: { id: string }; deadline: string }[]; next_cursor: string | null } = await res.json();
       all.push(...page.cases);
@@ -162,9 +175,18 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
     expect(new Set(all.map((c) => c.case.id)).size).toBe(all.length);
     expect(all.every((c, i) => i === 0 || Date.parse(c.deadline) >= Date.parse(all[i - 1].deadline))).toBe(true);
 
-    const sangrur = await (await listCases(deps, new URL(`http://saans.test/v1/cases?district=${kisan.help_request.district}&status=OPEN&limit=100`))).json();
+    const sangrur = await (await listCases(deps, new URL(`http://saans.test/v1/cases?district=${kisan.help_request.district}&status=OPEN&limit=100`), state)).json();
     expect(sangrur.cases.every((c: { district: string; case: { status: string } }) => c.district === kisan.help_request.district && c.case.status === "OPEN")).toBe(true);
-    expect((await listCases(deps, new URL("http://saans.test/v1/cases?status=DONE"))).status).toBe(400);
-    expect((await listCases(deps, new URL("http://saans.test/v1/cases?cursor=garbage"))).status).toBe(400);
+    expect((await listCases(deps, new URL("http://saans.test/v1/cases?status=DONE"), state)).status).toBe(400);
+    expect((await listCases(deps, new URL("http://saans.test/v1/cases?cursor=garbage"), state)).status).toBe(400);
+  });
+
+  it("shows an officer only their own district's queue, and refuses another district's", async () => {
+    const own = await (await listCases(deps, new URL("http://saans.test/v1/cases?limit=100"), sdm)).json();
+    expect(own.cases.length).toBeGreaterThan(0);
+    expect(own.cases.every((c: { district: string }) => c.district === "Sangrur")).toBe(true);
+    expect((await listCases(deps, new URL("http://saans.test/v1/cases?district=Sangrur"), patiala)).status).toBe(403);
+    const theirs = await (await listCases(deps, new URL("http://saans.test/v1/cases?limit=100"), patiala)).json();
+    expect(theirs.cases.some((c: { district: string }) => c.district !== "Patiala")).toBe(false);
   });
 });

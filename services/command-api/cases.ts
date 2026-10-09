@@ -1,15 +1,15 @@
 // The officer's side of Saans Command (P4): the case queue, one case with its report and the farmer's open
 // help request (shown before any penalty), and the actions an officer takes. Shapes are
-// p4-command.openapi.yaml's CaseList, CaseDetail, CommandCase and CaseActionInput. There is no sign-in until
-// G7 (Cognito and Cedar), so every officer sees every district, and decisions are recorded as `officer-demo`
-// unless the request names one.
+// p4-command.openapi.yaml's CaseList, CaseDetail, CommandCase and CaseActionInput. Every call is for a
+// signed-in officer, and Cedar (authz.ts) decides what they may see and do: their own district only.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { z } from "zod";
 
+import { VERB_FOR, listable, mayOnCase, type CaseFacts, type Officer } from "./authz";
 import type { IntakeDeps } from "./deps";
-import { invalid, zodDetails } from "./errors";
+import { errorResponse, invalid, zodDetails } from "./errors";
 import { indiaTime } from "./time";
 
 import { ACTIONS, CASE_STATUSES, nextStatus, type CaseStatus } from "./caseRules";
@@ -30,13 +30,17 @@ interface CaseRow {
   status: CaseStatus;
   help_request_id: string | null;
   help_link: { distance_m: number; ambiguous: boolean; other_help_request_id?: string } | null;
+  observation: (Record<string, unknown> & { id: string }) | null;
+  escalated_at: Date | null;
+  escalated_to: string[] | null;
+  reports: number;
   evidence_summary: string;
   version: number;
   created_at: Date;
   updated_at: Date;
   help_body: HelpBody | null;
   help_district: string | null;
-  complaint_body: { description?: string; reporter_id?: string } | null;
+  complaint_body: { description?: string; reporter_id?: string; reporter_consent?: boolean } | null;
   received_at: Date;
 }
 
@@ -54,14 +58,29 @@ interface HelpBody {
 const CASE_SELECT = `
   SELECT c.id, c.complaint_id, c.type, c.district, ST_Y(c.location::geometry) AS lat, ST_X(c.location::geometry) AS lon,
          c.authorities, c.penalty, c.deadline, c.verification_status, c.status, c.help_request_id, c.help_link,
+         c.observation, c.escalated_at, c.escalated_to,
+         1 + (SELECT count(*) FROM case_reports r WHERE r.case_id = c.id)::int AS reports,
          c.evidence_summary, c.version, c.created_at, c.updated_at,
          h.body AS help_body, h.district AS help_district, k.body AS complaint_body, k.received_at
     FROM cases c
     JOIN complaints k ON k.id = c.complaint_id
     LEFT JOIN help_requests h ON h.id = c.help_request_id`;
 
-/** Until the boundary lookup (triage), a citizen report's district is its linked farm's, or unassigned. */
+/** The district triage found, else the linked farm's, else unassigned. */
 const districtOf = (r: CaseRow) => r.district ?? r.help_district ?? "unassigned";
+const DISTRICT_SQL = "COALESCE(c.district, h.district, 'unassigned')";
+
+const factsOf = (r: CaseRow): CaseFacts => ({
+  id: r.id,
+  district: districtOf(r),
+  status: r.status,
+  type: r.type,
+  hasHelpRequest: !!r.help_request_id,
+  reporterConsent: r.complaint_body?.reporter_consent === true,
+});
+
+// Not "this case is in Patiala": a refusal says nothing about the case.
+const forbidden = (what: string) => errorResponse(403, "forbidden", what);
 
 // ---- machines: the demo CHC seed Kisan also books from (data/seed/chc_demo.json) ----
 
@@ -173,6 +192,7 @@ function commandCase(r: CaseRow, now: Date) {
     id: r.id,
     incidentReportId: r.complaint_id,
     verificationStatus: r.verification_status,
+    ...(r.observation ? { observationId: r.observation.id } : {}),
     ...(r.help_request_id ? { helpRequestId: r.help_request_id } : {}),
     ...(rec?.machine ? { recommendedMachineId: rec.machine.id } : {}),
     evidenceSummary: r.evidence_summary,
@@ -194,6 +214,15 @@ function summary(r: CaseRow, now: Date) {
     hasHelpRequest: !!r.help_request_id,
     penalty: r.penalty,
     authorities: r.authorities,
+    ...triageFields(r),
+  };
+}
+
+/** Duplicates merged in, and escalation, for both the queue and the case. */
+function triageFields(r: CaseRow) {
+  return {
+    reports: Number(r.reports),
+    ...(r.escalated_at ? { escalatedAt: indiaTime(r.escalated_at), escalatedTo: r.escalated_to ?? [] } : {}),
   };
 }
 
@@ -216,21 +245,23 @@ function decodeCursor(c: string): [string, string] | null {
   }
 }
 
-/** The queue: nearest deadline first, then id, a page at a time. */
-export async function listCases(deps: IntakeDeps, url: URL): Promise<Response> {
+/** The queue: nearest deadline first, then id, a page at a time; only the districts Cedar lets this officer list. */
+export async function listCases(deps: IntakeDeps, url: URL, officer: Officer): Promise<Response> {
   const parsed = ListQuery.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) return invalid(zodDetails(parsed.error, "query"));
   const q = parsed.data;
   const after = q.cursor ? decodeCursor(q.cursor) : null;
   if (q.cursor && !after) return invalid([{ field: "query.cursor", problem: "is not a cursor from this queue" }]);
+  const allowed = listable(officer);
+  if (q.district && !allowed.includes(q.district)) return forbidden("you can't list that district's cases");
 
   const where: string[] = [];
   const values: unknown[] = [];
+  where.push(`${DISTRICT_SQL} = ANY($${values.push(q.district ? [q.district] : allowed)})`);
   if (q.status) where.push(`c.status = $${values.push(q.status)}`);
-  if (q.district) where.push(`COALESCE(c.district, h.district, 'unassigned') = $${values.push(q.district)}`);
   if (after) where.push(`(c.deadline, c.id) > ($${values.push(after[0])}::timestamptz, $${values.push(after[1])})`);
   const { rows } = await deps.db.query<CaseRow>(
-    `${CASE_SELECT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY c.deadline, c.id LIMIT $${values.push(q.limit + 1)}`,
+    `${CASE_SELECT} WHERE ${where.join(" AND ")} ORDER BY c.deadline, c.id LIMIT $${values.push(q.limit + 1)}`,
     values,
   );
   const page = rows.slice(0, q.limit);
@@ -262,26 +293,31 @@ async function decisions(deps: IntakeDeps, id: string) {
   }));
 }
 
-export async function getCase(deps: IntakeDeps, id: string): Promise<Response> {
+export async function getCase(deps: IntakeDeps, id: string, officer: Officer): Promise<Response> {
   const r = await loadCase(deps, id);
   if (!r) return notFound(id);
+  const facts = factsOf(r);
+  if (!mayOnCase(officer, "ViewCase", facts)) return forbidden("you can't open this case");
   const rec = recommendation(r, deps.now());
   const help = r.help_body;
+  const channel = r.type === "farmer_support" ? "kisan_saathi" : "anonymous";
   return Response.json({
     case: commandCase(r, deps.now()),
     type: r.type,
     penalty: r.penalty,
     authorities: r.authorities,
     deadline: indiaTime(r.deadline),
+    ...triageFields(r),
     report: {
       id: r.complaint_id,
       reportedAt: indiaTime(r.received_at),
-      reporterId: r.complaint_body?.reporter_id ?? (r.type === "farmer_support" ? "kisan_saathi" : "anonymous"),
+      reporterId: mayOnCase(officer, "ViewReporter", facts) ? r.complaint_body?.reporter_id ?? channel : channel,
       location: { lat: Number(r.lat), lon: Number(r.lon) },
       description: r.complaint_body?.description ?? "",
       district: districtOf(r),
       status: r.status === "CLOSED" ? "CLOSED" : "OPEN",
     },
+    ...(r.observation ? { observation: r.observation } : {}),
     ...(help ? { helpRequest: help } : {}),
     ...(r.help_link ? { helpLink: { distanceMeters: r.help_link.distance_m, ambiguous: r.help_link.ambiguous, ...(r.help_link.other_help_request_id ? { otherHelpRequestId: r.help_link.other_help_request_id } : {}) } } : {}),
     ...(rec?.machine ? { recommendedMachine: rec.machine } : {}),
@@ -298,15 +334,18 @@ export const ActionInput = z.object({
   previousCaseVersion: z.number().int().min(1),
 });
 
-export async function actOnCase(deps: IntakeDeps, id: string, body: unknown, officerId = "officer-demo"): Promise<Response> {
+export async function actOnCase(deps: IntakeDeps, id: string, body: unknown, officer: Officer): Promise<Response> {
   const parsed = ActionInput.safeParse(body);
   if (!parsed.success) return invalid(zodDetails(parsed.error));
   const a = parsed.data;
   const current = await loadCase(deps, id);
   if (!current) return notFound(id);
+  const facts = factsOf(current);
+  if (!mayOnCase(officer, "ViewCase", facts)) return forbidden("you can't open this case");
   if (current.status === "CLOSED") {
     return Response.json({ error: { code: "conflict", message: `case ${id} is closed` } }, { status: 409 });
   }
+  if (!mayOnCase(officer, VERB_FOR[a.action], facts)) return forbidden("you can't take that action on this case");
   const status = nextStatus(a.action, current.status);
   const now = deps.now();
   // Only the officer who saw the latest version wins; the other gets 409 and reloads.
@@ -324,7 +363,7 @@ export async function actOnCase(deps: IntakeDeps, id: string, body: unknown, off
   await deps.db.query(
     `INSERT INTO case_decisions (id, case_id, officer_id, action, selected_machine_id, reason, previous_case_version, created_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [deps.newId("decision"), id, officerId, a.action, a.selectedMachineId ?? null, a.reason, a.previousCaseVersion, now],
+    [deps.newId("decision"), id, officer.id, a.action, a.selectedMachineId ?? null, a.reason, a.previousCaseVersion, now],
   );
   // Sending a machine answers the farmer's help request.
   if ((a.action === "APPROVE" || a.action === "CHANGE") && current.help_request_id && current.help_body?.status === "OPEN") {

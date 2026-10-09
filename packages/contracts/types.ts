@@ -753,6 +753,11 @@ export interface components {
             penalty?: boolean;
             authorities?: string[];
             deadline?: components["schemas"]["IndiaTimestamp"];
+            /** @description Reports in this case; duplicates (same type, within 150 m and 6 hours) merge into one */
+            reports?: number;
+            escalatedAt?: components["schemas"]["IndiaTimestamp"];
+            /** @description Set with escalatedAt, when the deadline passed before any officer acted */
+            escalatedTo?: string[];
             /** @description How a fire report was linked to the nearest open help request (within 5 km). ambiguous: another open request was within 100 m of the same distance, so the officer should check which farm. */
             helpLink?: {
                 distanceMeters: number;
@@ -776,6 +781,11 @@ export interface components {
             /** @description Whether routing.json allows a penalty for this type (never for farmer_support) */
             penalty?: boolean;
             authorities?: string[];
+            /** @description Reports in this case; duplicates (same type, within 150 m and 6 hours) merge into one */
+            reports?: number;
+            escalatedAt?: components["schemas"]["IndiaTimestamp"];
+            /** @description Set with escalatedAt, when the deadline passed before any officer acted */
+            escalatedTo?: string[];
         };
         /** Chc */
         Chc: {
@@ -1626,8 +1636,11 @@ export interface components {
             id: string;
             caseId: string;
             officerId: string;
-            /** @enum {string} */
-            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE";
+            /**
+             * @description ESCALATE is written by Saans itself (officerId saans-escalation) when a deadline passes
+             * @enum {string}
+             */
+            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "ESCALATE";
             selectedMachineId?: string;
             reason: string;
             createdAt: components["schemas"]["IndiaTimestamp"];
@@ -1905,14 +1918,16 @@ export interface components {
             /** @description Segment travel time in minutes */
             duration_min: number;
         };
+        /** @description The FIRMS fire that corroborated a farm-fire report: within 1 km, seen in the 12 hours before it. */
         SatelliteObservation: {
             id: string;
             /** @enum {string} */
             source: "NASA_FIRMS" | "SEED";
             observedAt: components["schemas"]["IndiaTimestamp"];
             location: components["schemas"]["GeoPoint"];
+            /** @description 0-100. VIIRS reports low, nominal or high, sent as 30, 60 and 90. */
             confidence: number;
-            brightness: number;
+            brightness?: number;
             frp?: number;
             distanceFromReportMeters?: number;
         };

@@ -24,6 +24,12 @@ const ACTION_NAMES: Record<CaseAction, string> = {
   RECORD_ACTION_TAKEN: 'Record action taken',
   CLOSE: 'Close the case',
 };
+const SYSTEM_ACTIONS: Record<string, string> = { ESCALATE: 'Escalated' };
+const VERIFICATION: Record<string, string> = {
+  SATELLITE_CORROBORATED: 'Satellite saw a fire',
+  NO_MATCH: 'No satellite fire nearby',
+  NEEDS_REVIEW: 'Evidence needs review',
+};
 
 /** "9 Oct, 18:02" from an India-time ISO string, without the browser's time zone. */
 export function when(iso: string) {
@@ -43,7 +49,7 @@ const distanceText = (m: number) => {
 
 const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: '1rem', fontSize: '0.875rem', color: '#334155', flexWrap: 'wrap' };
 
-export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onChanged: () => void }) {
+export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDetail; officer: string; onChanged: () => void }) {
   const c = detail.case;
   const help = detail.helpRequest;
   const machine = detail.recommendedMachine;
@@ -62,13 +68,14 @@ export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onC
     setMessage(null);
     try {
       const sendsMachine = action === 'APPROVE' || action === 'CHANGE';
-      await actOnCase(c.id, { action, reason: reason.trim(), previousCaseVersion: c.version, ...(sendsMachine && machineId ? { selectedMachineId: machineId } : {}) });
+      await actOnCase(c.id, { action, reason: reason.trim(), previousCaseVersion: c.version, ...(sendsMachine && machineId ? { selectedMachineId: machineId } : {}) }, officer);
       setReason('');
       setMessage({ tone: 'success', text: `${ACTION_NAMES[action]}: recorded.` });
       onChanged();
     } catch (e) {
       const conflict = e instanceof ApiError && e.code === 'version_conflict';
-      setMessage({ tone: 'danger', text: conflict ? 'Someone else changed this case. It has been reloaded; decide again.' : (e as Error).message });
+      const refused = e instanceof ApiError && e.code === 'forbidden';
+      setMessage({ tone: 'danger', text: conflict ? 'Someone else changed this case. It has been reloaded; decide again.' : refused ? `Not allowed for your role: ${e.message}.` : (e as Error).message });
       if (conflict) onChanged();
     } finally {
       setBusy(false);
@@ -79,6 +86,7 @@ export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onC
     { id: 'report', kind: detail.type === 'farmer_support' ? 'farm' : 'report', label: detail.type === 'farmer_support' ? 'The farm' : 'The report', ...detail.report.location },
     ...(help && detail.type !== 'farmer_support' ? [{ id: 'farm', kind: 'farm' as const, label: `The farm with the open help request (${help.id})`, ...help.farmLocation }] : []),
     ...(machine ? [{ id: 'chc', kind: 'chc' as const, label: `${machine.chcName}: ${machine.machineType}`, ...machine.location }] : []),
+    ...(detail.observation ? [{ id: 'firms', kind: 'fire' as const, label: `FIRMS fire, ${when(detail.observation.observedAt)}`, ...detail.observation.location }] : []),
   ];
 
   return (
@@ -86,7 +94,8 @@ export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onC
       <Card padding="lg">
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
           <Badge variant={closed ? 'neutral' : 'primary'}>{STATUS_NAMES[c.status]}</Badge>
-          {c.verificationStatus === 'NEEDS_REVIEW' && <Badge variant="warning">Evidence needs review</Badge>}
+          {VERIFICATION[c.verificationStatus] && <Badge variant={c.verificationStatus === 'NEEDS_REVIEW' ? 'warning' : 'neutral'}>{VERIFICATION[c.verificationStatus]}</Badge>}
+          {(detail.reports ?? 1) > 1 && <Badge variant="neutral">{detail.reports} reports merged</Badge>}
           <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{c.id} · version {c.version}</span>
         </div>
         <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.2rem', color: '#0f172a' }}>{TYPE_NAMES[detail.type ?? ''] ?? detail.type} · {detail.report.district}</h2>
@@ -94,6 +103,11 @@ export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onC
           <span>Reported {when(detail.report.reportedAt)}</span>
           {detail.deadline && <span>Act by <strong>{when(detail.deadline)}</strong></span>}
         </div>
+        {detail.escalatedAt && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <Alert variant="danger" title="Escalated">The deadline passed with no action, so the case went to {(detail.escalatedTo ?? []).join(', ')} at {when(detail.escalatedAt)}.</Alert>
+          </div>
+        )}
       </Card>
 
       {help && (
@@ -127,11 +141,14 @@ export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onC
         {detail.report.description && <p style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', color: '#1e293b' }}>“{detail.report.description}”</p>}
         <div style={{ display: 'grid', gap: '0.35rem' }}>
           <div style={row}><span>Evidence</span><span>{c.evidenceSummary}</span></div>
+          {detail.observation && (
+            <div style={row}><span>Satellite</span><span>FIRMS fire {distanceText(detail.observation.distanceFromReportMeters ?? 0)} away, {when(detail.observation.observedAt)}</span></div>
+          )}
           <div style={row}><span>Sent to</span><span>{(detail.authorities ?? []).join(', ')}</span></div>
           <div style={row}><span>Penalty</span><span>{detail.penalty ? (help?.status === 'OPEN' ? 'Possible, but offer the machine first' : 'Possible') : 'Never: this is a request for help'}</span></div>
         </div>
         <div style={{ marginTop: '0.75rem' }}>
-          <CaseMap points={points} title="The report, the farm and the CHC" />
+          <CaseMap points={points} title="The report, the farm, the CHC and any satellite fire" />
         </div>
       </Card>
 
@@ -166,7 +183,7 @@ export function CaseDetailPanel({ detail, onChanged }: { detail: CaseDetail; onC
           <ol style={{ margin: '1rem 0 0', paddingLeft: '1.1rem', display: 'grid', gap: '0.35rem', fontSize: '0.85rem', color: '#334155' }}>
             {detail.decisions.map((d) => (
               <li key={d.id}>
-                <strong>{ACTION_NAMES[d.action as CaseAction] ?? d.action}</strong> · {when(d.createdAt)} · {d.officerId}: {d.reason}
+                <strong>{ACTION_NAMES[d.action as CaseAction] ?? SYSTEM_ACTIONS[d.action] ?? d.action}</strong> · {when(d.createdAt)} · {d.officerId}: {d.reason}
                 {d.selectedMachineId ? ` (${d.selectedMachineId})` : ''}
               </li>
             ))}

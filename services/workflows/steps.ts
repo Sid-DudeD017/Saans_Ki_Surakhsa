@@ -6,7 +6,8 @@ import type { Readable } from "node:stream";
 import { GetObjectCommand, NoSuchKey } from "@aws-sdk/client-s3";
 
 import { routeFor } from "../command-api/config";
-import type { IntakeDeps } from "../command-api/deps";
+import type { FireObservation, IntakeDeps } from "../command-api/deps";
+import { metres } from "../command-api/firms";
 import { parseComplaint, type Complaint, type EvidenceMetadata } from "../command-api/inputs";
 
 /** An error Step Functions (and the local runner) retries: the database or S3 didn't answer. */
@@ -46,8 +47,10 @@ export interface IntakeState extends Record<string, unknown> {
   complaintId: string;
   type?: string;
   evidence?: { files: number; matched: number; mismatched: number; missing: number };
-  triage?: { authorities: string[]; deadlineHours: number; penalty: boolean; district: string | null };
+  triage?: { authorities: string[]; deadlineHours: number; penalty: boolean; district: string | null; firms?: FirmsCheck };
   caseId?: string;
+  /** Set when the report merged into an existing case instead of opening one. */
+  duplicateOf?: string;
   error?: { Error: string; Cause: string };
 }
 
@@ -118,14 +121,67 @@ export async function hashEvidence(deps: IntakeDeps, input: IntakeState): Promis
   });
 }
 
+/** SatelliteObservation in p4-command.openapi.yaml, as stored on the case. */
+export interface Observation {
+  id: string;
+  source: "NASA_FIRMS";
+  observedAt: string;
+  location: { lat: number; lon: number };
+  confidence: number;
+  frp: number;
+  distanceFromReportMeters: number;
+}
+
+/** match: a FIRMS fire close by, shortly before; none: FIRMS answered with nothing; unavailable: couldn't ask. */
+export interface FirmsCheck {
+  result: "match" | "none" | "unavailable";
+  observation?: Observation;
+}
+
+// VIIRS writes confidence as low / nominal / high; the contract's is a number.
+const VIIRS_CONFIDENCE: Record<string, number> = { l: 30, low: 30, n: 60, nominal: 60, h: 90, high: 90 };
+
+function observationOf(f: FireObservation, at: { lat: number; lon: number }): Observation {
+  return {
+    id: `firms-${f.satellite}-${f.acquisition_time.slice(0, 16)}-${f.lat.toFixed(4)},${f.lon.toFixed(4)}`,
+    source: "NASA_FIRMS",
+    observedAt: f.acquisition_time,
+    location: { lat: f.lat, lon: f.lon },
+    confidence: VIIRS_CONFIDENCE[f.confidence.trim().toLowerCase()] ?? (Number(f.confidence) || 0),
+    frp: f.frp,
+    distanceFromReportMeters: Math.round(metres(at, f)),
+  };
+}
+
+/** A farm-fire report is corroborated by a FIRMS fire within firmsDistanceM, seen in the firmsHours before it. */
+async function checkFirms(deps: IntakeDeps, at: { lat: number; lon: number }, reportedAt: Date): Promise<FirmsCheck> {
+  if (!deps.fires) return { result: "unavailable" };
+  const since = new Date(reportedAt.getTime() - deps.config.firmsHours * 3600_000);
+  const until = new Date(reportedAt.getTime() + 3600_000); // a pass shortly after the report still counts
+  const fires = await deps.fires(at, deps.config.firmsDistanceM, since, until);
+  if (fires === null) return { result: "unavailable" };
+  const near = fires.filter((f) => metres(at, f) <= deps.config.firmsDistanceM).sort((a, b) => metres(at, a) - metres(at, b))[0];
+  return near ? { result: "match", observation: observationOf(near, at) } : { result: "none" };
+}
+
+/** The district whose outline (infra/config/districts.json, loaded by migrate) covers the report, or null. */
+async function districtOf(deps: IntakeDeps, complaintId: string): Promise<string | null> {
+  const { rows } = await deps.db.query<{ name: string }>(
+    `SELECT d.name FROM complaints c JOIN districts d ON ST_Covers(d.boundary, c.location)
+      WHERE c.id = $1 ORDER BY d.name LIMIT 1`,
+    [complaintId],
+  );
+  return rows[0]?.name ?? null;
+}
+
 export async function triage(deps: IntakeDeps, input: IntakeState): Promise<IntakeState> {
   return guarded(async () => {
-    const { type, complaint } = await load(deps, input.complaintId);
+    const { type, complaint, received_at } = await load(deps, input.complaintId);
     const route = routeFor(type);
-    // Kisan knows the farm's district. A citizen report gets its district from the PostGIS boundary
-    // lookup (Stage 3); until then it has none and the officer queue shows it unscoped.
-    const district = complaint.type === "farmer_support" ? complaint.help_request.district : null;
-    return { ...input, triage: { ...route, district } };
+    // Kisan knows the farm's district; a citizen report gets the district whose outline covers it.
+    const district = complaint.type === "farmer_support" ? complaint.help_request.district : await districtOf(deps, input.complaintId);
+    const firms = complaint.type === "farm_fire" ? await checkFirms(deps, complaint.location, received_at) : undefined;
+    return { ...input, triage: { ...route, district, ...(firms ? { firms } : {}) } };
   });
 }
 
@@ -173,12 +229,64 @@ export async function nearestOpenHelpRequest(deps: IntakeDeps, complaintId: stri
   };
 }
 
+/**
+ * The open case this report repeats: same type, within dedupeDistanceM of the case's own report, and
+ * received within dedupeHours of it. Farmer help requests never merge.
+ */
+async function sameIncident(deps: IntakeDeps, complaintId: string): Promise<{ case_id: string; distance_m: number } | null> {
+  const { rows } = await deps.db.query<{ case_id: string; distance_m: number }>(
+    `SELECT c.id AS case_id, ST_Distance(c.location, me.location) AS distance_m
+       FROM complaints me
+       JOIN cases c ON c.type = me.type AND c.status <> 'CLOSED' AND ST_DWithin(c.location, me.location, $2)
+       JOIN complaints first ON first.id = c.complaint_id
+      WHERE me.id = $1 AND first.id <> me.id
+        AND first.received_at BETWEEN me.received_at - make_interval(secs => $3) AND me.received_at + make_interval(secs => $3)
+      ORDER BY distance_m, first.received_at
+      LIMIT 1`,
+    [complaintId, deps.config.dedupeDistanceM, deps.config.dedupeHours * 3600],
+  );
+  return rows[0] ? { case_id: rows[0].case_id, distance_m: Number(rows[0].distance_m) } : null;
+}
+
 export async function assign(deps: IntakeDeps, input: IntakeState): Promise<IntakeState> {
   return guarded(async () => {
     const { complaint, received_at } = await load(deps, input.complaintId);
     const t = input.triage ?? (await triage(deps, input)).triage!;
     const evidence = input.evidence ?? { files: 0, matched: 0, mismatched: 0, missing: 0 };
     const needsReview = evidence.mismatched > 0 || evidence.missing > 0;
+    const observation = t.firms?.result === "match" ? t.firms.observation! : null;
+
+    // A retry finds what the first run did: this report's own case, or the case it merged into.
+    const own = await deps.db.query<{ id: string }>("SELECT id FROM cases WHERE complaint_id = $1", [input.complaintId]);
+    if (own.rows[0]) {
+      await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
+      return { ...input, caseId: own.rows[0].id };
+    }
+    const merged = await deps.db.query<{ case_id: string }>("SELECT case_id FROM case_reports WHERE complaint_id = $1", [input.complaintId]);
+    if (merged.rows[0]) {
+      await deps.db.query("UPDATE complaints SET status = 'duplicate', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
+      return { ...input, caseId: merged.rows[0].case_id, duplicateOf: merged.rows[0].case_id };
+    }
+
+    if (complaint.type !== "farmer_support") {
+      const dup = await sameIncident(deps, input.complaintId);
+      if (dup) {
+        await deps.db.query(
+          `INSERT INTO case_reports (complaint_id, case_id, distance_m, merged_at) VALUES ($1, $2, $3, $4) ON CONFLICT (complaint_id) DO NOTHING`,
+          [input.complaintId, dup.case_id, dup.distance_m, deps.now()],
+        );
+        // A second report the satellite backs up corroborates the case it joins.
+        await deps.db.query(
+          `UPDATE cases SET updated_at = $2,
+                  observation = CASE WHEN $3::jsonb IS NOT NULL AND verification_status IN ('UNVERIFIED', 'NO_MATCH') THEN $3::jsonb ELSE observation END,
+                  verification_status = CASE WHEN $3::jsonb IS NOT NULL AND verification_status IN ('UNVERIFIED', 'NO_MATCH') THEN 'SATELLITE_CORROBORATED' ELSE verification_status END
+            WHERE id = $1`,
+          [dup.case_id, deps.now(), observation && JSON.stringify(observation)],
+        );
+        await deps.db.query("UPDATE complaints SET status = 'duplicate', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
+        return { ...input, caseId: dup.case_id, duplicateOf: dup.case_id };
+      }
+    }
 
     let helpRequestId: string | null = null;
     let helpLink: HelpLink | null = null;
@@ -197,15 +305,18 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
       );
     }
 
-    const deadline = new Date(received_at.getTime() + t.deadlineHours * 3600_000);
+    // Tampered or missing evidence needs a person first; otherwise the satellite's answer, if it gave one.
+    const verification = needsReview ? "NEEDS_REVIEW" : observation ? "SATELLITE_CORROBORATED" : t.firms?.result === "none" ? "NO_MATCH" : "UNVERIFIED";
+    const deadlineMs = deps.config.deadlineMinutes ? deps.config.deadlineMinutes * 60_000 : t.deadlineHours * 3600_000;
+    const deadline = new Date(received_at.getTime() + deadlineMs);
     await deps.db.query(
       `INSERT INTO cases (id, complaint_id, type, district, location, authorities, penalty, deadline,
-                          verification_status, help_request_id, help_link, evidence_summary, created_at, updated_at)
-       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $11
+                          verification_status, help_request_id, help_link, observation, evidence_summary, created_at, updated_at)
+       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12
          FROM complaints c WHERE c.id = $2
        ON CONFLICT (complaint_id) DO NOTHING`,
       [deps.newId("case"), input.complaintId, t.district ?? helpLink?.district ?? null, t.authorities, t.penalty, deadline,
-       needsReview ? "NEEDS_REVIEW" : "UNVERIFIED", helpRequestId, helpLink && JSON.stringify(helpLink), summary(evidence), deps.now()],
+       verification, helpRequestId, helpLink && JSON.stringify(helpLink), observation && JSON.stringify(observation), summary(evidence), deps.now()],
     );
     const { rows } = await deps.db.query<{ id: string }>("SELECT id FROM cases WHERE complaint_id = $1", [input.complaintId]);
     await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);

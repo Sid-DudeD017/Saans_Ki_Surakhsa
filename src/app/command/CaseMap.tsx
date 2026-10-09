@@ -7,7 +7,7 @@ import { TILE, project, tilesAround, type LatLon } from '../shala/redZone';
 export interface MapPoint extends LatLon {
   id: string;
   label: string;
-  kind: 'report' | 'help' | 'farm' | 'chc' | 'closed';
+  kind: 'report' | 'help' | 'farm' | 'chc' | 'closed' | 'fire';
   selected?: boolean;
 }
 
@@ -19,6 +19,7 @@ const STYLE: Record<MapPoint['kind'], { fill: string; r: number }> = {
   farm: { fill: '#16a34a', r: 8 },
   chc: { fill: '#2563eb', r: 8 },
   closed: { fill: '#94a3b8', r: 6 },
+  fire: { fill: '#f97316', r: 6 },
 };
 
 /** The largest zoom (5–15) at which every point fits inside the map, with a margin. */

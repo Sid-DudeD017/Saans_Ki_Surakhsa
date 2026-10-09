@@ -21,7 +21,7 @@ const modules: Record<string, Record<string, unknown>> = {
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(7);
+    expect(functions.length).toBe(8);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -38,10 +38,16 @@ describe("infra/template.yaml", () => {
 
   it("routes the two intake paths", () => {
     const paths = Object.values(resources).flatMap((r) =>
-      Object.values((r.Properties.Events ?? {}) as Record<string, { Properties: { Method: string; Path: string } }>).map(
-        (e) => `${e.Properties.Method} ${e.Properties.Path}`,
-      ),
+      Object.values((r.Properties.Events ?? {}) as Record<string, { Type: string; Properties: { Method: string; Path: string } }>)
+        .filter((e) => e.Type === "HttpApi")
+        .map((e) => `${e.Properties.Method} ${e.Properties.Path}`),
     );
     expect(paths.sort()).toEqual(["POST /v1/complaints", "POST /v1/uploads"]);
+  });
+
+  it("runs deadline escalation every minute", () => {
+    const fn = resources.EscalationFunction.Properties as { Handler: string; Events: Record<string, { Type: string; Properties: { ScheduleExpression: string } }> };
+    expect(fn.Handler).toBe("services/workflows/lambda.escalate");
+    expect(Object.values(fn.Events).map((e) => [e.Type, e.Properties.ScheduleExpression])).toEqual([["ScheduleV2", "rate(1 minute)"]]);
   });
 });

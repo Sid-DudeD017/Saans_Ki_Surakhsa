@@ -1,6 +1,7 @@
 // Example cases for the console's mock mode (P4), in CaseDetail's shape: the demo story's fire report next
-// to Gurpreet's farm in Sangrur with his open help request, Kisan's own help case, a garbage fire in Patiala,
-// and a report with a photo that didn't match its upload.
+// to Gurpreet's farm in Sangrur with his open help request (two reports merged, and a satellite fire),
+// Kisan's own help case, a garbage fire in Patiala, and a report whose photo didn't match its upload and
+// whose deadline passed, so it was escalated.
 import type { components } from '../../../packages/contracts/types';
 
 type CaseDetail = components['schemas']['CaseDetail'];
@@ -39,7 +40,8 @@ export const MOCK_CASES: CaseDetail[] = [
     case: {
       id: 'case-demo-fire',
       incidentReportId: 'complaint-demo-fire',
-      verificationStatus: 'UNVERIFIED',
+      verificationStatus: 'SATELLITE_CORROBORATED',
+      observationId: 'firms-N-2026-10-09T13:31-30.2641,76.0398',
       helpRequestId: gurpreet.id,
       recommendedMachineId: chcC.id,
       evidenceSummary: '1 file: 1 matches its upload hash',
@@ -53,6 +55,16 @@ export const MOCK_CASES: CaseDetail[] = [
     penalty: true,
     authorities: ['SDM', 'District Agriculture Officer'],
     deadline: '2026-10-09T18:02:00+05:30',
+    reports: 2,
+    observation: {
+      id: 'firms-N-2026-10-09T13:31-30.2641,76.0398',
+      source: 'NASA_FIRMS',
+      observedAt: '2026-10-09T13:31:00+05:30',
+      location: { lat: 30.2641, lon: 76.0398 },
+      confidence: 60,
+      frp: 9.4,
+      distanceFromReportMeters: 320,
+    },
     report: {
       id: 'complaint-demo-fire',
       reportedAt: '2026-10-09T14:00:00+05:30',
@@ -131,7 +143,7 @@ export const MOCK_CASES: CaseDetail[] = [
       verificationStatus: 'NEEDS_REVIEW',
       evidenceSummary: "1 file: 1 doesn't match its hash",
       status: 'OPEN',
-      version: 1,
+      version: 2,
       createdAt: '2026-10-09T13:15:00+05:30',
       updatedAt: '2026-10-09T13:15:00+05:30',
     },
@@ -139,6 +151,9 @@ export const MOCK_CASES: CaseDetail[] = [
     penalty: true,
     authorities: ['SDM', 'District Agriculture Officer'],
     deadline: '2026-10-09T17:15:00+05:30',
+    reports: 1,
+    escalatedAt: '2026-10-09T17:15:20+05:30',
+    escalatedTo: ['State Command Centre'],
     report: {
       id: 'complaint-demo-review',
       reportedAt: '2026-10-09T13:12:00+05:30',
@@ -148,6 +163,16 @@ export const MOCK_CASES: CaseDetail[] = [
       district: 'unassigned',
       status: 'OPEN',
     },
-    decisions: [],
+    decisions: [
+      {
+        id: 'decision-escalate',
+        caseId: 'case-demo-review',
+        officerId: 'saans-escalation',
+        action: 'ESCALATE',
+        reason: 'The deadline passed with no action; sent to State Command Centre.',
+        createdAt: '2026-10-09T17:15:20+05:30',
+        previousCaseVersion: 1,
+      },
+    ],
   },
 ];

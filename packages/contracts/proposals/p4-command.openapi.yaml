@@ -380,7 +380,9 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Cognito id token (from G7). Kisan Saathi files with a service credential.
+      description: >-
+        Cognito id token (from G7). Kisan Saathi files with a service credential. On the local stack, the
+        case endpoints take a demo officer's token from infra/config/officers.local.json.
   parameters:
     CaseId:
       name: id
@@ -564,7 +566,9 @@ components:
           enum: [OPEN, CLOSED]
     SatelliteObservation:
       type: object
-      required: [id, source, observedAt, location, confidence, brightness]
+      description: >-
+        The FIRMS fire that corroborated a farm-fire report: within 1 km, seen in the 12 hours before it.
+      required: [id, source, observedAt, location, confidence]
       properties:
         id:
           type: string
@@ -577,6 +581,7 @@ components:
           $ref: '#/components/schemas/GeoPoint'
         confidence:
           type: number
+          description: 0-100. VIIRS reports low, nominal or high, sent as 30, 60 and 90.
         brightness:
           type: number
         frp:
@@ -681,7 +686,8 @@ components:
           type: string
         action:
           type: string
-          enum: [APPROVE, CHANGE, REJECT, MARK_IN_FIELD, RECORD_ACTION_TAKEN, CLOSE]
+          description: ESCALATE is written by Saans itself (officerId saans-escalation) when a deadline passes
+          enum: [APPROVE, CHANGE, REJECT, MARK_IN_FIELD, RECORD_ACTION_TAKEN, CLOSE, ESCALATE]
         selectedMachineId:
           type: string
         reason:
@@ -714,6 +720,17 @@ components:
           description: Whether routing.json allows a penalty for this type (never for farmer_support)
         authorities:
           type: array
+          items:
+            type: string
+        reports:
+          type: integer
+          minimum: 1
+          description: Reports in this case; duplicates (same type, within 150 m and 6 hours) merge into one
+        escalatedAt:
+          $ref: '#/components/schemas/IndiaTimestamp'
+        escalatedTo:
+          type: array
+          description: Set with escalatedAt, when the deadline passed before any officer acted
           items:
             type: string
     CaseList:
@@ -755,6 +772,17 @@ components:
             type: string
         deadline:
           $ref: '#/components/schemas/IndiaTimestamp'
+        reports:
+          type: integer
+          minimum: 1
+          description: Reports in this case; duplicates (same type, within 150 m and 6 hours) merge into one
+        escalatedAt:
+          $ref: '#/components/schemas/IndiaTimestamp'
+        escalatedTo:
+          type: array
+          description: Set with escalatedAt, when the deadline passed before any officer acted
+          items:
+            type: string
         helpLink:
           type: object
           description: >-

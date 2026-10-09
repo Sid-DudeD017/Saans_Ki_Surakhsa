@@ -2,13 +2,13 @@
 
 // Saans Command's case console (P4): the officer's queue (nearest deadline first) and map, and one case at a
 // time with the farmer's help request before any penalty. Mock mode runs on example cases; live, on
-// /v1/cases from the local stack.
+// /v1/cases from the local stack, signed in as one of the demo officers, so Cedar shows their district only.
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { Alert, Badge, Card, Container } from '../../components/ui';
 import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
-import { USE_MOCKS, getCase, listCases, type CaseDetail, type CaseStatus, type CaseSummary } from './commandApi';
+import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getCase, listCases, type CaseDetail, type CaseStatus, type CaseSummary } from './commandApi';
 
 const STATUSES: [CaseStatus | '', string][] = [['OPEN', 'Open'], ['ACTION_APPROVED', 'Help approved'], ['ACTION_CHANGED', 'Changed'], ['CLOSED', 'Closed'], ['', 'All']];
 const DISTRICTS = ['', 'Sangrur', 'Patiala', 'unassigned'];
@@ -23,29 +23,30 @@ export default function CommandPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<{ case?: CaseDetail; error?: string }>({});
   const [reloads, setReloads] = useState(0);
+  const [officer, setOfficer] = useState(DEFAULT_OFFICER);
 
   useEffect(() => {
     let on = true;
-    listCases({ status: status || undefined, district: district || undefined }).then(
+    listCases({ status: status || undefined, district: district || undefined }, officer).then(
       (cases) => on && setQueue({ cases }),
       (e: Error) => on && setQueue({ error: e.message }),
     );
     return () => {
       on = false;
     };
-  }, [status, district, reloads]);
+  }, [status, district, officer, reloads]);
 
   useEffect(() => {
     if (!selected) return;
     let on = true;
-    getCase(selected).then(
+    getCase(selected, officer).then(
       (c) => on && setDetail({ case: c }),
       (e: Error) => on && setDetail({ error: e.message }),
     );
     return () => {
       on = false;
     };
-  }, [selected, reloads]);
+  }, [selected, officer, reloads]);
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
   const cases = queue.cases ?? [];
@@ -72,6 +73,14 @@ export default function CommandPage() {
         <div style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
           <Card padding="md">
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
+              {!USE_MOCKS && (
+                <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+                  Signed in as{' '}
+                  <select style={select} value={officer} onChange={(e) => { setOfficer(e.target.value); setSelected(null); }}>
+                    {OFFICERS.map((o) => <option key={o.token} value={o.token}>{o.name}</option>)}
+                  </select>
+                </label>
+              )}
               <label style={{ fontSize: '0.85rem', color: '#334155' }}>
                 Status{' '}
                 <select style={select} value={status} onChange={(e) => setStatus(e.target.value as CaseStatus | '')}>
@@ -102,11 +111,13 @@ export default function CommandPage() {
                   >
                     <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.95rem', color: '#0f172a' }}>
                       <strong>{TYPE_ICONS[s.type] ?? '•'} {s.district}</strong>
-                      <span style={{ fontSize: '0.8rem', color: '#b91c1c', whiteSpace: 'nowrap' }}>by {when(s.deadline)}</span>
+                      <span style={{ fontSize: '0.8rem', color: '#b91c1c', whiteSpace: 'nowrap' }}>{s.escalatedAt ? '⏫ Escalated' : `by ${when(s.deadline)}`}</span>
                     </span>
                     <span style={{ fontSize: '0.8rem', color: '#475569' }}>
                       {s.hasHelpRequest ? '🌾 Help request: offer a machine first · ' : ''}
-                      {s.case.status === 'OPEN' ? 'Open' : s.case.status === 'CLOSED' ? 'Closed' : 'Acted on'} · {s.case.evidenceSummary}
+                      {s.case.status === 'OPEN' ? 'Open' : s.case.status === 'CLOSED' ? 'Closed' : 'Acted on'}
+                      {(s.reports ?? 1) > 1 ? ` · ${s.reports} reports` : ''}
+                      {s.case.verificationStatus === 'SATELLITE_CORROBORATED' ? ' · 🛰️ satellite fire' : ''} · {s.case.evidenceSummary}
                     </span>
                   </button>
                 </li>
@@ -125,7 +136,7 @@ export default function CommandPage() {
         <div style={{ minWidth: 0 }}>
           {!selected && <Card padding="lg"><p style={{ margin: 0, color: '#475569' }}>Pick a case from the queue or the map.</p></Card>}
           {selected && detail.error && <Alert variant="danger" title="Couldn't open the case">{detail.error}</Alert>}
-          {shown && <CaseDetailPanel key={`${shown.case.id}-${shown.case.version}`} detail={shown} onChanged={reload} />}
+          {shown && <CaseDetailPanel key={`${shown.case.id}-${shown.case.version}`} detail={shown} officer={officer} onChanged={reload} />}
         </div>
       </div>
     </Container>
