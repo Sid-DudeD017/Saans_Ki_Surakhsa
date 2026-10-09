@@ -1923,6 +1923,37 @@ export interface components {
              */
             valid_until: string;
             role_advisories: components["schemas"]["RoleAdvisories"];
+            school_day?: components["schemas"]["SchoolDay"];
+        };
+        /**
+         * SchoolDay
+         * @description Each part of the school day as src/config/school-rules.json decides it: the AQI band, and indoors at a heat index of 41 °C or more. The principal's board shows these.
+         */
+        SchoolDay: {
+            aqi: number;
+            /** @description From P3's weather; null when unknown, and then only the AQI decides. */
+            heat_index_c: number | null;
+            /** @description The AQI band used, inclusive. */
+            band: {
+                from: number;
+                to: number;
+            };
+            /** @enum {string} */
+            assembly: "outdoors" | "indoors" | "state_order";
+            /** @enum {string} */
+            pe: "normal" | "light_for_asthma" | "indoors" | "state_order";
+            /** @enum {string} */
+            recess: "outdoors" | "indoors";
+            classroom_purifiers: boolean;
+            outdoor_trips: boolean;
+            /** @enum {string} */
+            parent_sms: "none" | "once" | "every_morning";
+            commute_masks: boolean;
+            /** @description True when the heat index, not the AQI, moved something indoors. */
+            heat_override: boolean;
+            decision: components["schemas"]["PrincipalDecision"];
+            severity: components["schemas"]["AdvisorySeverity"];
+            action_code: components["schemas"]["SchoolActionCode"];
         };
         /**
          * SchoolIdentity
@@ -4379,6 +4410,23 @@ export interface operations {
                      *             "problem": "required"
                      *           }
                      *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No AQI reading for the school right now (P3's sources are down) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "sources_unavailable",
+                     *         "message": "no AQI reading for this school right now; try again in a minute"
                      *       }
                      *     }
                      */

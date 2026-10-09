@@ -1,0 +1,12 @@
+{
+  "$comment": "Schools Saans Shala knows (P2). The demo school is the one in p2-shala.openapi.json's example; it's a demo entry, not a real school's record.",
+  "schools": [
+    {
+      "id": "school_demo_001",
+      "name": "Government Senior Secondary School — Sangrur Campus",
+      "district": "Sangrur",
+      "location": { "lat": 30.245, "lon": 75.842 },
+      "demo": true
+    }
+  ]
+}

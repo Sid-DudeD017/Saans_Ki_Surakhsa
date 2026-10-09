@@ -53,7 +53,7 @@ function Card({ card, language }: { card: GasCard; language: Language }) {
         >
           <strong style={{ fontSize: '1.5rem', fontVariantNumeric: 'tabular-nums' }}>{card.reading.subIndex}</strong>
           <span style={{ fontSize: '0.85rem' }}>
-            {WORDS.index[language]} · {CATEGORY_NAMES[card.reading.category][language]} · {card.reading.concentration} {unitLabel(card.reading.unit)}
+            {WORDS.index[language]} · {CATEGORY_NAMES[card.reading.category][language]} · {Number(card.reading.concentration.toFixed(1))} {unitLabel(card.reading.unit)}
           </span>
         </div>
       ) : (
