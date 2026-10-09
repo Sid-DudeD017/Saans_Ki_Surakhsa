@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
-import { submitComplaint } from '../lib/api';
+import { submitComplaint, mapCategoryToCitizenType } from '../lib/api';
 import { Button } from './ui';
 
 export const ReportButton: React.FC = () => {
@@ -15,24 +15,29 @@ export const ReportButton: React.FC = () => {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) return;
 
     setSubmitting(true);
+    setError(null);
     try {
       const res = await submitComplaint({
         category,
         description: description.trim(),
         latitude: 30.245,
         longitude: 75.842,
+        lat: 30.245,
+        lon: 75.842,
         reported_by_role: role,
         school_id: 'school_demo_001',
       });
-      setSubmittedTicket(res.ticket_id);
+      setSubmittedTicket(res.ticket_id || res.id || 'SUBMITTED');
     } catch (err) {
       console.error('Failed to submit report', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit incident report');
     } finally {
       setSubmitting(false);
     }
@@ -41,6 +46,7 @@ export const ReportButton: React.FC = () => {
   const handleClose = () => {
     setIsOpen(false);
     setSubmittedTicket(null);
+    setError(null);
     setDescription('');
   };
 
@@ -166,6 +172,22 @@ export const ReportButton: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit}>
+                  {error && (
+                    <div
+                      style={{
+                        marginBottom: '1rem',
+                        padding: '0.625rem 0.75rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        color: '#991b1b',
+                        fontSize: '0.8125rem',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      ⚠️ {error}
+                    </div>
+                  )}
                   <div style={{ marginBottom: '1rem' }}>
                     <label
                       style={{
@@ -208,6 +230,11 @@ export const ReportButton: React.FC = () => {
                         )
                       )}
                     </div>
+                    {!mapCategoryToCitizenType(category) && (
+                      <div style={{ marginTop: '0.375rem', fontSize: '0.75rem', color: '#b45309' }}>
+                        ℹ️ Note: Live intake routes Smoke, Burning waste, Vehicle idling, and Firecrackers. &apos;{category}&apos; is recorded locally for campus monitoring.
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginBottom: '1.25rem' }}>
