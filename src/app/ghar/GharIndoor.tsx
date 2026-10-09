@@ -2,7 +2,7 @@
 
 // Ghar ki Hawa's indoor estimate (P3): the Sharma example worked through, then this room now, the next 24 hours
 // and today's plan, for a room you can change.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 import { steadyIndoor, type IndoorEstimate, type IndoorRequest, type PlanItem } from '../../../packages/aqi/indoor';
 import { INDOOR_DEFAULTS } from '../../../packages/aqi/indoorDefaults';
@@ -64,7 +64,7 @@ export function GharIndoor() {
 
   const [aqiResult, setAqiResult] = useState<{ data?: AqiWireResponse; error?: string; loading?: boolean; empty?: boolean; stale?: boolean }>({ loading: true });
 
-  const fetchAqi = () => {
+  const fetchAqi = useCallback(() => {
     setAqiResult({ loading: true });
     getAqi(room.lat, room.lon).then(
       (data) => {
@@ -77,17 +77,16 @@ export function GharIndoor() {
       },
       (e: Error) => setAqiResult({ error: e.message })
     );
-  };
+  }, [room.lat, room.lon]);
 
   useEffect(() => {
     fetchAqi();
-  }, [room.lat, room.lon]);
+  }, [fetchAqi]);
 
-  const [isFetching, setIsFetching] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
     let on = true;
-    setIsFetching(true);
     const timer = setTimeout(() => {
       getIndoorEstimate(room).then(
         (estimate) => { if (on) { setResult({ estimate }); setIsFetching(false); } },
@@ -100,7 +99,10 @@ export function GharIndoor() {
     };
   }, [room]);
 
-  const set = <K extends keyof IndoorRequest>(key: K, value: IndoorRequest[K]) => setRoom((r) => ({ ...r, [key]: value }));
+  const set = <K extends keyof IndoorRequest>(key: K, value: IndoorRequest[K]) => {
+    setIsFetching(true);
+    setRoom((r) => ({ ...r, [key]: value }));
+  };
   const num = (key: 'room_area_m2' | 'windows' | 'purifier_cadr_m3_h' | 'smokers', min: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
     if (Number.isFinite(v) && v >= min) set(key, key === 'windows' || key === 'smokers' ? Math.round(v) : v);
