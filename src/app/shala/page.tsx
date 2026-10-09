@@ -12,14 +12,14 @@ import {
 } from '../../lib/api';
 import { Card, Button, Container, Stack, Badge, Alert } from '../../components/ui';
 import { AirBuddy } from './AirBuddy';
-import { CATEGORY_NAMES, WORDS } from './airQuality';
-import { AQI_FIXTURES, type FixtureDay } from './aqiFixtures';
+import { CATEGORIES, CATEGORY_NAMES, WORDS, type Category } from './airQuality';
+import { AQI_FIXTURES } from './aqiFixtures';
 import { GasCards } from './GasCards';
 
 export default function ShalaPage() {
   const { role, user } = useAuth();
   const { t, language } = useLanguage();
-  const [fixtureDay, setFixtureDay] = useState<FixtureDay>('poor_day');
+  const [fixtureDay, setFixtureDay] = useState<Category>('poor');
   const airDay = AQI_FIXTURES[fixtureDay];
 
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
@@ -155,9 +155,9 @@ export default function ShalaPage() {
         <AirBuddy category={airDay.category} language={language} aqi={airDay.aqi} />
         <div role="group" aria-label={WORDS.exampleDay[language]} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: '#64748b' }}>
           <span>{WORDS.exampleDay[language]}:</span>
-          {(Object.keys(AQI_FIXTURES) as FixtureDay[]).map((day) => (
+          {CATEGORIES.map((day) => (
             <Button key={day} size="sm" variant={day === fixtureDay ? 'primary' : 'secondary'} aria-pressed={day === fixtureDay} onClick={() => setFixtureDay(day)}>
-              {CATEGORY_NAMES[AQI_FIXTURES[day].category][language]}
+              {CATEGORY_NAMES[day][language]}
             </Button>
           ))}
         </div>
