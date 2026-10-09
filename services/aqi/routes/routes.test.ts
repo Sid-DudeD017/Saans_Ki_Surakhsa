@@ -91,6 +91,15 @@ describe('the dose', () => {
     expect(segments.reduce((a, s) => a + s.duration_min, 0)).toBeCloseTo(route.duration_s / 60, 0);
     expect(segments.every((s) => s.pm25_ug_m3 === 150 && s.name.length > 0)).toBe(true);
   });
+
+  it('never lists the same road twice in a row', () => {
+    for (const name of ['noida-to-saket', 'cp-to-sarita-vihar']) {
+      for (const route of fromOsrm(fixture(name))) {
+        const segments = segmentsOf(doseAlong(cutRoute(route), DEPART, 'two_wheeler', 0, () => 150)!.pieces);
+        expect(segments.every((s, i) => i === 0 || s.name !== segments[i - 1].name)).toBe(true);
+      }
+    }
+  });
 });
 
 describe('picking a route', () => {

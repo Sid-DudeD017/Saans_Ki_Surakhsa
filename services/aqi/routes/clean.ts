@@ -145,6 +145,16 @@ export function segmentsOf(pieces: TimedPiece[], max = 6): Segment[] {
     const merged = { name: keep.name || a.name || b.name, seconds: a.seconds + b.seconds, pm: a.pm + b.pm, cong: a.cong + b.cong };
     groups = [...groups.slice(0, Math.min(i, j)), merged, ...groups.slice(Math.max(i, j) + 1)];
   }
+  // Folding can leave two stretches of the same road side by side; join them.
+  groups = groups.reduce<Acc[]>((out, g) => {
+    const prev = out[out.length - 1];
+    if (prev && prev.name === g.name) {
+      prev.seconds += g.seconds;
+      prev.pm += g.pm;
+      prev.cong += g.cong;
+    } else out.push({ ...g });
+    return out;
+  }, []);
   return groups.map((g) => ({
     name: g.name || 'Local roads',
     pm25_ug_m3: round1(g.pm / g.seconds),
