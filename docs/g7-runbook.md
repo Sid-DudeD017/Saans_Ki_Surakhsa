@@ -6,9 +6,9 @@ This runbook describes the deployment of the Saans Command module, its Cognito i
 Before deploying, the team must confirm:
 - Target AWS account ID and Stack Name.
 - The region must be exactly **ap-south-1**.
-- The production RDS Database URL is provisioned.
+- A short-lived public RDS instance and its Secrets Manager secret (`databaseUrl` key) are provisioned.
 - The Cognito callback/logout URLs are approved.
-- The SMS delivery backend is chosen (AWS End User Messaging SMS or `outbox` fallback).
+- Real-phone SMS is excluded from this demo by team-leader decision.
 
 ## 2. Infrastructure Setup & Validation
 
@@ -20,7 +20,10 @@ aws sts get-caller-identity --profile saans
 Verify the default region is set to `ap-south-1` in your `~/.aws/config`.
 
 ### Secure Database URL Handling
-Obtain the production Database URL. Do not place this URL in shell history, `README.md`, or Git. Set it as an environment variable or secure parameter during deployment. 
+Pass only the Secrets Manager ARN as `DatabaseSecretArn`; never place the database URL or password
+in shell history, documentation, or Git. The development stack resolves the secret's `databaseUrl`
+field during deployment. The current short-lived public RDS connection is encrypted and must be
+replaced by private networking plus certificate verification before production use.
 
 ### Local Validation
 Run these commands to ensure the codebase is clean:
@@ -45,7 +48,7 @@ sam build --template-file infra/template.yaml
 ### First Deployment
 For the initial deployment, use the guided mode to set parameter overrides (like the Database URL and Cognito domains).
 The guided prompts also ask for:
-- `BillingAlertEmail` (required): who gets the $40 and $50 budget emails.
+- `BillingAlertEmail` (optional): who gets the $40 and $50 budget emails.
 - `SmsToSangrur`, `SmsToPatiala`, `SmsToUnassigned`: E.164 numbers for assignment and action-taken SMS
   (hidden in the console; leave empty for no SMS). Type them at the prompt; don't save them in `samconfig.toml`.
 - `SmsBackend` (`outbox` by default) and, for `aws`, `SmsSenderId`, `SmsEntityId`, `SmsTemplateAssignment`,
@@ -80,19 +83,31 @@ Execute the following verification matrix against the deployed API:
 - Inspect CloudWatch alarms (e.g., 5XX errors, Lambda errors).
 - Inspect the `NotificationFailureDLQ` for asynchronous message routing failures.
 
-## 7. SMS / DLT Configuration
-If SMS is chosen over the `outbox` fallback, you must configure Indian DLT parameters (`SAANS_SMS_ENTITY_ID`, `SAANS_SMS_SENDER_ID`, etc.). 
-- Note: Real SMS cannot be marked complete until a physical phone receives it.
-- If DLT registration is pending, explicitly approve the `outbox` fallback.
+## 7. SMS / DLT Configuration — rejected / out of scope
 
-## 8. Billing Alerts
+Decision recorded: `g7-sms rejected by team leader; real-phone SMS excluded from this deployment.`
+Do not configure recipient numbers or DLT identifiers and do not claim a successful real-SMS test.
+The deployment keeps `SmsBackend=outbox`, which reaches no phone.
+
+## 8. Access-control decision — complete
+
+The approved isolated-development access model is:
+
+- A user must belong to `officer` and exactly one of `district-sangrur` or `district-patiala`.
+- Officers may list, view, assign, update, and close only cases in their own district.
+- Cross-district access, counts, maps, details, and actions are denied.
+- Membership in both district groups, or neither group, is denied.
+- `CLOSED` is a terminal state enforced by the command API.
+- Field-officer and state-centre roles are intentionally deferred.
+
+## 9. Billing Alerts
 The stack creates the **USD 50** guardrail itself: `MonthlyBudget`, an AWS Budget that emails
-`BillingAlertEmail` when the month's actual cost passes $40 and again at $50. (A CloudWatch
+`BillingAlertEmail`, when supplied, when the month's actual cost passes $40 and again at $50. (A CloudWatch
 `EstimatedCharges` alarm would have to live in `us-east-1`; Budgets is account-wide, so it works from
 this `ap-south-1` stack.) AWS sends a confirmation email to that address first: confirm it, or no alert
 arrives.
 
-## 9. Rollback, Teardown, and Cost Warnings
+## 10. Rollback, Teardown, and Cost Warnings
 To destroy the stack:
 ```bash
 sam delete

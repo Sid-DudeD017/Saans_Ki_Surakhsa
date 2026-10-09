@@ -92,16 +92,16 @@ Saans Ki Surakhsa is an emergency intake system tracking stubble burning and res
 ## Configuration
 
 Set the following variables in your frontend or `.env` to connect to the deployed AWS resources. The
-values are the stack's outputs after the first `sam deploy` (`ApiUrl`, `CognitoUserPoolId`,
-`CognitoClientId`, `CognitoDomain`); until G7 is deployed they don't exist yet, so these are the shapes:
+values below are the current development stack outputs (`ApiUrl`, `CognitoUserPoolId`,
+`CognitoClientId`, `CognitoDomain`):
 
 ```env
 # Frontend API and Cognito
-NEXT_PUBLIC_API_BASE_URL=https://<api-id>.execute-api.ap-south-1.amazonaws.com/dev
-SAANS_API_URL=https://<api-id>.execute-api.ap-south-1.amazonaws.com/dev
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=ap-south-1_xxxxxxxxx
-NEXT_PUBLIC_COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
-NEXT_PUBLIC_COGNITO_DOMAIN=saans-dev-yourname
+NEXT_PUBLIC_API_BASE_URL=https://5qu2ontx1e.execute-api.ap-south-1.amazonaws.com/dev
+SAANS_API_URL=https://5qu2ontx1e.execute-api.ap-south-1.amazonaws.com/dev
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=ap-south-1_NelE9fK19
+NEXT_PUBLIC_COGNITO_CLIENT_ID=7iaqs24p44dsht1o8kmuspffla
+NEXT_PUBLIC_COGNITO_DOMAIN=saans-dev-054266242578
 ```
 
 ### Authentication Flow

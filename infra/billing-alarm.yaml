@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Saans USD 50 account billing alarm (deploy this stack only in us-east-1)
+
+Parameters:
+  AlarmEmail:
+    Type: String
+    Description: Team email that confirms the SNS subscription
+
+Resources:
+  BillingAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint:
+            Ref: AlarmEmail
+          Protocol: email
+
+  EstimatedChargesUsd50:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Saans account estimated charges reached USD 50
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+      AlarmActions:
+        - Ref: BillingAlarmTopic
+
+Outputs:
+  BillingAlarmName:
+    Value:
+      Ref: EstimatedChargesUsd50

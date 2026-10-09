@@ -10,10 +10,9 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, demo]
-  DatabaseUrl:
+  DatabaseSecretArn:
     Type: String
-    NoEcho: true
-    Description: postgres:// URL of the PostGIS database (G7 replaces this with RDS and Secrets Manager)
+    Description: ARN of a Secrets Manager secret whose databaseUrl field contains the PostgreSQL URL
 
   CorsAllowedOrigin:
     Type: String
@@ -29,8 +28,9 @@ Parameters:
     Default: "http://localhost:3000/logout"
   BillingAlertEmail:
     Type: String
+    Default: ""
     Description: Who AWS Budgets emails when the Saans account's monthly cost passes $40 and $50
-    AllowedPattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    AllowedPattern: "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
   SmsToSangrur:
     Type: String
     Default: ""
@@ -76,7 +76,7 @@ Globals:
     Environment:
       Variables:
         SAANS_DATABASE_URL:
-          Ref: DatabaseUrl
+          Fn::Sub: "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:databaseUrl}}"
         SAANS_EVIDENCE_BUCKET:
           Ref: EvidenceBucket
         SAANS_S3_ENDPOINT: ""
@@ -102,6 +102,13 @@ Globals:
         SAANS_SMS_DLQ_URL:
           Ref: NotificationFailureDLQ
         SAANS_SMS_OUTBOX: /tmp/saans_sms.jsonl
+
+Conditions:
+  HasBillingAlertEmail:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: BillingAlertEmail
+          - ""
 
 Resources:
   EvidenceBucket:
@@ -666,10 +673,30 @@ Resources:
         Target: node22
         Sourcemap: true
 
+  DatabaseMigrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/migration.handler
+      CodeUri: ../
+      Timeout: 60
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/migration.ts]
+        Target: node22
+
+  DatabaseMigration:
+    Type: Custom::DatabaseMigration
+    Properties:
+      ServiceToken:
+        Fn::GetAtt: [DatabaseMigrationFunction, Arn]
+      SchemaVersion: 1
+
   MonthlyBudget:
     # The $50 guardrail. AWS publishes billing metrics only in us-east-1, so a CloudWatch alarm in this
     # ap-south-1 stack would never fire; Budgets is account-wide and works from any region.
     Type: AWS::Budgets::Budget
+    Condition: HasBillingAlertEmail
     Properties:
       Budget:
         BudgetName:

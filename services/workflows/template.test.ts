@@ -12,6 +12,7 @@ import * as apiHandlers from "../command-api/lambda";
 import * as healthHandlers from "../command-api/health";
 import * as authHandlers from "../command-api/authorizer";
 import * as whoamiHandlers from "../command-api/whoami";
+import * as migrationHandlers from "../command-api/migration";
 import * as stepHandlers from "./lambda";
 
 const root = join(__dirname, "../..");
@@ -23,13 +24,14 @@ const modules: Record<string, Record<string, unknown>> = {
   "services/command-api/health": healthHandlers as any,
   "services/command-api/authorizer": authHandlers as any,
   "services/command-api/whoami": whoamiHandlers as any,
+  "services/command-api/migration": migrationHandlers as any,
   "services/workflows/lambda": stepHandlers,
 };
 
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(14);
+    expect(functions.length).toBe(15);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -77,6 +79,18 @@ describe("template.yaml structural checks (migrated)", () => {
   it("contains configurable CORS on Api", () => {
     expect(doc.Parameters.CorsAllowedOrigin).toBeDefined();
     expect(doc.Resources.Api.Properties.CorsConfiguration.AllowOrigins).toContainEqual({ Ref: "CorsAllowedOrigin" });
+  });
+
+  it("reads the deployed database URL from Secrets Manager and migrates it", () => {
+    expect(doc.Parameters.DatabaseSecretArn).toBeDefined();
+    expect(doc.Parameters.DatabaseUrl).toBeUndefined();
+    expect(doc.Globals.Function.Environment.Variables.SAANS_DATABASE_URL).toEqual({
+      "Fn::Sub": "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:databaseUrl}}",
+    });
+    expect(doc.Resources.DatabaseMigrationFunction.Properties.Handler).toBe("services/command-api/migration.handler");
+    expect(doc.Resources.DatabaseMigration.Properties.ServiceToken).toEqual({
+      "Fn::GetAtt": ["DatabaseMigrationFunction", "Arn"],
+    });
   });
 
   it("contains valid outputs", () => {
@@ -137,6 +151,7 @@ describe("template.yaml structural checks (migrated)", () => {
       NotificationsWithSubscribers: { Notification: { Threshold: number }; Subscribers: { SubscriptionType: string; Address: unknown }[] }[];
     };
     expect(resources.MonthlyBudget.Type).toBe("AWS::Budgets::Budget");
+    expect((resources.MonthlyBudget as any).Condition).toBe("HasBillingAlertEmail");
     expect(budget.Budget).toMatchObject({ BudgetType: "COST", TimeUnit: "MONTHLY", BudgetLimit: { Amount: 50, Unit: "USD" } });
     expect(budget.NotificationsWithSubscribers.map((n) => n.Notification.Threshold)).toEqual([80, 100]);
     for (const n of budget.NotificationsWithSubscribers) expect(n.Subscribers).toEqual([{ SubscriptionType: "EMAIL", Address: { Ref: "BillingAlertEmail" } }]);

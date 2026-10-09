@@ -35,7 +35,7 @@ describe("SMS Notification Template Integration", () => {
     const assignFn = template.Resources.AssignFunction;
     const policies = assignFn.Properties.Policies;
     expect(policies).toBeDefined();
-    const statements = policies[0].Statement;
+    const statements = policies.flatMap((p: any) => p.Statement ?? []);
     
     const smsPerm = statements.find((s: any) => s.Action === "sms-voice:SendTextMessage");
     expect(smsPerm).toBeDefined();

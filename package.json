@@ -17,6 +17,8 @@
     "stack:down": "docker compose -f infra/compose.yaml down",
     "smoke": "bash scripts/smoke.sh",
     "smoke:intake": "bash scripts/smoke-intake.sh"
+    ,"cedar:sync": "node scripts/sync-cedar.mjs"
+    ,"cedar:check": "node scripts/sync-cedar.mjs --check"
   },
   "keywords": [],
   "author": "",
