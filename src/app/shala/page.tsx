@@ -823,9 +823,13 @@ export default function ShalaPage() {
                         ±{place.accuracyM} m
                       </Badge>
                     )}
-                    {isStale && (
+                    {isStale ? (
                       <Badge variant="warning" size="sm">
                         ⏱️ {WORDS.staleReading[language]} ({WORDS.measuredAgo[language].replace('{hours}', String(staleHours))})
+                      </Badge>
+                    ) : (
+                      <Badge variant="success" size="sm">
+                        {WORDS.liveRecording[language]}
                       </Badge>
                     )}
                   </div>

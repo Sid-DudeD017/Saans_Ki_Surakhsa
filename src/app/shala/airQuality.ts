@@ -290,6 +290,11 @@ export const WORDS = {
     hi: 'पुराना डेटा', // needs native-speaker review
     en: 'Stale data',
   },
+  liveRecording: {
+    pa: '● ਲਾਈਵ (ਹਰ 1 ਮਿੰਟ)',
+    hi: '● लाइव (हर 1 मिनट)',
+    en: '● Live (every 1 min)',
+  },
   exampleData: {
     pa: 'ਉਦਾਹਰਨ ਡਾਟਾ (ਡੈਮੋ ਮੋਡ)', // needs native-speaker review
     hi: 'उदाहरण डेटा (डेमो मोड)', // needs native-speaker review

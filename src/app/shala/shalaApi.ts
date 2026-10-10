@@ -51,6 +51,24 @@ export async function getAir(lat: number, lon: number, mockDay: Category): Promi
   const roundedLat = Math.round(lat * 1000) / 1000;
   const roundedLon = Math.round(lon * 1000) / 1000;
   const nearest = findNearestStation(roundedLat, roundedLon);
+
+  // In browser, attempt live /v1/aqi endpoint first
+  if (typeof window !== 'undefined') {
+    try {
+      const live = await get<AqiResponse>(`/v1/aqi?lat=${roundedLat}&lon=${roundedLon}`);
+      if (live && typeof live.aqi === 'number') {
+        return {
+          ...live,
+          station_name: live.station_name || nearest.station.name,
+          city: live.city || nearest.station.city,
+          distance_km: live.distance_km !== undefined ? live.distance_km : nearest.distanceKm,
+        };
+      }
+    } catch {
+      // Live API unreachable: fall back to mock fixture
+    }
+  }
+
   if (USE_MOCKS) {
     const fixture = AQI_FIXTURES[mockDay];
     // Dynamic fresh timestamp (recorded within the last 15 minutes in IST)

@@ -386,6 +386,19 @@ export function useShalaAir(
     loadData(false);
   }, [loadData]);
 
+  // Continuously record / refresh data every 60 seconds (1 minute) while tab is open
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (!document.hidden) {
+        loadData(true);
+      }
+    }, 60_000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [loadData]);
+
   useEffect(() => {
     const handleVisibility = () => {
       if (!document.hidden) {
