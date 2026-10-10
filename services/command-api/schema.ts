@@ -86,6 +86,13 @@ ALTER TABLE cases ADD COLUMN IF NOT EXISTS observation jsonb;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_at timestamptz;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_to text[];
 
+-- Stage 4: Threat Assessment fields
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS threat_level text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS threat_score integer;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS threat_reasons text[];
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS automated_label text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS override jsonb;
+
 -- Reports merged into an existing case as duplicates (same type, close by, soon after). The case's own
 -- report is cases.complaint_id; these are the others. complaint_id is the key, so a retry can't add one twice.
 CREATE TABLE IF NOT EXISTS case_reports (
