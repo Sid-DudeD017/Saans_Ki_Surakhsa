@@ -36,6 +36,7 @@ import {
   type LocationStatus,
 } from '../../lib/useLocation';
 import schoolsConfig from '../../config/schools.json';
+import { BottomTabs, TabPanel, useUrlTab, type TabItem } from '../../components/BottomTabs';
 
 function CampusOverviewSkeleton({ language }: { language: 'pa' | 'hi' | 'en' }) {
   return (
@@ -616,6 +617,20 @@ function RoleAdvisoryCard({
   );
 }
 
+// The page's parts on the shared bottom bar (/shala?tab=learn): today's air and advice, the red-zone
+// map around you, learning, the quiz and game, and reporting smoke. The location bar stays above every tab.
+const SHALA_TABS = ['today', 'around', 'learn', 'play', 'report'] as const;
+type ShalaTab = (typeof SHALA_TABS)[number];
+const SHALA_BLUE = '#0369a1';
+const SHALA_TAB_LABELS: Record<ShalaTab, { icon: string; label: Record<'pa' | 'hi' | 'en', string> }> = {
+  today: { icon: '☀️', label: { pa: 'ਅੱਜ', hi: 'आज', en: 'Today' } },
+  around: { icon: '🗺️', label: { pa: 'ਆਲੇ-ਦੁਆਲੇ', hi: 'आसपास', en: 'Around' } },
+  learn: { icon: '📚', label: { pa: 'ਸਿੱਖੋ', hi: 'सीखें', en: 'Learn' } },
+  play: { icon: '🎮', label: { pa: 'ਖੇਡੋ', hi: 'खेलें', en: 'Play' } },
+  report: { icon: '📢', label: { pa: 'ਰਿਪੋਰਟ', hi: 'रिपोर्ट', en: 'Report' } },
+};
+const SHALA_TABS_NAME = { pa: 'ਸਾਂਸ ਸ਼ਾਲਾ ਦੇ ਹਿੱਸੇ', hi: 'साँस शाला के हिस्से', en: 'Saans Shala sections' };
+
 export default function ShalaPage() {
   const { role } = useAuth();
   const { language } = useLanguage();
@@ -625,6 +640,12 @@ export default function ShalaPage() {
   const [learnOpen, setLearnOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
+  const [tab, go] = useUrlTab(SHALA_TABS);
+  // On its own tab a section is always open.
+  const aroundShown = aroundYouOpen || tab === 'around';
+  const learnShown = learnOpen || tab === 'learn';
+  const gameShown = gameOpen || tab === 'play';
+  const shalaTabs: TabItem<ShalaTab>[] = SHALA_TABS.map((id) => ({ id, icon: SHALA_TAB_LABELS[id].icon, label: SHALA_TAB_LABELS[id].label[language] }));
   const [activityTab, setActivityTab] = useState<'quiz' | 'game'>('quiz');
 
   // Shared privacy-first location hook
@@ -737,7 +758,7 @@ export default function ShalaPage() {
         />
 
         {/* First visit permission prompt card */}
-        {locationStatus === 'idle' && !promptDismissed && place.kind === 'school' && (
+        {tab === 'today' && locationStatus === 'idle' && !promptDismissed && place.kind === 'school' && (
           <LocationPermissionCard
             language={language}
             onAsk={askLocation}
@@ -777,6 +798,9 @@ export default function ShalaPage() {
           />
         )}
 
+        {/* Loading and error for the air reading: every tab but Report depends on it. */}
+        {tab !== 'report' && (
+          <>
         {/* Section B: Right now - Honest 3-State Representation (loading / error / ok) */}
         {status === 'loading' && <CampusOverviewSkeleton language={language} />}
 
@@ -801,7 +825,11 @@ export default function ShalaPage() {
             </div>
           </Card>
         )}
+          </>
+        )}
 
+        <TabPanel id="today" current={tab} prefix="shala">
+        <Stack gap="md">
         {status === 'ok' && air && (
           <Card
             padding="md"
@@ -997,11 +1025,14 @@ export default function ShalaPage() {
             isExample={USE_MOCKS}
           />
         )}
+        </Stack>
+        </TabPanel>
 
+        <TabPanel id="around" current={tab} prefix="shala">
         {/* Section E: Around you - Collapsible Red-Zone Map (Closed by default, renders only when opened) */}
         {status === 'ok' && air && (
           <details
-            open={aroundYouOpen}
+            open={aroundShown}
             onToggle={(e) => setAroundYouOpen(e.currentTarget.open)}
             style={{
               backgroundColor: '#ffffff',
@@ -1011,6 +1042,9 @@ export default function ShalaPage() {
             }}
           >
             <summary
+              onClick={(e) => {
+                if (tab === 'around') e.preventDefault();
+              }}
               style={{
                 padding: '0.875rem 1rem',
                 cursor: 'pointer',
@@ -1040,7 +1074,7 @@ export default function ShalaPage() {
               )}
             </summary>
             <div style={{ padding: '0 1rem 1rem 1rem' }}>
-              {aroundYouOpen && (
+              {aroundShown && (
                 firesStatus === 'error' ? (
                   <div
                     style={{
@@ -1078,11 +1112,13 @@ export default function ShalaPage() {
             </div>
           </details>
         )}
+        </TabPanel>
 
+        <TabPanel id="learn" current={tab} prefix="shala">
         {/* Section F: Learn - What's in the air (Closed by default, renders only when opened) */}
         {status === 'ok' && air && (
           <details
-            open={learnOpen}
+            open={learnShown}
             onToggle={(e) => setLearnOpen(e.currentTarget.open)}
             style={{
               backgroundColor: '#ffffff',
@@ -1092,6 +1128,9 @@ export default function ShalaPage() {
             }}
           >
             <summary
+              onClick={(e) => {
+                if (tab === 'learn') e.preventDefault();
+              }}
               style={{
                 padding: '0.875rem 1rem',
                 cursor: 'pointer',
@@ -1108,7 +1147,7 @@ export default function ShalaPage() {
               <span>💨 {WORDS.learnAir[language]}</span>
             </summary>
             <div style={{ padding: '0 1rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {learnOpen && (
+              {learnShown && (
                 <>
                   <AirBuddy category={air.category} language={language} aqi={air.aqi} />
 
@@ -1155,11 +1194,13 @@ export default function ShalaPage() {
             </div>
           </details>
         )}
+        </TabPanel>
 
+        <TabPanel id="play" current={tab} prefix="shala">
         {/* Section G: Play - Activities & Play (Interactive Quiz & Filter Frenzy Game) */}
         {status === 'ok' && air && (
           <details
-            open={gameOpen}
+            open={gameShown}
             onToggle={(e) => setGameOpen(e.currentTarget.open)}
             style={{
               backgroundColor: '#ffffff',
@@ -1169,6 +1210,9 @@ export default function ShalaPage() {
             }}
           >
             <summary
+              onClick={(e) => {
+                if (tab === 'play') e.preventDefault();
+              }}
               style={{
                 padding: '0.875rem 1rem',
                 cursor: 'pointer',
@@ -1191,11 +1235,11 @@ export default function ShalaPage() {
                 </span>
               </div>
               <span style={{ fontSize: '0.8125rem', color: '#0284c7', fontWeight: 600 }}>
-                {gameOpen ? '▲ Close' : '▶ Explore'}
+                {tab === 'play' ? null : gameShown ? '▲ Close' : '▶ Explore'}
               </span>
             </summary>
             <div style={{ padding: '0 1rem 1rem 1rem' }}>
-              {gameOpen && (
+              {gameShown && (
                 <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* Segmented Tab Switcher */}
                   <div
@@ -1264,7 +1308,9 @@ export default function ShalaPage() {
             </div>
           </details>
         )}
+        </TabPanel>
 
+        <TabPanel id="report" current={tab} prefix="shala">
         {/* Section H: Report - 4-step report sheet with status tracking */}
         <div id="report">
           <ReportSheet
@@ -1288,7 +1334,10 @@ export default function ShalaPage() {
             isInline={true}
           />
         </div>
+        </TabPanel>
       </Stack>
+
+      <BottomTabs tabs={shalaTabs} current={tab} onChange={go} prefix="shala" label={SHALA_TABS_NAME[language]} accent={SHALA_BLUE} />
     </Container>
   );
 }

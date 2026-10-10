@@ -17,8 +17,22 @@ import { useHomeLocation, EXAMPLE_LOCATION } from './useLocation';
 import { HomePlan } from './HomePlan';
 import { FamilyDay } from './FamilyDay';
 import { useGharLanguage } from './gharTranslations';
+import { BottomTabs, TabPanel, useUrlTab, type TabItem } from '../../components/BottomTabs';
 
 const D = INDOOR_DEFAULTS;
+
+// The page's four parts on the shared bottom bar (/ghar?tab=rooms): the air now, the rooms, what to do,
+// and the family's day. The header and location stay above every tab.
+const GHAR_TABS = ['air', 'rooms', 'plan', 'family'] as const;
+type GharTab = (typeof GHAR_TABS)[number];
+const TEAL = '#0d9488';
+const GHAR_TAB_LABELS: Record<GharTab, { icon: string; label: Record<'pa' | 'hi' | 'en', string> }> = {
+  air: { icon: '🌫️', label: { pa: 'ਹੁਣ ਦੀ ਹਵਾ', hi: 'अभी की हवा', en: 'Air now' } },
+  rooms: { icon: '🚪', label: { pa: 'ਕਮਰੇ', hi: 'कमरे', en: 'Rooms' } },
+  plan: { icon: '✅', label: { pa: 'ਕੀ ਕਰੀਏ', hi: 'क्या करें', en: 'What to do' } },
+  family: { icon: '👨‍👩‍👧', label: { pa: 'ਪਰਿਵਾਰ', hi: 'परिवार', en: 'Family' } },
+};
+const GHAR_TABS_NAME = { pa: 'ਘਰ ਕੀ ਹਵਾ ਦੇ ਹਿੱਸੇ', hi: 'घर की हवा के हिस्से', en: 'Ghar ki Hawa sections' };
 const ICONS: Record<PlanItem['kind'], string> = { windows: '🪟', purifier: '🌀', source: '🔥', mask: '😷' };
 const FUELS: [IndoorRequest['cooking_fuel'], string][] = [
   ['none', 'No cooking in this room'],
@@ -47,6 +61,9 @@ type AqiWireResponse = components['schemas']['AqiResponse'];
 export function GharIndoor() {
   const { t, language } = useLanguage();
   const { tLocal } = useGharLanguage();
+  const [tab, go] = useUrlTab(GHAR_TABS);
+  const lang = (['pa', 'hi', 'en'] as const).includes(language as 'pa') ? (language as 'pa' | 'hi' | 'en') : 'en';
+  const tabItems: TabItem<GharTab>[] = GHAR_TABS.map((id) => ({ id, icon: GHAR_TAB_LABELS[id].icon, label: GHAR_TAB_LABELS[id].label[lang] }));
   
   const { location, saveLocation, isReady: locationReady } = useHomeLocation();
 
@@ -169,7 +186,8 @@ export function GharIndoor() {
   const indoorColor = indoorCat ? CATEGORY_COLORS[indoorCat] : '#94a3b8';
 
   return (
-    <div style={{ display: 'grid', gap: '1.5rem', background: '#f8fafc', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+    // minmax(0, 1fr): the column is the screen's width, not the widest card's, so nothing spills off a phone.
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem', background: '#f8fafc', padding: 'clamp(0.5rem, 3vw, 1.5rem)', fontFamily: 'Inter, sans-serif' }}>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', background: '#fff', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
@@ -185,6 +203,7 @@ export function GharIndoor() {
       </div>
 
       {/* Stats side-by-side */}
+      <TabPanel id="air" current={tab} prefix="ghar">
       <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
         {/* Outside */}
         <div style={{ flex: '1 1 300px', background: '#fff', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0', borderTop: '4px solid #38bdf8', position: 'relative', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
@@ -209,7 +228,7 @@ export function GharIndoor() {
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
             <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Primary Cause: <strong style={{ color: '#334155' }}>Indoor Hazards Active</strong></span>
-            <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, cursor: 'pointer' }}>Review rooms →</span>
+            <button type="button" onClick={() => go('rooms')} style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, cursor: 'pointer', border: 'none', background: 'none', padding: '0.5rem 0', fontFamily: 'inherit' }}>Review rooms →</button>
           </div>
 
           <details style={{ marginTop: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#475569' }}>
@@ -229,7 +248,10 @@ export function GharIndoor() {
         </div>
       </div>
 
+      </TabPanel>
+
       {/* Rooms List */}
+      <TabPanel id="rooms" current={tab} prefix="ghar">
       <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
@@ -245,7 +267,7 @@ export function GharIndoor() {
           </div>
         </div>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1rem' }}>
           {home.rooms.map(room => (
             <RoomCard 
               key={room.id}
@@ -271,17 +293,25 @@ export function GharIndoor() {
         </div>
       </div>
 
+      </TabPanel>
+
       {/* Merged Plan and Summary */}
-      <HomePlan rooms={home.rooms.map(r => ({ id: r.id, name: r.name, estimate: estimates[r.id]?.estimate }))} />
-      
+      <TabPanel id="plan" current={tab} prefix="ghar">
+        <HomePlan rooms={home.rooms.map(r => ({ id: r.id, name: r.name, estimate: estimates[r.id]?.estimate }))} />
+      </TabPanel>
+
       {/* Family's Day */}
-      <FamilyDay rooms={home.rooms} estimates={estimates} />
+      <TabPanel id="family" current={tab} prefix="ghar">
+        <FamilyDay rooms={home.rooms} estimates={estimates} />
+      </TabPanel>
       
       {USE_MOCKS && (
         <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
           {t.ghar.exampleAir}
         </p>
       )}
+
+      <BottomTabs tabs={tabItems} current={tab} onChange={go} prefix="ghar" label={GHAR_TABS_NAME[lang]} accent={TEAL} />
     </div>
   );
 }
@@ -449,7 +479,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
   const fieldBg = '#f8fafc';
   const fieldBorder = '1px solid #e2e8f0';
   const labelStyle = { fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem', display: 'block' };
-  const inputStyle = { width: '100%', padding: '0.75rem 1rem', background: fieldBg, border: fieldBorder, borderRadius: '0.5rem', color: '#1e293b', fontSize: '0.95rem', appearance: 'none' as any };
+  const inputStyle = { width: '100%', minWidth: 0, boxSizing: 'border-box' as const, padding: '0.75rem 1rem', background: fieldBg, border: fieldBorder, borderRadius: '0.5rem', color: '#1e293b', fontSize: '0.95rem', appearance: 'none' as any };
   const checkStyle = { display: 'flex', alignItems: 'center', gap: '0.75rem', background: fieldBg, padding: '1rem', borderRadius: '0.5rem', cursor: 'pointer', border: fieldBorder };
 
   const recColors: Record<string, { bg: string, text: string }> = {
@@ -460,16 +490,16 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
   };
 
   return (
-    <div style={{ gridColumn: '1 / -1', border: `2px solid ${color}`, borderRadius: '1rem', padding: '2rem', background: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
+    <div style={{ gridColumn: '1 / -1', minWidth: 0, border: `2px solid ${color}`, borderRadius: '1rem', padding: 'clamp(1rem, 4vw, 2rem)', background: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+        <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
             <input 
               type="text" 
               value={room.name} 
               onChange={(ev) => onRename(ev.target.value)} 
-              style={{ fontWeight: 800, fontSize: '1.75rem', color: '#0f172a', border: 'none', background: 'transparent', padding: 0, outline: 'none', width: 'auto' }}
+              style={{ fontWeight: 800, fontSize: '1.75rem', color: '#0f172a', border: 'none', background: 'transparent', padding: 0, outline: 'none', width: '100%', minWidth: 0, flex: '1 1 8rem' }}
             />
             {cat && (
               <Badge style={{ background: color + '20', color: color, fontSize: '0.85rem', border: `1px solid ${color}40`, padding: '0.25rem 0.75rem', borderRadius: '2rem' }}>
@@ -503,10 +533,10 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '3rem', opacity: result.isFetching ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: 'clamp(1.25rem, 4vw, 3rem)', opacity: result.isFetching ? 0.5 : 1, transition: 'opacity 0.2s' }}>
         
         {/* Left Pane: Environment Parameters */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h4 style={{ margin: '0 0 1.5rem', fontSize: '0.75rem', color: '#64748b', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             ENVIRONMENT PARAMETERS
           </h4>
@@ -600,7 +630,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
             
             {/* Kitchen Details */}
             {isKitchen && (
-              <div style={{ display: 'grid', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem' }}>
                 <div>
                   <label style={labelStyle}>{tLocal('ui.cooking_fuel')}</label>
                   <div style={{ position: 'relative' }}>
@@ -647,7 +677,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
         </div>
 
         {/* Right Pane: Graph and Recommendations */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           {e && (
             <>
               <div style={{ marginBottom: '2.5rem' }}>
@@ -690,8 +720,8 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               </div>
 
               <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, paddingRight: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: '1 1 12rem', minWidth: 0 }}>
                     <details style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
                       <summary style={{ cursor: 'pointer', outline: 'none', fontWeight: 600 }}>What we assumed</summary>
                       <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6, color: '#64748b' }}>
