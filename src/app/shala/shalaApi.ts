@@ -6,7 +6,7 @@ import type { AqiResponse, Category } from './airQuality';
 import { buildAdvisory, findSchool, type SchoolAdvisory } from './advisory';
 import { AQI_FIXTURES } from './aqiFixtures';
 import { DEMO_FIRES } from './redZoneFixtures';
-import { FORECAST_FIXTURES, isForecastCovered } from './forecastFixtures';
+import { FORECAST_FIXTURES, getDynamicForecastFixture, isForecastCovered } from './forecastFixtures';
 
 export type FirePoint = components['schemas']['FirePoint'];
 export type ForecastResponse = components['schemas']['ForecastResponse'];
@@ -39,8 +39,15 @@ export async function getAir(lat: number, lon: number, mockDay: Category): Promi
   const nearest = findNearestStation(roundedLat, roundedLon);
   if (USE_MOCKS) {
     const fixture = AQI_FIXTURES[mockDay];
+    // Dynamic fresh timestamp (recorded within the last 15 minutes in IST)
+    const now = new Date();
+    const recordedTime = new Date(now.getTime() - 15 * 60 * 1000); // 15 mins ago
+    const isoTimestamp = recordedTime.toISOString().replace(/Z$/, '+05:30');
+
     return {
       ...fixture,
+      data_timestamp: isoTimestamp,
+      stale: false,
       station_name: nearest.station.name,
       city: nearest.station.city,
       distance_km: nearest.distanceKm,
@@ -60,7 +67,14 @@ export function getAdvisory(schoolId: string, mockDay: Category): Promise<School
   if (USE_MOCKS) {
     const school = findSchool(schoolId);
     if (!school) return Promise.reject(new Error(`no school ${schoolId}`));
-    return Promise.resolve(buildAdvisory(school, AQI_FIXTURES[mockDay]));
+    const now = new Date();
+    const recordedTime = new Date(now.getTime() - 15 * 60 * 1000);
+    const fixture = {
+      ...AQI_FIXTURES[mockDay],
+      data_timestamp: recordedTime.toISOString().replace(/Z$/, '+05:30'),
+      stale: false,
+    };
+    return Promise.resolve(buildAdvisory(school, fixture));
   }
   return get(`/v1/schools/${encodeURIComponent(schoolId)}/advisory`);
 }
@@ -84,12 +98,12 @@ export async function getForecast(
     if (!isForecastCovered(roundedLat, roundedLon)) {
       throw new ShalaApiError('Forecast data is not available for the requested coordinates.', 404, 'no_coverage');
     }
-    const fixture = FORECAST_FIXTURES[mockDay] || FORECAST_FIXTURES.poor;
+    const dynamicFixture = getDynamicForecastFixture(mockDay);
     return {
-      ...fixture,
+      ...dynamicFixture,
       lat: roundedLat,
       lon: roundedLon,
-      hours: fixture.hours.slice(0, hours),
+      hours: dynamicFixture.hours.slice(0, hours),
     };
   }
   const res = await fetch(`${BASE}/v1/aqi/forecast?lat=${roundedLat}&lon=${roundedLon}&hours=${hours}`);
