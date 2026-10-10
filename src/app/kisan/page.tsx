@@ -66,18 +66,13 @@ export default function KisanPage() {
   );
 
   return (
-    <Container maxWidth="md" style={{ paddingTop: '1.5rem', paddingBottom: '2rem', fontFamily: FONT }}>
-      <header>
-        <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#0f172a' }}>🌾 {say('title', lang)}</h1>
-        <p style={{ margin: '0.25rem 0 0', fontSize: '0.95rem', color: '#475569' }}>{say('subtitle', lang)}</p>
-        {USE_MOCKS && (
-          <div style={{ marginTop: '0.4rem' }}>
-            <Badge variant="warning" size="sm">
-              {say('demo', lang)}
-            </Badge>
-          </div>
-        )}
-      </header>
+    <Container maxWidth="md" style={{ paddingTop: '0.25rem', paddingBottom: '2rem', fontFamily: FONT }}>
+      {/* The app header (src/components/AppHeader.tsx) carries the name. */}
+      {USE_MOCKS && (
+        <Badge variant="warning" size="sm">
+          {say('demo', lang)}
+        </Badge>
+      )}
 
       <FarmLocationBar language={lang} />
 
