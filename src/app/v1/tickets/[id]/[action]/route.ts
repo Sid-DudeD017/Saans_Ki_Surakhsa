@@ -9,7 +9,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id, action } = await params;
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-    const user = req.headers.get("x-user-id") || "anonymous";
+    // Real production app would use an auth token, but in dev we use a header
+    const user = process.env.NODE_ENV === "production" ? "anonymous" : (req.headers.get("x-user-id") || "anonymous");
     
     const rl = rateLimiter.check(ip, user);
     if (!rl.allowed) return NextResponse.json({ error: { code: "too_many_requests", message: "Rate limit exceeded" } }, { status: 429, headers: { 'Retry-After': (rl.retryAfter ?? 60).toString() } });

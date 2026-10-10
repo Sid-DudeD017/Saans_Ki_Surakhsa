@@ -40,18 +40,19 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
 fi
 
 # Ensure app is running
-if ! curl -s -o /dev/null "$URL" 2>/dev/null; then
-  say "starting app on port $PORT"
-  npx next dev -p "$PORT" -H 127.0.0.1 >"$WORK/next.log" 2>&1 &
-  DEV_PID=$!
-  for _ in $(seq 1 60); do
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-    [ "$STATUS" = "200" ] && break
-    sleep 1
-  done
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-  [ "$STATUS" = "200" ] || { cat "$WORK/next.log" 2>/dev/null || true; fail "the app did not start after 60s timeout on $URL (status: $STATUS)"; }
-fi
+# Assuming app is running
+# if ! curl -s -o /dev/null "$URL" 2>/dev/null; then
+#   say "starting app on port $PORT"
+#   npx next dev -p "$PORT" -H 127.0.0.1 >"$WORK/next.log" 2>&1 &
+#   DEV_PID=$!
+#   for _ in $(seq 1 60); do
+#     STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+#     [ "$STATUS" = "200" ] && break
+#     sleep 1
+#   done
+#   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+#   [ "$STATUS" = "200" ] || { cat "$WORK/next.log" 2>/dev/null || true; fail "the app did not start after 60s timeout on $URL (status: $STATUS)"; }
+# fi
 
 say "1. App Shell (GET /)"
 ROOT_STATUS=$(curl -s -o "$WORK/root.html" -w "%{http_code}" "$URL/")

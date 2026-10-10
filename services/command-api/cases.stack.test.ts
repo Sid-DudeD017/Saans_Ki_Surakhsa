@@ -59,7 +59,7 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
 
   async function file(body: unknown) {
     const res = await handleComplaints(
-      new Request("http://saans.test/v1/complaints", { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": randomUUID() }, body: JSON.stringify(body) }),
+      new Request("http://saans.test/v1/complaints", { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": "test-" + randomUUID() }, body: JSON.stringify(body) }),
       deps,
     );
     expect(res.status).toBe(201);
@@ -73,7 +73,7 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
     const id = `kisan-${randomUUID()}`;
     const help = { ...kisan.help_request, id, farmLocation: at, status, uncoveredAcres: status === "OPEN" ? 1.5 : 0 };
     const farm = kisan.support_request.farm && { ...kisan.support_request.farm, lat: at.lat, lon: at.lon };
-    await file({ ...kisan, location: at, help_request: help, support_request: { ...kisan.support_request, idempotency_key: randomUUID(), ...(farm ? { farm } : {}) } });
+    await file({ ...kisan, location: at, help_request: help, support_request: { ...kisan.support_request, idempotency_key: "test-" + randomUUID(), ...(farm ? { farm } : {}) } });
     return id;
   }
 

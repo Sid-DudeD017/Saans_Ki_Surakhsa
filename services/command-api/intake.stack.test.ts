@@ -82,7 +82,7 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     expect((await put(target, PHOTO)).status).toBe(200);
 
     const fire = report([evidenceFor(target, PHOTO)]);
-    const res = await handleComplaints(post("/v1/complaints", fire, { "Idempotency-Key": randomUUID() }), deps);
+    const res = await handleComplaints(post("/v1/complaints", fire, { "Idempotency-Key": "test-" + randomUUID() }), deps);
     expect(res.status).toBe(201);
     const { id, status } = await res.json();
     expect(status).toBe("received");
@@ -153,7 +153,7 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     const forged = { ...evidenceFor(target, PHOTO), object_key: "evidence/2026/10/23/someone-elses.jpg" };
     const wrongHash = { ...evidenceFor(target, PHOTO), hash: sha(Buffer.from("other")) };
     for (const [e, field] of [[forged, "body.evidence.0.object_key"], [wrongHash, "body.evidence.0.hash"]] as const) {
-      const res = await handleComplaints(post("/v1/complaints", report([e]), { "Idempotency-Key": randomUUID() }), deps);
+      const res = await handleComplaints(post("/v1/complaints", report([e]), { "Idempotency-Key": "test-" + randomUUID() }), deps);
       expect(res.status).toBe(400);
       expect((await res.json()).error.details[0].field).toBe(field);
     }
@@ -174,7 +174,7 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
 
   it("a cited photo that never arrived still makes a case, marked for review", async () => {
     const target = await upload(PHOTO);
-    const res = await handleComplaints(post("/v1/complaints", report([evidenceFor(target, PHOTO)]), { "Idempotency-Key": randomUUID() }), deps);
+    const res = await handleComplaints(post("/v1/complaints", report([evidenceFor(target, PHOTO)]), { "Idempotency-Key": "test-" + randomUUID() }), deps);
     const [c] = await caseFor((await res.json()).id);
     expect(c).toMatchObject({ verification_status: "NEEDS_REVIEW", evidence_summary: "1 file: 1 never uploaded" });
   });
@@ -184,7 +184,7 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
     for (let i = 0; i < 2; i++) {
       const target = await upload(PHOTO);
       await put(target, PHOTO);
-      const res = await handleComplaints(post("/v1/complaints", report([evidenceFor(target, PHOTO)]), { "Idempotency-Key": randomUUID() }), deps);
+      const res = await handleComplaints(post("/v1/complaints", report([evidenceFor(target, PHOTO)]), { "Idempotency-Key": "test-" + randomUUID() }), deps);
       ids.push((await res.json()).id);
     }
     const { rows } = await db.query<{ actual_hash: string; check_result: string }>(
@@ -233,7 +233,7 @@ describe.skipIf(!stack)("complaint intake on PostGIS + LocalStack", () => {
   });
 
   it("running the workflow twice for one complaint still leaves one case", async () => {
-    const res = await handleComplaints(post("/v1/complaints", report(), { "Idempotency-Key": randomUUID() }), deps);
+    const res = await handleComplaints(post("/v1/complaints", report(), { "Idempotency-Key": "test-" + randomUUID() }), deps);
     const { id } = await res.json();
     expect((await runIntake(deps, id, noSleep)).status).toBe("SUCCEEDED");
     expect(await caseFor(id)).toHaveLength(1);

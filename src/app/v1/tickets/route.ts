@@ -32,11 +32,14 @@ export async function GET(req: NextRequest) {
     
     const isOfficer = req.headers.get("authorization") ? true : false;
     
-    const tickets = await listTickets(deps.db, isOfficer, {
+    const result = await listTickets(deps.db, isOfficer, {
       district: searchParams.get("district") || undefined,
       status: searchParams.get("status") || undefined,
+      category: searchParams.get("category") || undefined,
+      cursor: searchParams.get("cursor") || undefined,
+      limit: parseInt(searchParams.get("limit") || "50")
     });
-    return NextResponse.json({ tickets });
+    return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ error: { code: "invalid_request", message: e.message } }, { status: 400 });
   }

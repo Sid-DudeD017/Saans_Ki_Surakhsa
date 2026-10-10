@@ -13,8 +13,6 @@ export default function CitizenSubmitPage() {
   const [error, setError] = useState<string | null>(null);
   
   const [form, setForm] = useState({
-    name: '',
-    contact: '',
     district: 'Sangrur',
     type: 'garbage',
     desc: '',
@@ -32,21 +30,26 @@ export default function CitizenSubmitPage() {
     setLoading(true);
     setError(null);
     try {
+      // Create a persistent mock ID for dev mode
+      let citId = localStorage.getItem('saans_citizen_auth');
+      if (!citId) {
+        citId = `cit-${Math.floor(Math.random()*1000000)}`;
+        localStorage.setItem('saans_citizen_auth', citId);
+      }
+
       const res = await fetch('/v1/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: form.type,
           district: form.district,
-          reporter_identity: form.name + ' (' + form.contact + ')',
+          reporter_identity: citId,
           reporter_consent: form.consent,
           idempotency_key: `cit-${Date.now()}`
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Failed to submit report');
-      
-      localStorage.setItem('saans_citizen_auth', form.name + ' (' + form.contact + ')');
       
       const ticketId = data.id;
       if (!ticketId) throw new Error('Invalid response from server: no ticket ID');
@@ -80,12 +83,6 @@ export default function CitizenSubmitPage() {
       <Card padding="lg">
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.5rem' }}>
           
-          <label style={{ fontWeight: '500' }}>{t.commandCitizen.name}</label>
-          <input style={inputStyle} value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
-
-          <label style={{ fontWeight: '500' }}>{t.commandCitizen.contact}</label>
-          <input style={inputStyle} type="text" value={form.contact} onChange={e => setForm({...form, contact: e.target.value})} required />
-
           <label style={{ fontWeight: '500' }}>{t.commandCitizen.location}</label>
           <select style={inputStyle} value={form.district} onChange={e => setForm({...form, district: e.target.value})}>
             <option value="Sangrur">Sangrur</option>

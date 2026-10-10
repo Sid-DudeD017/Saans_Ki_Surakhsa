@@ -60,7 +60,7 @@ describe.skipIf(!stack)("triage on PostGIS", () => {
     const res = await handleComplaints(
       new Request("http://saans.test/v1/complaints", {
         method: "POST",
-        headers: { "content-type": "application/json", "Idempotency-Key": randomUUID() },
+        headers: { "content-type": "application/json", "Idempotency-Key": "test-" + randomUUID() },
         body: JSON.stringify({ type, location: at, description: "Triage test", evidence: [] }),
       }),
       deps,
@@ -234,7 +234,7 @@ describe.skipIf(!stack)("triage on PostGIS", () => {
       const res = await handleComplaints(
         new Request("http://saans.test/v1/complaints", {
           method: "POST",
-          headers: { "content-type": "application/json", "Idempotency-Key": randomUUID() },
+          headers: { "content-type": "application/json", "Idempotency-Key": "test-" + randomUUID() },
           body: JSON.stringify({ type: "vehicle", location: somewhere(), description: "Demo deadline", evidence: [] }),
         }),
         { ...demo, startWorkflow: async (id) => void (await runIntake(demo, id, async () => {})) },

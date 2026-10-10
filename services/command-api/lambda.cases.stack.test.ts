@@ -38,7 +38,7 @@ describe.skipIf(!stack)("case API Lambdas behind Cognito and Verified Permission
     await ensureBucket(deps.s3, config.evidenceBucket);
     const location = { lat: 30.1 + Math.random() * 0.2, lon: 75.75 + Math.random() * 0.3 };
     const res = await handleComplaints(
-      new Request("http://saans.test/v1/complaints", { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": randomUUID() }, body: JSON.stringify({ type: "garbage", location, description: "Lambda test", evidence: [] }) }),
+      new Request("http://saans.test/v1/complaints", { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": "test-" + randomUUID() }, body: JSON.stringify({ type: "garbage", location, description: "Lambda test", evidence: [] }) }),
       deps,
     );
     const { id } = await res.json();

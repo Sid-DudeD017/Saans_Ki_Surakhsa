@@ -65,6 +65,25 @@ export async function listCases(f: Filters = {}, token = DEFAULT_OFFICER): Promi
   return (await call<{ cases: CaseSummary[] }>(`/v1/cases?${q}`, token)).cases;
 }
 
+export interface TicketFilters {
+  status?: string;
+  district?: string;
+  category?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export async function listTickets(f: TicketFilters = {}, token = DEFAULT_OFFICER): Promise<{ tickets: any[]; next_cursor: string | null; total?: number }> {
+  const q = new URLSearchParams();
+  if (f.status) q.set('status', f.status);
+  if (f.district) q.set('district', f.district);
+  if (f.category) q.set('category', f.category);
+  if (f.cursor) q.set('cursor', f.cursor);
+  if (f.limit) q.set('limit', String(f.limit));
+  
+  return call<{ tickets: any[]; next_cursor: string | null; total?: number }>(`/v1/tickets?${q}`, token);
+}
+
 export async function getCase(id: string, token = DEFAULT_OFFICER): Promise<CaseDetail> {
   if (USE_MOCKS) {
     const d = mock.find((x) => x.case.id === id);
@@ -103,6 +122,18 @@ export async function actOnCase(id: string, input: ActionInput, token = DEFAULT_
     return structuredClone(d.case);
   }
   return call(`/v1/cases/${encodeURIComponent(id)}/actions`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getTicket(id: string, token = DEFAULT_OFFICER): Promise<any> {
+  return call(`/v1/tickets/${encodeURIComponent(id)}`, token);
+}
+
+export async function actOnTicket(id: string, input: any, token = DEFAULT_OFFICER): Promise<any> {
+  return call(`/v1/tickets/${encodeURIComponent(id)}/actions`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),

@@ -20,6 +20,15 @@ export function mapStatusToWire(dbStatus: string): WireTicketStatus {
     case "RESOLVED": return "resolved";
     case "CLOSED": return "closed";
     case "REOPENED": return "reopened";
+    // Also pass through valid wire formats
+    case "submitted": return "submitted";
+    case "under_review": return "under_review";
+    case "assigned": return "assigned";
+    case "in_progress": return "in_progress";
+    case "awaiting_information": return "awaiting_information";
+    case "resolved": return "resolved";
+    case "closed": return "closed";
+    case "reopened": return "reopened";
     default: return "submitted"; // Fallback
   }
 }
@@ -48,7 +57,9 @@ export function mapCaseToTicket(c: any, isOfficer: boolean = false, currentUser?
     updated_at: c.updated_at,
     reporter_consent: c.reporter_consent || false,
     public_notes: c.public_notes || [],
-    evidence: c.evidence || []
+    evidence: c.evidence || [],
+    location: (c.lat !== undefined && c.lon !== undefined) ? { lat: Number(c.lat), lon: Number(c.lon) } : undefined,
+    deadline: c.deadline
   };
 
   if (c.resolution_summary) {

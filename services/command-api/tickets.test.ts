@@ -37,7 +37,8 @@ describe("tickets API", () => {
 
   it("list with filters", async () => {
     await createTicket(db, { type: "garbage", district: "Mohali", idempotency_key: newId("test") });
-    const list = await listTickets(db, true, { district: "Mohali" });
+    const res = await listTickets(db, true, { district: "Mohali" });
+    const list = res.tickets;
     expect(list.length).toBeGreaterThan(0);
     expect(list[0].district).toBe("Mohali");
   });
@@ -118,8 +119,8 @@ describe("tickets API", () => {
     const history = await getTicketHistory(db, res.ticket.id);
     expect(history.length).toBeGreaterThan(5);
     // wire formats in history
-    const afterState = typeof history[0].after_state === "string" ? JSON.parse(history[0].after_state) : history[0].after_state;
-    expect(afterState.status).toBe("under_review");
+    expect(history[0].status).toBe("submitted");
+    expect(history[1].status).toBe("under_review");
   });
 
   it("400 validation", async () => {
@@ -156,5 +157,42 @@ describe("tickets API", () => {
     expect(res1.status).toBe(201);
     expect(res2.status).toBe(200);
     expect(res1.ticket.id).toBe(res2.ticket.id);
+  });
+
+  it("400 validation: note requires reason", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await expect(applyTicketAction(db, res.ticket.id, { action: "note" }, "officer-1", true)).rejects.toThrow("Note text is required");
+  });
+
+  it("400 validation: override requires level and reason", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await expect(applyTicketAction(db, res.ticket.id, { action: "override_threat", overrideThreatLevel: "critical" }, "officer-1", true)).rejects.toThrow("Override requires level and reason");
+    await expect(applyTicketAction(db, res.ticket.id, { action: "override_threat", reason: "because" }, "officer-1", true)).rejects.toThrow("Override requires level and reason");
+  });
+
+  it("pagination and threat ordering", async () => {
+    const dist = "Pag-" + Date.now();
+    // Insert 3 tickets with different threat levels
+    const t1 = await createTicket(db, { type: "garbage", district: dist, idempotency_key: newId("test") });
+    const t2 = await createTicket(db, { type: "garbage", district: dist, idempotency_key: newId("test") });
+    const t3 = await createTicket(db, { type: "garbage", district: dist, idempotency_key: newId("test") });
+
+    await db.query("UPDATE cases SET threat_level = 'low' WHERE id = $1", [t1.ticket.id]);
+    await db.query("UPDATE cases SET threat_level = 'critical' WHERE id = $1", [t2.ticket.id]);
+    await db.query("UPDATE cases SET threat_level = 'medium' WHERE id = $1", [t3.ticket.id]);
+
+    // Order should be: critical (t2), medium (t3), low (t1)
+    // Page 1: limit 2
+    const page1 = await listTickets(db, true, { district: dist, limit: 2 });
+    expect(page1.tickets.length).toBe(2);
+    expect(page1.tickets[0].id).toBe(t2.ticket.id);
+    expect(page1.tickets[1].id).toBe(t3.ticket.id);
+    expect(page1.next_cursor).not.toBeNull();
+
+    // Page 2: the rest
+    const page2 = await listTickets(db, true, { district: dist, limit: 2, cursor: page1.next_cursor! });
+    expect(page2.tickets.length).toBe(1);
+    expect(page2.tickets[0].id).toBe(t1.ticket.id);
+    expect(page2.next_cursor).toBeNull();
   });
 });

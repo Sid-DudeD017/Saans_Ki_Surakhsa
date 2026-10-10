@@ -14,7 +14,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const deps = await localDeps();
     const isOfficer = req.headers.get("authorization") ? true : false;
-    const user = req.headers.get("x-user-id") || "anonymous";
+    // Real production app would use an auth token, but in dev we use a header
+    const user = process.env.NODE_ENV === "production" ? "anonymous" : (req.headers.get("x-user-id") || "anonymous");
 
     if (!isOfficer && user === "anonymous") {
         return NextResponse.json({ error: { code: "unauthenticated", message: "Missing authentication" } }, { status: 401 });

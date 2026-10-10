@@ -23,12 +23,13 @@ export const TicketActionSchema = z.object({
   action: z.enum([
     "accept", "note", "request_info", "upload_evidence", 
     "reassign", "update_status", "resolve", 
-    "citizen_confirm", "citizen_reopen"
+    "citizen_confirm", "citizen_reopen", "override_threat"
   ]),
   reason: z.string().optional(),
   summary: z.string().optional(), // Required for resolve
   status: z.string().optional(), // For update_status
-  assignee: z.string().optional() // For reassign
+  assignee: z.string().optional(), // For reassign
+  overrideThreatLevel: z.enum(["low", "medium", "high", "critical"]).optional()
 });
 
 export async function createTicket(db: Db, body: any) {
@@ -55,7 +56,7 @@ export async function createTicket(db: Db, body: any) {
 
   await db.query(`
     INSERT INTO status_history (case_id, status, changed_by, reason)
-    VALUES ($1, 'OPEN', $2, 'ticket_created')
+    VALUES ($1, 'submitted', $2, 'ticket_created')
   `, [ticketId, parsed.reporter_identity || 'anonymous']);
 
   return { ticket: mapCaseToTicket(res.rows[0], false), status: 201 };
@@ -67,9 +68,10 @@ export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: s
   return mapCaseToTicket(res.rows[0], isOfficer, user);
 }
 
-export async function listTickets(db: Db, isOfficer: boolean, filters: { district?: string, status?: string }) {
-  let query = `SELECT * FROM cases WHERE 1=1`;
+export async function listTickets(db: Db, isOfficer: boolean, filters: { district?: string, status?: string, category?: string, cursor?: string, limit?: number }) {
+  let query = `SELECT *, ST_Y(location::geometry) as lat, ST_X(location::geometry) as lon FROM cases WHERE 1=1`;
   const params: any[] = [];
+  
   if (filters.district) {
     params.push(filters.district);
     query += ` AND district = $${params.length}`;
@@ -78,9 +80,67 @@ export async function listTickets(db: Db, isOfficer: boolean, filters: { distric
     params.push(mapStatusToDb(filters.status as any));
     query += ` AND status = $${params.length}`;
   }
-  query += ` ORDER BY created_at DESC LIMIT 50`;
+  if (filters.category) {
+    params.push(filters.category);
+    query += ` AND type = $${params.length}`;
+  }
+  
+  // Cursor pagination assumes [threat_score, created_at_iso, id]
+  if (filters.cursor) {
+    try {
+      const v = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8"));
+      if (Array.isArray(v) && v.length === 3) {
+         params.push(v[0]);
+         const scoreParam = params.length;
+         params.push(v[1]);
+         const tparam = params.length;
+         params.push(v[2]);
+         const idparam = params.length;
+         query += ` AND (
+           CASE threat_level WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END,
+           created_at, 
+           id
+         ) < ($${scoreParam}, $${tparam}::timestamptz, $${idparam})`;
+      }
+    } catch (e) {
+      // invalid cursor
+    }
+  }
+
+  // Threat level mapping for ordering: critical=4, high=3, medium=2, low=1, null=0
+  query += ` ORDER BY 
+    CASE threat_level WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC, 
+    created_at DESC, 
+    id DESC 
+  LIMIT $${params.push((filters.limit || 50) + 1)}`;
+
   const res = await db.query(query, params);
-  return res.rows.map(r => mapCaseToTicket(r, isOfficer));
+  const rows = res.rows;
+  
+  const limit = filters.limit || 50;
+  const hasNext = rows.length > limit;
+  const page = rows.slice(0, limit);
+  
+  let next_cursor = null;
+  if (hasNext && page.length > 0) {
+    const last = page[page.length - 1];
+    const lastDate = last.created_at instanceof Date ? last.created_at : new Date(last.created_at as any);
+    const score = last.threat_level === 'critical' ? 4 : last.threat_level === 'high' ? 3 : last.threat_level === 'medium' ? 2 : last.threat_level === 'low' ? 1 : 0;
+    next_cursor = Buffer.from(JSON.stringify([score, lastDate.toISOString(), last.id])).toString("base64url");
+  }
+
+  // Calculate total count (ignoring pagination, but with the same filters)
+  let countQuery = "SELECT COUNT(*) FROM cases WHERE 1=1";
+  const countParams: any[] = [];
+  if (filters.district) countQuery += ` AND district = $${countParams.push(filters.district)}`;
+  if (filters.category) countQuery += ` AND type = $${countParams.push(filters.category)}`;
+  if (filters.status) {
+    countQuery += ` AND status = $${countParams.push(mapStatusToDb(filters.status as any))}`;
+  }
+  const countRes = await db.query(countQuery, countParams);
+  const total = parseInt(String(countRes.rows[0].count), 10);
+
+  return { tickets: page.map(r => mapCaseToTicket(r, isOfficer)), next_cursor, total };
 }
 
 export async function applyTicketAction(db: Db, id: string, body: any, user: string, isOfficer: boolean) {
@@ -89,9 +149,14 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   if (parsed.action === "resolve" && !parsed.summary) {
     throw new TicketError("invalid_request", "Resolution summary is required");
   }
-  
+  if (parsed.action === "note" && !parsed.reason) {
+    throw new TicketError("invalid_request", "Note text is required in reason field");
+  }
+  if (parsed.action === "override_threat" && (!parsed.overrideThreatLevel || !parsed.reason)) {
+    throw new TicketError("invalid_request", "Override requires level and reason");
+  }  
   // Authorization rules
-  const officerOnly = ["accept", "reassign", "update_status", "resolve"];
+  const officerOnly = ["accept", "reassign", "update_status", "resolve", "note", "request_info", "override_threat"];
   const citizenOnly = ["citizen_confirm", "citizen_reopen"];
   
   if (!isOfficer && officerOnly.includes(parsed.action)) {
@@ -154,14 +219,21 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   if (parsed.action === "resolve") {
     extraSql = `, resolution_summary = $2`;
     extraParams = [parsed.summary];
+  } else if (parsed.action === "override_threat") {
+    if (!parsed.overrideThreatLevel || !parsed.reason) {
+       throw new TicketError("invalid_request", "overrideThreatLevel and reason are required");
+    }
+    const overrideValue = { level: parsed.overrideThreatLevel, reason: parsed.reason, by: user, at: timestamp };
+    extraSql = `, override = $2::jsonb, threat_level = $3`;
+    extraParams = [JSON.stringify(overrideValue), parsed.overrideThreatLevel];
   } else if (parsed.reason || parsed.summary) {
     const text = parsed.summary || parsed.reason;
     if (isOfficer && !["request_info"].includes(parsed.action)) {
        extraSql = `, internal_notes = coalesce(internal_notes, '[]'::jsonb) || $2::jsonb`;
-       extraParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
+       extraParams = [JSON.stringify([{ at: timestamp, by: user, text }])];
     } else {
        extraSql = `, public_notes = coalesce(public_notes, '[]'::jsonb) || $2::jsonb`;
-       extraParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
+       extraParams = [JSON.stringify([{ at: timestamp, by: user, text }])];
     }
   } else if (parsed.action === "upload_evidence" && body.evidence) {
     extraSql = `, evidence = coalesce(evidence, '[]'::jsonb) || $2::jsonb`;
@@ -179,13 +251,16 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
     await db.query(`
       INSERT INTO status_history (case_id, status, changed_by, reason)
       VALUES ($1, $2, $3, $4)
-    `, [id, nextStatus, user, parsed.reason || parsed.summary || null]);
+    `, [id, mapStatusToWire(String(nextStatus)), user, parsed.reason || parsed.summary || null]);
   }
 
   return mapCaseToTicket(res.rows[0], isOfficer, user);
 }
 
 export async function getTicketHistory(db: Db, id: string) {
-  const res = await db.query(`SELECT * FROM audit_log WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]);
-  return res.rows;
+  const res = await db.query(`SELECT created_at, status, changed_by, reason FROM status_history WHERE case_id = $1 ORDER BY created_at ASC`, [id]);
+  return res.rows.map(r => ({
+    ...r,
+    status: mapStatusToWire(String(r.status))
+  }));
 }
