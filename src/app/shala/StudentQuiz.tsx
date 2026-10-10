@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/ui';
 import type { Language } from './airQuality';
-import { QUIZ_QUESTIONS } from './quizData';
+import { getDynamicQuiz, type QuizQuestion } from './quizData';
 
 interface StudentQuizProps {
   language: Language;
@@ -46,9 +46,9 @@ const UI_TEXT = {
     en: 'See Results',
   },
   retry: {
-    pa: 'ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ',
-    hi: 'फिर से प्रयास करें',
-    en: 'Try Again',
+    pa: 'ਨਵੇਂ ਸਵਾਲਾਂ ਨਾਲ ਦੁਬਾਰਾ ਖੇਡੋ',
+    hi: 'नए प्रश्नों के साथ फिर खेलें',
+    en: 'Play Again with New Questions',
   },
   wellDone: {
     pa: 'ਬਹੁਤ ਵਧੀਆ!',
@@ -83,16 +83,17 @@ const UI_TEXT = {
 };
 
 export function StudentQuiz({ language }: StudentQuizProps) {
+  const [questions, setQuestions] = useState<QuizQuestion[]>(() => getDynamicQuiz(5));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
 
-  const currentQ = QUIZ_QUESTIONS[currentIndex];
+  const currentQ = questions[currentIndex] || questions[0];
 
   const handleSelect = (idx: number) => {
-    if (isAnswered) return;
+    if (isAnswered || !currentQ) return;
     setSelectedOption(idx);
     setIsAnswered(true);
     if (idx === currentQ.correctIndex) {
@@ -101,7 +102,7 @@ export function StudentQuiz({ language }: StudentQuizProps) {
   };
 
   const handleNext = () => {
-    if (currentIndex + 1 < QUIZ_QUESTIONS.length) {
+    if (currentIndex + 1 < questions.length) {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);
       setIsAnswered(false);
@@ -111,6 +112,8 @@ export function StudentQuiz({ language }: StudentQuizProps) {
   };
 
   const handleReset = () => {
+    // Generate fresh set of questions each time
+    setQuestions(getDynamicQuiz(5));
     setCurrentIndex(0);
     setSelectedOption(null);
     setIsAnswered(false);
@@ -118,8 +121,10 @@ export function StudentQuiz({ language }: StudentQuizProps) {
     setIsFinished(false);
   };
 
+  if (!currentQ) return null;
+
   if (isFinished) {
-    const percentage = Math.round((score / QUIZ_QUESTIONS.length) * 100);
+    const percentage = Math.round((score / questions.length) * 100);
     let badge = UI_TEXT.badgeChampion[language];
     let badgeColor = '#059669';
     let badgeBg = '#ecfdf5';
@@ -153,7 +158,7 @@ export function StudentQuiz({ language }: StudentQuizProps) {
           {UI_TEXT.wellDone[language]}
         </h3>
         <p style={{ margin: 0, fontSize: '0.95rem', color: '#475569' }}>
-          {UI_TEXT.score[language]}: <strong style={{ color: '#0f172a' }}>{score} / {QUIZ_QUESTIONS.length}</strong> ({percentage}%)
+          {UI_TEXT.score[language]}: <strong style={{ color: '#0f172a' }}>{score} / {questions.length}</strong> ({percentage}%)
         </p>
 
         <div
@@ -214,7 +219,7 @@ export function StudentQuiz({ language }: StudentQuizProps) {
             color: '#334155',
           }}
         >
-          {UI_TEXT.questionProgress[language]} {currentIndex + 1} {UI_TEXT.of[language]} {QUIZ_QUESTIONS.length}
+          {UI_TEXT.questionProgress[language]} {currentIndex + 1} {UI_TEXT.of[language]} {questions.length}
         </div>
       </div>
 
@@ -223,7 +228,7 @@ export function StudentQuiz({ language }: StudentQuizProps) {
         <div
           style={{
             height: '100%',
-            width: `${((currentIndex + 1) / QUIZ_QUESTIONS.length) * 100}%`,
+            width: `${((currentIndex + 1) / questions.length) * 100}%`,
             backgroundColor: '#0284c7',
             transition: 'width 0.3s ease',
           }}
@@ -333,7 +338,7 @@ export function StudentQuiz({ language }: StudentQuizProps) {
             onClick={handleNext}
             style={{ minHeight: '44px', minWidth: '120px' }}
           >
-            {currentIndex + 1 < QUIZ_QUESTIONS.length ? `👉 ${UI_TEXT.next[language]}` : `🏁 ${UI_TEXT.finish[language]}`}
+            {currentIndex + 1 < questions.length ? `👉 ${UI_TEXT.next[language]}` : `🏁 ${UI_TEXT.finish[language]}`}
           </Button>
         </div>
       )}
