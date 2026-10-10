@@ -1,10 +1,11 @@
 'use client';
 
-// Kisan Saathi's Plan tab (P1): the farmer talks (hold to record) or types; the agent asks for what's
-// missing, reads the plan back as a card, and files the request for help when the farmer says yes.
-// The confirmed read-back also fills the farm profile the other tabs use.
+// Kisan Saathi's Plan tab (P1): the farmer talks (tap or hold the mic) or types; the agent asks for
+// what's missing, reads the plan back as a card, and files the request for help when the farmer says
+// yes. A checklist shows what the agent still needs, ticking as he speaks, with an example sentence
+// for the next gap. The confirmed read-back also fills the farm profile the other tabs use.
 import Link from 'next/link';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useSyncExternalStore } from 'react';
 
 import { Alert, Button, Card } from '../../components/ui';
 import { useLanguage } from '../../lib/i18n';
@@ -21,18 +22,24 @@ import {
   type Readback,
 } from './kisanApi';
 import { PlanCard } from './PlanCard';
-import { say } from './strings';
-import { useHoldToRecord } from './useHoldToRecord';
+import { NeedsList } from './NeedsList';
+import { say, type StringKey } from './strings';
+import { useVoiceNote } from './useVoiceNote';
+import { doneFromHint, doneFromMissing, hintFor } from './voice';
+import { VoiceButton } from './VoiceButton';
 
 const GREEN = '#15803d';
+const noSubscribe = () => () => {};
 
 interface Line {
   who: 'farmer' | 'agent';
   text: string;
   voice?: boolean;
+  pending?: boolean; // a voice note on its way to the agent
+  seconds?: number;
 }
 
-function Bubble({ line, language }: { line: Line; language: Language }) {
+function Bubble({ line, language, onFix }: { line: Line; language: Language; onFix?: (text: string) => void }) {
   const farmer = line.who === 'farmer';
   return (
     <li style={{ display: 'flex', justifyContent: farmer ? 'flex-end' : 'flex-start' }}>
@@ -50,10 +57,27 @@ function Bubble({ line, language }: { line: Line; language: Language }) {
           overflowWrap: 'anywhere',
         }}
       >
-        {line.voice && (
-          <div style={{ fontSize: '0.75rem', color: '#475569', marginBottom: 2 }}>🎤 {say('heard', language)}</div>
+        {line.pending ? (
+          <span style={{ color: '#166534' }}>
+            🎤 {say('voiceNote', language)} · {Math.floor((line.seconds ?? 0) / 60)}:{String((line.seconds ?? 0) % 60).padStart(2, '0')} …
+          </span>
+        ) : (
+          <>
+            {line.voice && (
+              <div style={{ fontSize: '0.75rem', color: '#475569', marginBottom: 2 }}>🎤 {say('heard', language)}</div>
+            )}
+            {line.text}
+            {line.voice && onFix && line.text && (
+              <button
+                type="button"
+                onClick={() => onFix(line.text)}
+                style={{ display: 'block', marginTop: '0.35rem', padding: 0, border: 'none', background: 'none', color: '#0369a1', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline', cursor: 'pointer', minHeight: '1.75rem' }}
+              >
+                {say('fixHeard', language)}
+              </button>
+            )}
+          </>
         )}
-        {line.text}
       </div>
     </li>
   );
@@ -70,7 +94,10 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [missing, setMissing] = useState<string[] | null>(null);
+  const [understanding, setUnderstanding] = useState(false);
   const bottom = useRef<HTMLDivElement | null>(null);
+  const typed = useRef<HTMLInputElement | null>(null);
   const lastReadback = useRef<Readback | null>(null);
 
   // A conversation keeps the language it started in; before that, follow the shell's switch.
@@ -78,6 +105,7 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
 
   function show(r: MessageResponse) {
     setSessionId(r.session_id);
+    setMissing(r.missing);
     setLines((old) => [...old, { who: 'agent', text: r.reply }]);
     const rb = readbackOf(r);
     if (rb) lastReadback.current = rb;
@@ -113,15 +141,31 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
     void turn(() => sendMessage(clean, lang, sessionId, sessionId ? undefined : farm?.()));
   }
 
-  const recorder = useHoldToRecord((audio, filename) => {
+  const recorder = useVoiceNote((audio, filename, seconds) => {
     setReadback(null);
+    setUnderstanding(true);
+    setLines((old) => [...old, { who: 'farmer', text: '', voice: true, pending: true, seconds }]);
+    window.setTimeout(() => bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
     void turn(async () => {
       const r = await sendVoice(audio, filename, lang, sessionId, sessionId ? undefined : farm?.());
       const heard = transcriptOf(r)?.text;
-      setLines((old) => [...old, { who: 'farmer', text: heard || '🎤', voice: true }]);
+      setLines((old) => old.map((l) => (l.pending ? { who: 'farmer', text: heard || '🎤', voice: true } : l)));
       return r;
+    }).finally(() => {
+      setUnderstanding(false);
+      // Didn't get through: keep the note in the conversation, marked as not heard.
+      setLines((old) => old.map((l) => (l.pending ? { who: 'farmer', text: '', voice: true } : l)));
     });
   });
+
+  /** "Heard wrong? Fix it": the words go into the text box to correct and send as text. */
+  function fix(text: string) {
+    setDraft(text);
+    window.setTimeout(() => {
+      typed.current?.focus();
+      typed.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  }
 
   function restart() {
     setSessionId(null);
@@ -130,16 +174,16 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
     setQuickReplies([]);
     setFiled(false);
     setError(null);
+    setMissing(null);
     lastReadback.current = null;
   }
 
-  const recording = recorder.state === 'recording' || recorder.state === 'starting';
-  const micKeys = (e: React.KeyboardEvent, down: boolean) => {
-    if (e.key !== ' ' && e.key !== 'Enter') return;
-    e.preventDefault();
-    if (down && !e.repeat) void recorder.start();
-    if (!down) recorder.stop();
-  };
+  const live = recorder.state === 'recording' || recorder.state === 'starting';
+  // What the agent still needs: its last answer, or before that what the farm card will tell it. The
+  // farm card lives on the phone, so the server's first render (and hydration) shows nothing ticked.
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const done = missing ? doneFromMissing(missing) : doneFromHint(hydrated ? farm?.() : undefined);
+  const hint = !filed && !readback ? hintFor(done) : null;
 
   return (
     <div>
@@ -157,11 +201,17 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
         </p>
       )}
 
+      {!filed && (
+        <div style={{ marginTop: '1rem' }}>
+          <NeedsList done={done} language={lang} />
+        </div>
+      )}
+
       <ul aria-live="polite" style={{ listStyle: 'none', margin: '1.25rem 0 0', padding: 0, display: 'grid', gap: '0.75rem' }}>
         {lines.map((line, i) => (
-          <Bubble key={i} line={line} language={lang} />
+          <Bubble key={i} line={line} language={lang} onFix={filed ? undefined : fix} />
         ))}
-        {busy && (
+        {busy && !understanding && (
           <li style={{ color: '#64748b', fontSize: '0.95rem' }} role="status">
             {say('thinking', lang)}
           </li>
@@ -216,47 +266,16 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
 
       {!filed && (
         <section style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem', justifyItems: 'center' }}>
-          <button
-            type="button"
-            disabled={busy}
-            aria-pressed={recording}
-            aria-label={say('holdToTalk', lang)}
-            onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              void recorder.start();
-            }}
-            onPointerUp={recorder.stop}
-            onPointerCancel={recorder.stop}
-            onKeyDown={(e) => micKeys(e, true)}
-            onKeyUp={(e) => micKeys(e, false)}
-            onContextMenu={(e) => e.preventDefault()}
-            style={{
-              width: '6rem',
-              height: '6rem',
-              borderRadius: '50%',
-              border: 'none',
-              background: recording ? '#dc2626' : GREEN,
-              color: '#ffffff',
-              fontSize: '2.5rem',
-              cursor: busy ? 'not-allowed' : 'pointer',
-              opacity: busy ? 0.5 : 1,
-              boxShadow: recording ? '0 0 0 10px rgba(220, 38, 38, 0.2)' : '0 4px 12px rgba(21, 128, 61, 0.3)',
-              touchAction: 'none',
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-            }}
-          >
-            🎤
-          </button>
-          <div role="status" style={{ fontSize: '1rem', color: recording ? '#dc2626' : '#334155', textAlign: 'center', minHeight: '1.5rem' }}>
-            {recorder.state === 'recording'
-              ? `${say('recording', lang)} 0:${String(recorder.seconds).padStart(2, '0')}`
-              : recorder.state === 'too_short'
-                ? say('tooShort', lang)
-                : recorder.state === 'unavailable'
-                  ? say('micDenied', lang)
-                  : say('holdToTalk', lang)}
-          </div>
+          {hint && (
+            // Hidden, not removed, while recording or sending, so the mic doesn't jump under his finger.
+            <div aria-hidden={busy || live} style={{ display: 'grid', gap: '0.2rem', textAlign: 'center', maxWidth: '30rem', visibility: busy || live ? 'hidden' : 'visible' }}>
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{say('trySaying', lang)}</span>
+              <span id="kisan-try-saying" style={{ fontSize: '1.05rem', color: '#14532d', lineHeight: 1.5 }}>
+                “{say(`say_${hint}` as StringKey, lang)}”
+              </span>
+            </div>
+          )}
+          <VoiceButton recorder={recorder} busy={busy} understanding={understanding} language={lang} />
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -265,6 +284,7 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
             style={{ display: 'flex', gap: '0.5rem', width: '100%' }}
           >
             <input
+              ref={typed}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={say('typeHere', lang)}
