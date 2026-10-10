@@ -120,6 +120,29 @@ jobs:
           SAANS_DATABASE_URL: postgres://saans:saans@127.0.0.1:5433/saans
         run: npx vitest run services/command-api/intake.stack.test.ts services/command-api/triage.stack.test.ts services/command-api/cases.stack.test.ts services/command-api/lambda.cases.stack.test.ts
 
+  e2e:
+    # Browser tests in e2e/ (Playwright) on a phone-sized screen, against `npm run dev` in demo mode.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npx playwright test --reporter=list
+
   golden-path:
     # G6: scripts/smoke.sh over HTTP against the app on the local stack (infra/compose.yaml, which the script
     # starts): the shell, Shala, air data, then Command's farmer -> report -> linked case -> Cedar -> action.

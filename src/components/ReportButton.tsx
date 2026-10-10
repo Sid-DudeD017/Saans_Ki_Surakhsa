@@ -16,7 +16,8 @@ export const ReportButton: React.FC = () => {
       <div
         style={{
           position: 'fixed',
-          bottom: '1.25rem',
+          // A screen with its own bottom bar (Kisan's tabs) sets --saans-bottom-bar to lift this above it.
+          bottom: 'calc(1.25rem + var(--saans-bottom-bar, 0px))',
           right: '1.25rem',
           zIndex: 40,
         }}
