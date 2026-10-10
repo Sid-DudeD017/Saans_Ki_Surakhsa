@@ -14,7 +14,7 @@ namespace Saans {
   entity Case = {
     district: String,
     status: String,          // OPEN | ACTION_APPROVED | ACTION_CHANGED | CLOSED
-    type: String,            // farm_fire | garbage | vehicle | firecrackers | farmer_support
+    type: String,            // farm_fire | garbage | vehicle | firecrackers | dust | industrial | farmer_support | kisan_grievance
     hasHelpRequest: Bool,    // a farmer asked for a machine: only then can one be sent
     reporterConsent: Bool,   // the reporter agreed to share who they are with the officer
   };

@@ -1247,7 +1247,7 @@ paths:
       tags:
         - Command
       summary: Submit a report or a farmer's request for help
-      description: A citizen's report (ComplaintInput) or Kisan Saathi's farmer_support request (FarmerSupportComplaint, P1). Repeating a request with the same Idempotency-Key and body returns the first response without creating a second record.
+      description: A citizen's report (ComplaintInput), Kisan Saathi's farmer_support request (FarmerSupportComplaint, P1) or a farmer's complaint about that help (KisanGrievance, P1). Repeating a request with the same Idempotency-Key and body returns the first response without creating a second record.
       operationId: submitComplaint
       security:
         - bearerAuth: []
@@ -1268,6 +1268,7 @@ paths:
               oneOf:
                 - $ref: "#/components/schemas/ComplaintInput"
                 - $ref: "#/components/schemas/FarmerSupportComplaint"
+                - $ref: "#/components/schemas/KisanGrievance"
             example:
               type: farm_fire
               location:
@@ -2812,6 +2813,26 @@ components:
             - vehicle
             - firecrackers
             - farmer_support
+            - dust
+            - industrial
+            - kisan_grievance
+        grievance:
+          type: object
+          description: For kisan_grievance cases, what the farmer is complaining about
+          required:
+            - subtype
+          properties:
+            subtype:
+              type: string
+              enum:
+                - chc_no_show
+                - chc_overcharge
+                - machine_broken
+                - subsidy_delay
+                - officer_conduct
+                - other
+            chcName:
+              type: string
         penalty:
           type: boolean
         authorities:
@@ -2880,6 +2901,7 @@ components:
             - farmer_support
             - dust
             - industrial
+            - kisan_grievance
         district:
           type: string
         location:
@@ -3129,6 +3151,14 @@ components:
             - industrial
         location:
           $ref: "#/components/schemas/GeoPoint"
+        description:
+          type: string
+          maxLength: 1000
+        evidence:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EvidenceMetadata"
     ComplaintResponse:
       type: object
       required:
@@ -3175,6 +3205,7 @@ components:
             - dust
             - industrial
             - farmer_support
+            - kisan_grievance
         received_at:
           $ref: "#/components/schemas/IndiaTimestamp"
         updated_at:
@@ -4131,6 +4162,42 @@ components:
         - kind
         - text
       title: IndoorPlanItem
+    KisanGrievance:
+      type: object
+      description: "A farmer's complaint from Kisan Saathi (P1) about the help they were promised: a CHC that didn't come or overcharged, a machine that broke, a late subsidy, an officer. It goes to the District Agriculture Officer; it is never a penalty and never merges with other reports."
+      required:
+        - type
+        - location
+        - subtype
+      properties:
+        type:
+          type: string
+          enum:
+            - kisan_grievance
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+        subtype:
+          type: string
+          enum:
+            - chc_no_show
+            - chc_overcharge
+            - machine_broken
+            - subsidy_delay
+            - officer_conduct
+            - other
+        description:
+          type: string
+          maxLength: 1000
+        chc_name:
+          type: string
+          maxLength: 120
+          description: The CHC the complaint is about, when there is one
+        evidence:
+          type: array
+          maxItems: 10
+          default: []
+          items:
+            $ref: "#/components/schemas/EvidenceMetadata"
     KisanHelpRequest:
       description: Saans Command's HelpRequestSchema (src/domain/schemas), plus extras for the officer's case view.
       properties:

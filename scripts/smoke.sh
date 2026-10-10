@@ -5,7 +5,8 @@
 #   -> Shala UI (/shala) -> Complaint report intake (/v1/complaints)
 #   -> Command (P4): a farmer files for help -> a citizen reports a fire nearby -> the case links to the
 #      farmer's request -> Cedar keeps other districts out -> a second report merges -> the officer sends
-#      the machine. Runs CI's golden-path job (.github/workflows/ci.yml) on PostGIS and LocalStack.
+#      the machine -> the farmer complains that a CHC didn't come, and follows the ticket.
+#      Runs CI's golden-path job (.github/workflows/ci.yml) on PostGIS and LocalStack.
 # Uses an app already running at SMOKE_URL if there is one; otherwise starts the app on port 3100.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -199,6 +200,21 @@ if [ "${SMOKE_MODE:-full}" != "degraded" ]; then
   jq -e '.helpRequest.status == "MATCHED" and (.decisions | map(.action) | index("APPROVE")) != null and (.decisions[-1].officerId == "officer-sangrur")' "$WORK/case.json" >/dev/null \
     || fail "after APPROVE the help request isn't matched: $(cat "$WORK/case.json")"
   echo "OK (ACTION_APPROVED by officer-sangrur, help request MATCHED)"
+
+  say "12. Kisan Saathi (/kisan): the farmer complains the CHC didn't come; it's a case, never a penalty"
+  [ "$(curl -s -o /dev/null -w "%{http_code}" "$URL/kisan")" = 200 ] || fail "/kisan didn't load"
+  jq -n --argjson lat "$FARM_LAT" --argjson lon "$FARM_LON" '{type: "kisan_grievance", location: {lat: $lat, lon: $lon},
+    subtype: "chc_no_show", chc_name: "Demo CHC A (Bhawanigarh)", description: "Golden path smoke test: the Super Seeder never came", evidence: []}' >"$WORK/grievance.json"
+  GRIEVANCE=$(file_complaint "$WORK/grievance.json")
+  GRIEVANCE_CASE=$(case_for "$GRIEVANCE")
+  curl -s -H "$SDM" "$URL/v1/cases/$GRIEVANCE_CASE" >"$WORK/case.json"
+  jq -e '.type == "kisan_grievance" and .penalty == false and .grievance.subtype == "chc_no_show"
+    and .authorities == ["District Agriculture Officer"] and .report.district == "Sangrur"' "$WORK/case.json" >/dev/null \
+    || fail "the farmer's complaint isn't a Sangrur case for the agriculture officer: $(cat "$WORK/case.json")"
+  curl -s "$URL/v1/complaints/$GRIEVANCE" >"$WORK/ticket.json"
+  jq -e '.status == "case_opened" and .type == "kisan_grievance"' "$WORK/ticket.json" >/dev/null \
+    || fail "the farmer's ticket page doesn't show the case: $(cat "$WORK/ticket.json")"
+  echo "OK (ticket $GRIEVANCE -> case $GRIEVANCE_CASE for the District Agriculture Officer, no penalty)"
 fi
 
 if [ "${SMOKE_MODE:-full}" = "degraded" ]; then
@@ -221,5 +237,6 @@ else
   printf '  ✓ Fire Tracking API (/v1/fires)\n'
   printf '  ✓ Incident Intake API (/v1/complaints + Idempotency)\n'
   printf '  ✓ Command: farmer files -> fire reported -> linked case -> 401/403 -> merge -> machine sent\n'
+  printf '  ✓ Kisan Saathi: farmer complaint -> case for the agriculture officer -> ticket status\n'
   printf '=============================================\n\n'
 fi

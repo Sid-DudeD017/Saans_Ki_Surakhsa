@@ -1,5 +1,5 @@
 {
-  "$comment": "Who a complaint goes to and how long they have (demo configuration, PHASE_4_IMPLEMENTATION_PLAN.md). Read by the triage step; change it here, not in code. A farmer_support request is help, never a penalty.",
+  "$comment": "Who a complaint goes to and how long they have (demo configuration, PHASE_4_IMPLEMENTATION_PLAN.md). Read by the triage step; change it here, not in code. A farmer_support request is help, and a kisan_grievance is a farmer's complaint about that help; neither is ever a penalty.",
   "farm_fire": {
     "authorities": ["SDM", "District Agriculture Officer"],
     "deadlineHours": 4,
@@ -33,6 +33,11 @@
   "farmer_support": {
     "authorities": ["Agriculture department", "CHC"],
     "deadlineHours": 72,
+    "penalty": false
+  },
+  "kisan_grievance": {
+    "authorities": ["District Agriculture Officer"],
+    "deadlineHours": 48,
     "penalty": false
   }
 }

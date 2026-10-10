@@ -1,7 +1,8 @@
 'use client';
 
 // Kisan Saathi (P1): four tabs along the bottom (K1). Plan is the conversation with the agent; Machines
-// holds the farm card, machine photos and the "is it enough?" check; Shop and Help come next. Every
+// holds the farm card, machine photos and the "is it enough?" check; Shop; Help has numbers to call,
+// complaints and their tickets. Every
 // tab shares the farm's location and profile, kept on the phone (farmProfile.ts). All tabs stay
 // mounted, so switching never loses a conversation or a photo half-way through.
 import React, { useCallback } from 'react';
@@ -15,7 +16,12 @@ import { KisanChat } from './KisanChat';
 import { USE_MOCKS, type Language, type Readback } from './kisanApi';
 import { KisanTabs, useTab, type Tab } from './KisanTabs';
 import { MachineCheck } from './MachineCheck';
+import { ComplaintSheet } from './ComplaintSheet';
+import { farmDistrict } from './help';
+import { Helplines } from './Helplines';
 import { MachinePhotos } from './MachinePhotos';
+import { MyTickets } from './MyTickets';
+import { Shop } from './Shop';
 import { FONT, say, type StringKey } from './strings';
 
 function Panel({ tab, current, children }: { tab: Tab; current: Tab; children: React.ReactNode }) {
@@ -42,6 +48,7 @@ export default function KisanPage() {
   const { language } = useLanguage();
   const lang: Language = language;
   const [tab, go] = useTab();
+  const district = farmDistrict(farmStore.use());
 
   const confirmed = useCallback((readback: Readback) => {
     farmStore.set((farm) => mergeFromChat(farm, farmFromReadback(readback), machinesFromReadback(readback)));
@@ -78,17 +85,15 @@ export default function KisanPage() {
       </Panel>
 
       <Panel tab="shop" current={tab}>
-        <Soon text="shopSoon" language={lang} />
+        <Shop language={lang} />
       </Panel>
 
       <Panel tab="help" current={tab}>
-        <Soon
-          text="helpSoon"
-          language={lang}
-          extra={
-            <p style={{ margin: '0.75rem 0 0', fontSize: '1.05rem', fontWeight: 700, color: '#b91c1c' }}>{say('emergency', lang)}</p>
-          }
-        />
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <Helplines district={district} language={lang} />
+          <ComplaintSheet language={lang} />
+          <MyTickets language={lang} />
+        </div>
       </Panel>
 
       <KisanTabs tab={tab} onChange={go} language={lang} />
