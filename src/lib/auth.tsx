@@ -33,7 +33,7 @@ const DEFAULT_USER: User = {
   name: 'Aarav Sharma',
   role: 'student',
   schoolId: 'school_demo_001',
-  schoolName: 'Government Model School — Demo Campus',
+  schoolName: 'Government Senior Secondary School — Sangrur Campus',
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);

@@ -56,7 +56,7 @@ describe("routing (infra/config/routing.json)", () => {
 
   it("deadlines are the demo configuration's", () => {
     expect(Object.fromEntries(ROUTED_TYPES.map((t) => [t, routeFor(t).deadlineHours]))).toEqual({
-      farm_fire: 4, garbage: 12, vehicle: 24, firecrackers: 2, farmer_support: 72,
+      farm_fire: 4, garbage: 12, vehicle: 24, firecrackers: 2, farmer_support: 72, dust: 24, industrial: 24,
     });
   });
 });

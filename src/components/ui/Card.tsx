@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface CardProps {
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   padding?: 'none' | 'sm' | 'md' | 'lg';
   bordered?: boolean;
@@ -16,6 +16,7 @@ export const Card: React.FC<CardProps> = ({
   style,
   className = '',
   onClick,
+  ...props
 }) => {
   const getPadding = () => {
     switch (padding) {
@@ -44,6 +45,7 @@ export const Card: React.FC<CardProps> = ({
         boxSizing: 'border-box',
         ...style,
       }}
+      {...props}
     >
       {children}
     </div>

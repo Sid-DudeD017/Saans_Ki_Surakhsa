@@ -119,3 +119,91 @@ async function replayed(deps: IntakeDeps, key: string, hash: string): Promise<Re
     headers: { "Idempotent-Replayed": "true" },
   });
 }
+
+/**
+ * GET /v1/complaints/{id}: Read-only status tracking.
+ * Returns: received -> sent_to_officer -> merged or case_opened -> acted_on -> closed.
+ * Strips all officer names and reporter identities.
+ */
+export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<Response> {
+  const { rows: complaints } = await deps.db.query<{
+    id: string;
+    type: string;
+    body: Record<string, unknown>;
+    status: string;
+    received_at: Date;
+    updated_at: Date;
+  }>(
+    "SELECT id, type, body, status, received_at, updated_at FROM complaints WHERE id = $1",
+    [id],
+  );
+  const complaint = complaints[0];
+  if (!complaint) {
+    return errorResponse(404, "not_found", `no complaint ${id}`);
+  }
+
+  // Check if an associated case exists
+  const { rows: cases } = await deps.db.query<{
+    id: string;
+    status: string;
+    updated_at: Date;
+  }>(
+    "SELECT id, status, updated_at FROM cases WHERE complaint_id = $1",
+    [id],
+  );
+  const cCase = cases[0];
+
+  let status: "received" | "sent_to_officer" | "case_opened" | "merged" | "acted_on" | "closed" = "received";
+  let stage_label = "Report received";
+  let explanation = "Your report has been received and is queued for verification.";
+
+  if (cCase) {
+    const caseStatus = (cCase.status || "").toUpperCase();
+    if (caseStatus === "MERGED") {
+      status = "merged";
+      stage_label = "Merged with existing report";
+      explanation = "Someone already reported this fire. Your report was added to it, which helps it get attention.";
+    } else if (caseStatus === "CLOSED" || caseStatus === "RESOLVED") {
+      status = "closed";
+      stage_label = "Closed";
+      explanation = "The case has been addressed and closed.";
+    } else if (caseStatus === "ACTED_ON" || caseStatus === "ACTION_TAKEN") {
+      status = "acted_on";
+      stage_label = "Action taken";
+      explanation = "Authorities have taken action at the site.";
+    } else {
+      status = "case_opened";
+      stage_label = "Case opened";
+      explanation = "A case has been opened and authorities have been notified.";
+    }
+  } else {
+    if (complaint.status === "validated") {
+      status = "sent_to_officer";
+      stage_label = "Sent to officer";
+      explanation = "Your report was verified and is being routed to the responsible department.";
+    } else if (complaint.status === "assigned") {
+      status = "case_opened";
+      stage_label = "Case opened";
+      explanation = "A case has been opened and authorities have been notified.";
+    } else {
+      status = "received";
+      stage_label = "Report received";
+      explanation = "Your report has been received and is queued for verification.";
+    }
+  }
+
+  const body = (complaint.body ?? {}) as { description?: string; evidence?: unknown[] };
+
+  return Response.json({
+    id: complaint.id,
+    status,
+    stage_label,
+    explanation,
+    type: complaint.type,
+    received_at: complaint.received_at.toISOString(),
+    updated_at: (cCase?.updated_at ?? complaint.updated_at).toISOString(),
+    description: typeof body.description === "string" ? body.description : undefined,
+    evidence: Array.isArray(body.evidence) ? body.evidence : undefined,
+  });
+}
+

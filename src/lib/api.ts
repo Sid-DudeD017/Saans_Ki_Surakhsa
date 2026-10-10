@@ -50,6 +50,14 @@ export interface SchoolAdvisoryData {
   summary: string;
 }
 
+export interface ComplaintEvidence {
+  object_key: string;
+  media_type: string;
+  hash: string;
+  captured_timestamp: string;
+  location?: { lat: number; lon: number };
+}
+
 export interface ComplaintPayload {
   category: string;
   description: string;
@@ -62,6 +70,19 @@ export interface ComplaintPayload {
   reported_by_role?: string;
   idempotency_key?: string;
   idempotencyKey?: string;
+  evidence?: ComplaintEvidence[];
+}
+
+export interface ComplaintStatusData {
+  id: string;
+  status: 'received' | 'sent_to_officer' | 'case_opened' | 'merged' | 'acted_on' | 'closed';
+  stage_label: string;
+  explanation: string;
+  type?: string;
+  received_at: string;
+  updated_at?: string;
+  description?: string;
+  evidence?: ComplaintEvidence[];
 }
 
 export interface ComplaintResponse {
@@ -185,21 +206,27 @@ export async function getNotifications(): Promise<MockNotification[]> {
  * - 'garbage': Open waste / trash burning ('Burning waste', 'garbage')
  * - 'vehicle': Excessive vehicle exhaust / idling ('Vehicle idling', 'vehicle')
  * - 'firecrackers': Fireworks / firecrackers emissions ('Firecrackers', 'firecrackers')
- *
- * Unsupported Categories (Explicitly rejected by the live intake contract):
- * - 'Dust': Fugitive dust / construction dust (no intake route exists in CITIZEN_TYPES)
- * - 'Industrial': Industrial stacks / factory pollution (no citizen route exists in CITIZEN_TYPES)
- * - 'Other': Uncategorized reports
+ * - 'dust': Construction dust, road dust, fugitive dust ('Dust', 'dust')
+ * - 'industrial': Factory emissions, brick kiln smoke ('Industrial', 'industrial')
  */
-export type SupportedCitizenType = 'farm_fire' | 'garbage' | 'vehicle' | 'firecrackers';
+export type SupportedCitizenType =
+  | 'farm_fire'
+  | 'garbage'
+  | 'vehicle'
+  | 'firecrackers'
+  | 'dust'
+  | 'industrial';
 
 export const SUPPORTED_COMPLAINT_CATEGORIES = {
   'Smoke': 'farm_fire',
   'Stubble burning': 'farm_fire',
+  'Crop or field fire': 'farm_fire',
   'farm_fire': 'farm_fire',
   'Burning waste': 'garbage',
+  'Rubbish burning': 'garbage',
   'garbage': 'garbage',
   'Vehicle idling': 'vehicle',
+  'Smoky vehicle': 'vehicle',
   'vehicle': 'vehicle',
   'Firecrackers': 'firecrackers',
   'firecrackers': 'firecrackers',
@@ -212,10 +239,10 @@ export function mapCategoryToCitizenType(category?: string): SupportedCitizenTyp
     return SUPPORTED_COMPLAINT_CATEGORIES[trimmed as keyof typeof SUPPORTED_COMPLAINT_CATEGORIES];
   }
   const lower = trimmed.toLowerCase();
-  if (lower === 'smoke' || lower === 'stubble burning' || lower === 'farm fire' || lower === 'farm_fire') {
+  if (lower === 'smoke' || lower === 'stubble burning' || lower === 'farm fire' || lower === 'farm_fire' || lower.includes('crop') || lower.includes('field fire')) {
     return 'farm_fire';
   }
-  if (lower === 'burning waste' || lower === 'waste burning' || lower === 'garbage') {
+  if (lower === 'burning waste' || lower === 'waste burning' || lower === 'garbage' || lower.includes('rubbish')) {
     return 'garbage';
   }
   if (lower === 'vehicle idling' || lower === 'vehicle' || lower === 'traffic idling') {
@@ -265,7 +292,10 @@ export function generateIdempotencyKey(payload: ComplaintPayload): string {
 export async function submitComplaint(
   payload: ComplaintPayload
 ): Promise<ComplaintResponse> {
-  const citizenType = mapCategoryToCitizenType(payload.category);
+  const citizenType =
+    payload.category === 'dust' || payload.category === 'industrial'
+      ? (payload.category as SupportedCitizenType)
+      : mapCategoryToCitizenType(payload.category);
 
   if (isMockMode()) {
     const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -305,7 +335,7 @@ export async function submitComplaint(
     type: citizenType,
     location: { lat, lon },
     description: payload.description ? payload.description.trim() : undefined,
-    evidence: [],
+    evidence: payload.evidence ?? [],
   };
 
   const res = await fetch(`${base}/v1/complaints`, {
@@ -336,6 +366,153 @@ export async function submitComplaint(
     created_at: data.created_at || new Date().toISOString(),
     message: data.message || 'Report submitted successfully. Dispatched to response desk.',
   };
+}
+
+/**
+ * Resizes an image to ~1600 px longest side as JPEG and strips EXIF metadata.
+ * Computes SHA-256 digest via crypto.subtle.
+ */
+export async function prepareReportPhoto(file: File): Promise<{ blob: Blob; hash: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to decode image'));
+      img.onload = async () => {
+        try {
+          const maxDim = 1600;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            throw new Error('Canvas context unavailable');
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            async (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image to JPEG'));
+                return;
+              }
+              try {
+                const buffer = await blob.arrayBuffer();
+                const digest = await crypto.subtle.digest('SHA-256', buffer);
+                const hash = Array.from(new Uint8Array(digest))
+                  .map((b) => b.toString(16).padStart(2, '0'))
+                  .join('');
+                resolve({ blob, hash });
+              } catch (e) {
+                reject(e);
+              }
+            },
+            'image/jpeg',
+            0.85
+          );
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Uploads a photo following the order in scripts/smoke-intake.sh:
+ * 1. POST /v1/uploads with { media_type: "image/jpeg", byte_size, sha256 }
+ * 2. PUT to upload_url with returned headers
+ * Returns { object_key, media_type, hash }
+ */
+export async function uploadEvidencePhoto(
+  blob: Blob,
+  sha256: string
+): Promise<{ object_key: string; media_type: string; hash: string }> {
+  if (isMockMode()) {
+    return {
+      object_key: `mock-upload-${Date.now()}-${sha256.slice(0, 8)}.jpg`,
+      media_type: 'image/jpeg',
+      hash: sha256,
+    };
+  }
+
+  const base = getBaseUrl();
+  const initRes = await fetch(`${base}/v1/uploads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      media_type: 'image/jpeg',
+      byte_size: blob.size,
+      sha256,
+    }),
+  });
+
+  if (!initRes.ok) {
+    const errBody = await initRes.json().catch(() => null);
+    throw new Error(errBody?.error?.message || `Failed to initiate upload: ${initRes.statusText}`);
+  }
+
+  const initData = await initRes.json();
+  const uploadUrl: string = initData.upload_url;
+  const objectKey: string = initData.object_key;
+  const rawHeaders: Record<string, string> = initData.headers || {};
+
+  const putHeaders = new Headers();
+  Object.entries(rawHeaders).forEach(([k, v]) => putHeaders.set(k, v));
+
+  const putRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: putHeaders,
+    body: blob,
+  });
+
+  if (!putRes.ok) {
+    throw new Error(`Failed to upload photo to storage: ${putRes.statusText}`);
+  }
+
+  return {
+    object_key: objectKey,
+    media_type: 'image/jpeg',
+    hash: sha256,
+  };
+}
+
+/**
+ * GET /v1/complaints/{id}
+ * Read-only status tracking.
+ */
+export async function getComplaintStatus(id: string): Promise<ComplaintStatusData> {
+  if (isMockMode()) {
+    return {
+      id,
+      status: 'received',
+      stage_label: 'Report received',
+      explanation: 'Your report has been received and is queued for verification.',
+      received_at: new Date().toISOString(),
+    };
+  }
+
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/v1/complaints/${encodeURIComponent(id)}`);
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw new Error(errBody?.error?.message || `Failed to fetch complaint status: ${res.statusText}`);
+  }
+  return res.json();
 }
 
 /**
