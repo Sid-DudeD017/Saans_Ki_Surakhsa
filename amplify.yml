@@ -6,7 +6,7 @@ frontend:
         - npm ci
     build:
       commands:
-      - env | grep -E '^(NASA_FIRMS_MAP_KEY|OPENAQ_API_KEY|CPCB_API_KEY)=' >> .env.production
+      - env | grep -E '^(9af3e8475368f23b912cb933ddd1c5f5|666fcacd0e45fc73a8d5fd840a0f6ac53349d6b0732be9740361ca6e67ea330a|579b464db66ec23bdd00000101860c4eb6194dc44e43d5e7ecb6bc1d)=' >> .env.production
       - npm run build
 Commit only that YAML change—not the keys:
   artifacts:
