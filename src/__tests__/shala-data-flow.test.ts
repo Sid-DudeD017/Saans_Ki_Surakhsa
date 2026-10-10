@@ -56,8 +56,24 @@ describe('Saans Shala - Single Reliable Data Flow', () => {
       expect(formatted).toBe('14:30 IST');
     });
 
+    it('converts UTC ISO strings (Z) correctly to IST (+05:30)', () => {
+      // 09:00 UTC is 14:30 IST (+5:30)
+      const formatted = formatMeasurementTime('2026-10-09T09:00:00Z');
+      expect(formatted).toBe('14:30 IST');
+    });
+
     it('returns dash for undefined timestamp', () => {
       expect(formatMeasurementTime(undefined)).toBe('—');
+    });
+  });
+
+  describe('toIstIsoString', () => {
+    it('generates ISO strings with +05:30 offset that reconstruct original epoch', () => {
+      const now = Date.now();
+      const iso = shalaApi.toIstIsoString(now);
+      expect(iso.endsWith('+05:30')).toBe(true);
+      const parsed = new Date(iso).getTime();
+      expect(Math.abs(parsed - now)).toBeLessThan(1000);
     });
   });
 

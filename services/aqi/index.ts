@@ -55,6 +55,20 @@ export function calculateHeatIndex(tc: number, rh: number): number {
   return (hi - 32) * 5/9;
 }
 
+export const IST_OFFSET_MS = 330 * 60 * 1000;
+
+export function toIstIsoString(dateOrMs: Date | number = Date.now()): string {
+  const ms = typeof dateOrMs === 'number' ? dateOrMs : dateOrMs.getTime();
+  const istDate = new Date(ms + IST_OFFSET_MS);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  const hh = String(istDate.getUTCHours()).padStart(2, '0');
+  const min = String(istDate.getUTCMinutes()).padStart(2, '0');
+  const sec = String(istDate.getUTCSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}+05:30`;
+}
+
 export interface StorageLayer {
   getLatestReadings(lat: number, lon: number, radiusKm: number): Promise<NormalizedReading[]>;
   saveReadings(readings: NormalizedReading[]): Promise<void>;
@@ -71,7 +85,14 @@ export class InMemoryStorage implements StorageLayer {
   }
 
   async saveReadings(newReadings: NormalizedReading[]): Promise<void> {
-    this.readings.push(...newReadings);
+    const map = new Map<string, NormalizedReading>();
+    for (const r of this.readings) {
+      map.set(`${r.station_id}:${r.pollutant}`, r);
+    }
+    for (const r of newReadings) {
+      map.set(`${r.station_id}:${r.pollutant}`, r);
+    }
+    this.readings = Array.from(map.values());
   }
 
   async getWeather(lat: number, lon: number): Promise<WeatherData | null> {
@@ -325,13 +346,8 @@ export async function getAqiForLocation(lat: number, lon: number) {
   try {
     const aqiResult = overallAqi(finalReadings);
     const weather = await storage.getWeather(lat, lon);
-    const stale = (Date.now() - newestTime) > 3 * 60 * 60 * 1000; // 3 hours
-    
-    // Convert to +05:30
-    const d = new Date(newestTime || Date.now());
-    const offsetMs = 5.5 * 60 * 60 * 1000;
-    const localD = new Date(d.getTime() + offsetMs);
-    const iso = localD.toISOString().replace("Z", "+05:30");
+    const stale = newestTime > 0 ? (Date.now() - newestTime) > 3 * 60 * 60 * 1000 : false;
+    const iso = toIstIsoString(newestTime || Date.now());
 
     return {
       aqi: aqiResult.aqi,

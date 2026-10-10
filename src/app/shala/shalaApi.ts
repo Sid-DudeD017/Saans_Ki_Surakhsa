@@ -33,6 +33,20 @@ async function get<T>(path: string): Promise<T> {
 
 import { findNearestStation } from '../../lib/stations';
 
+export const IST_OFFSET_MS = 330 * 60 * 1000;
+
+export function toIstIsoString(dateOrMs: Date | number = Date.now()): string {
+  const ms = typeof dateOrMs === 'number' ? dateOrMs : dateOrMs.getTime();
+  const istDate = new Date(ms + IST_OFFSET_MS);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  const hh = String(istDate.getUTCHours()).padStart(2, '0');
+  const min = String(istDate.getUTCMinutes()).padStart(2, '0');
+  const sec = String(istDate.getUTCSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}+05:30`;
+}
+
 export async function getAir(lat: number, lon: number, mockDay: Category): Promise<AqiResponse> {
   const roundedLat = Math.round(lat * 1000) / 1000;
   const roundedLon = Math.round(lon * 1000) / 1000;
@@ -40,9 +54,8 @@ export async function getAir(lat: number, lon: number, mockDay: Category): Promi
   if (USE_MOCKS) {
     const fixture = AQI_FIXTURES[mockDay];
     // Dynamic fresh timestamp (recorded within the last 15 minutes in IST)
-    const now = new Date();
-    const recordedTime = new Date(now.getTime() - 15 * 60 * 1000); // 15 mins ago
-    const isoTimestamp = recordedTime.toISOString().replace(/Z$/, '+05:30');
+    const recordedTime = Date.now() - 15 * 60 * 1000; // 15 mins ago
+    const isoTimestamp = toIstIsoString(recordedTime);
 
     return {
       ...fixture,
@@ -67,11 +80,10 @@ export function getAdvisory(schoolId: string, mockDay: Category): Promise<School
   if (USE_MOCKS) {
     const school = findSchool(schoolId);
     if (!school) return Promise.reject(new Error(`no school ${schoolId}`));
-    const now = new Date();
-    const recordedTime = new Date(now.getTime() - 15 * 60 * 1000);
+    const recordedTime = Date.now() - 15 * 60 * 1000;
     const fixture = {
       ...AQI_FIXTURES[mockDay],
-      data_timestamp: recordedTime.toISOString().replace(/Z$/, '+05:30'),
+      data_timestamp: toIstIsoString(recordedTime),
       stale: false,
     };
     return Promise.resolve(buildAdvisory(school, fixture));

@@ -6,24 +6,33 @@ import type { Category } from './airQuality';
 export type ForecastResponse = components['schemas']['ForecastResponse'];
 export type ForecastHour = components['schemas']['ForecastHour'];
 
+export const IST_OFFSET_MS = 330 * 60 * 1000;
+
+export function toIstIsoHour(dateOrMs: Date | number): string {
+  const ms = typeof dateOrMs === 'number' ? dateOrMs : dateOrMs.getTime();
+  const istDate = new Date(ms + IST_OFFSET_MS);
+  const year = istDate.getUTCFullYear();
+  const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(istDate.getUTCDate()).padStart(2, '0');
+  const hourStr = String(istDate.getUTCHours()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hourStr}:00:00+05:30`;
+}
+
 function build24Hours(
   startHour: number,
   pattern: { hour: number; aqi: number; category: Category; pm25: number }[],
   baseDate = new Date()
 ): ForecastHour[] {
   const result: ForecastHour[] = [];
-  // Use current date as basis
-  const curHour = baseDate.getHours();
+  const baseMs = baseDate.getTime();
+  const baseIstDate = new Date(baseMs + IST_OFFSET_MS);
+  const curHour = baseIstDate.getUTCHours();
+
   for (let i = 0; i < 24; i++) {
-    const d = new Date(baseDate.getTime() + i * 60 * 60 * 1000);
-    const h = d.getHours();
-    
-    // Format ISO string in IST (+05:30)
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hourStr = String(h).padStart(2, '0');
-    const time = `${year}-${month}-${day}T${hourStr}:00:00+05:30`;
+    const hourMs = baseMs + i * 60 * 60 * 1000;
+    const hourIstDate = new Date(hourMs + IST_OFFSET_MS);
+    const h = hourIstDate.getUTCHours();
+    const time = toIstIsoHour(hourMs);
 
     // Pick closest match from pattern by hour-of-day
     const match = pattern.find((p) => p.hour === h) || pattern[(i + curHour) % pattern.length] || pattern[pattern.length - 1];
@@ -227,10 +236,11 @@ const PATTERNS_BY_CATEGORY: Record<Category, { hour: number; aqi: number; catego
 export function getDynamicForecastFixture(category: Category, now = new Date()): ForecastResponse {
   const base = FORECAST_FIXTURES[category] || FORECAST_FIXTURES.poor;
   const pattern = PATTERNS_BY_CATEGORY[category] || PATTERNS_BY_CATEGORY.poor;
+  const istNow = new Date(now.getTime() + IST_OFFSET_MS);
   return {
     ...base,
-    generated_at: now.toISOString(),
-    hours: build24Hours(now.getHours(), pattern, now),
+    generated_at: toIstIsoHour(now),
+    hours: build24Hours(istNow.getUTCHours(), pattern, now),
   };
 }
 
