@@ -52,25 +52,27 @@ describe('Audit Log Immutability and Chain Verification', () => {
     expect(deleteError).toMatch(/audit_log is append-only/);
   });
 
-  it('detects a tampered chain', async () => {
-    // Insert valid chain of 2 items.
-    const h1 = computeHash({ actor: 'a1', action: 'c1' });
-    const h2 = computeHash({ actor: 'a2', action: 'c2', prev: h1 });
+  it('detects a tampered entry using SHA-256 chain', async () => {
+    const rawString1 = `genesis` + `officer-1` + `note` + `case-123` + `{"status":"submitted"}` + `{"status":"submitted"}` + `2026-10-10T12:00:00Z`;
+    const h1 = crypto.createHash('sha256').update(rawString1).digest('hex');
+
+    const rawString2 = `${h1}` + `officer-1` + `resolve` + `case-123` + `{"status":"submitted"}` + `{"status":"resolved"}` + `2026-10-10T12:05:00Z`;
+    const h2 = crypto.createHash('sha256').update(rawString2).digest('hex');
     
     // Test the logic of chain verification.
-    // In a real app we'd fetch all rows and verify hashes.
     const rows = [
-      { actor: 'a1', action: 'c1', previous_hash: 'GENESIS', entry_hash: h1 },
-      { actor: 'tampered', action: 'c2', previous_hash: h1, entry_hash: h2 }, // tampered actor!
+      { actor: 'officer-1', action: 'note', ticket_id: 'case-123', before_state: {status: 'submitted'}, after_state: {status: 'submitted'}, previous_hash: 'genesis', entry_hash: h1, created_at: new Date('2026-10-10T12:00:00Z') },
+      { actor: 'attacker', action: 'resolve', ticket_id: 'case-123', before_state: {status: 'submitted'}, after_state: {status: 'resolved'}, previous_hash: h1, entry_hash: h2, created_at: new Date('2026-10-10T12:05:00Z') }, // tampered actor!
     ];
     
     let valid = true;
     for (const r of rows) {
-      if (r.previous_hash !== 'GENESIS') {
-         const expectedHash = computeHash({ actor: 'a2', action: 'c2', prev: h1 });
-         if (computeHash({ actor: r.actor, action: r.action, prev: r.previous_hash }) !== expectedHash) {
-           valid = false;
-         }
+      const bStr = JSON.stringify(r.before_state);
+      const aStr = JSON.stringify(r.after_state);
+      const raw = `${r.previous_hash}${r.actor}${r.action}${r.ticket_id}${bStr}${aStr}${r.created_at.toISOString()}`;
+      const computed = crypto.createHash('sha256').update(raw).digest('hex');
+      if (computed !== r.entry_hash) {
+        valid = false;
       }
     }
     expect(valid).toBe(false);

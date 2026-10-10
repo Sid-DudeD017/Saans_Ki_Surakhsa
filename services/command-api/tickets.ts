@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Db } from "./deps";
 import { mapCaseToTicket, mapStatusToDb, mapStatusToWire } from "./ticketMapper";
 import { newId } from "./deps";
+import { createHash } from "crypto";
 
 export class TicketError extends Error {
   constructor(public code: string, message: string) {
@@ -51,6 +52,11 @@ export async function createTicket(db: Db, body: any) {
     ticketId, parsed.type, parsed.district, parsed.reporter_identity || null, 
     parsed.reporter_consent, parsed.idempotency_key
   ]);
+
+  await db.query(`
+    INSERT INTO status_history (case_id, status, changed_by, reason)
+    VALUES ($1, 'OPEN', $2, 'ticket_created')
+  `, [ticketId, parsed.reporter_identity || 'anonymous']);
 
   return { ticket: mapCaseToTicket(res.rows[0], false), status: 201 };
 }
@@ -126,13 +132,20 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   // Audit entry using wire codes
   const before = JSON.stringify({ status: mapStatusToWire(row.status as string) });
   const after = JSON.stringify({ status: mapStatusToWire(nextStatus as string) });
-  const entryHash = newId("hash");
+  
+  const prevRes = await db.query(`SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1`);
+  const previous_hash = prevRes.rows.length > 0 ? prevRes.rows[0].entry_hash : 'genesis';
+  const timestamp = new Date().toISOString();
+
+  const rawString = `${previous_hash}${user}${parsed.action}${id}${before}${after}${timestamp}`;
+  const entryHash = createHash('sha256').update(rawString).digest('hex');
+
   await db.query(`
-    INSERT INTO audit_log (ticket_id, actor, role, action, before_state, after_state, previous_hash, entry_hash)
-    VALUES ($1, $2, $3, $4, $5, $6, COALESCE((SELECT entry_hash FROM audit_log ORDER BY created_at DESC LIMIT 1), 'genesis'), $7)
+    INSERT INTO audit_log (ticket_id, actor, role, action, before_state, after_state, previous_hash, entry_hash, created_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   `, [
     id, user, isOfficer ? "officer" : "citizen", parsed.action, 
-    before, after, entryHash
+    before, after, previous_hash, entryHash, timestamp
   ]);
 
   // Public vs internal notes & evidence
@@ -161,6 +174,13 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
     WHERE id = $${extraParams.length + 2}
     RETURNING *
   `, [nextStatus, ...extraParams, id]);
+
+  if (row.status !== nextStatus) {
+    await db.query(`
+      INSERT INTO status_history (case_id, status, changed_by, reason)
+      VALUES ($1, $2, $3, $4)
+    `, [id, nextStatus, user, parsed.reason || parsed.summary || null]);
+  }
 
   return mapCaseToTicket(res.rows[0], isOfficer, user);
 }
