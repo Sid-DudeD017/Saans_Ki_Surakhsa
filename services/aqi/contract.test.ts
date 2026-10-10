@@ -127,8 +127,8 @@ describe("Contract Tests - API Handlers", () => {
   it("validates /v1/aqi/forecast output matches ForecastResponse schema", async () => {
     const mockSnapshot = {
       version: 1,
-      generated_at: "2026-10-09T08:00:00.000Z",
-      start: "2026-10-09T00:00:00.000Z",
+      generated_at: new Date().toISOString(),
+      start: new Date(Date.now() - 3600000).toISOString(),
       hours: 24,
       step_deg: 0.25,
       anchors: [[114, 308], [114, 309], [115, 308], [115, 309]],
@@ -170,8 +170,8 @@ describe("Contract Tests - API Handlers", () => {
   it("validates /v1/indoor/estimate output matches IndoorEstimateResponse schema", async () => {
     const mockSnapshot = {
       version: 1,
-      generated_at: "2026-10-09T08:00:00.000Z",
-      start: "2026-10-09T00:00:00.000Z",
+      generated_at: new Date().toISOString(),
+      start: new Date(Date.now() - 3600000).toISOString(),
       hours: 72,
       step_deg: 0.25,
       anchors: [[114, 308], [114, 309], [115, 308], [115, 309]],
