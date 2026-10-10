@@ -11,7 +11,7 @@ import { farmStore, type FarmProfile } from './farmProfile';
 import { KisanError, getChcs, type ChcsResponse, type Language } from './kisanApi';
 import { SHOP, type ShopItem } from './shopCatalogue';
 import { rankShop, type Fit } from './shopRank';
-import { dayMonth, dayWord, say, sayWith } from './strings';
+import { dayMonth, inDays, say, sayWith } from './strings';
 
 type Filter = 'fits' | 'machines' | 'decomposer';
 
@@ -149,7 +149,7 @@ function ShopCard({ item, fit, gap, window, top, farm, language }: {
             {fit.gainAcres <= 0
               ? say('needsTractor', language)
               : fit.gainAcres >= gap - 0.01
-                ? sayWith('clearsGap', language, { gap: fmt(gap), days: fmt(fit.days ?? 0), dayWord: dayWord(fit.days ?? 0) })
+                ? sayWith('clearsGap', language, { gap: fmt(gap), inDays: inDays(Number(fmt(fit.days ?? 0)), language) })
                 : sayWith('clearsPart', language, { acres: fmt(fit.gainAcres), gap: fmt(gap) })}
           </p>
         )}

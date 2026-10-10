@@ -255,9 +255,9 @@ const STRINGS = {
     en: 'Your machines already clear the whole field. You need nothing more.',
   },
   clearsGap: {
-    pa: 'ਤੁਹਾਡੇ ਬਾਕੀ {gap} ਕਿੱਲੇ ਲਗਭਗ {days} ਦਿਨਾਂ ਵਿੱਚ ਸਾਫ਼ ਕਰਦਾ ਹੈ',
-    hi: 'आपके बाकी {gap} किल्ले करीब {days} दिनों में साफ़ करता है',
-    en: 'Clears your {gap} acres left in about {days} {dayWord}',
+    pa: 'ਤੁਹਾਡੇ ਬਾਕੀ {gap} ਕਿੱਲੇ ਲਗਭਗ {inDays} ਸਾਫ਼ ਕਰਦਾ ਹੈ',
+    hi: 'आपके बाकी {gap} किल्ले करीब {inDays} साफ़ करता है',
+    en: 'Clears your {gap} acres left in about {inDays}',
   },
   clearsPart: {
     pa: 'ਬਾਕੀ {gap} ਵਿੱਚੋਂ {acres} ਕਿੱਲੇ ਸਾਫ਼ ਕਰਦਾ ਹੈ',
@@ -408,6 +408,14 @@ export function say(key: StringKey, language: Language): string {
 /** English's "day" or "days" for a count; Punjabi and Hindi strings don't use it. */
 export function dayWord(n: number): string {
   return n === 1 ? 'day' : 'days';
+}
+
+/** "in 1 day" / "in 2 days" as each language says it after "about": ਦਿਨ/ਦਿਨਾਂ ਵਿੱਚ, दिन/दिनों में. */
+export function inDays(n: number, language: Language): string {
+  const one = n === 1;
+  if (language === 'pa') return `${n} ${one ? 'ਦਿਨ' : 'ਦਿਨਾਂ'} ਵਿੱਚ`;
+  if (language === 'hi') return `${n} ${one ? 'दिन' : 'दिनों'} में`;
+  return `${n} ${one ? 'day' : 'days'}`;
 }
 
 /** say() with {name} placeholders filled in. */

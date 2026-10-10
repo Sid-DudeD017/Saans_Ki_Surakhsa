@@ -102,3 +102,13 @@ describe('what fits this farm (K15, K16)', () => {
     expect(rankShop({ machines: [] }, SHOP.items)).toBeNull();
   });
 });
+
+import { inDays } from '../app/kisan/strings';
+
+describe('day counts read correctly', () => {
+  it('singular for one day, plural otherwise, in each language', () => {
+    expect([inDays(1, 'pa'), inDays(2, 'pa')]).toEqual(['1 ਦਿਨ ਵਿੱਚ', '2 ਦਿਨਾਂ ਵਿੱਚ']);
+    expect([inDays(1, 'hi'), inDays(1.5, 'hi')]).toEqual(['1 दिन में', '1.5 दिनों में']);
+    expect([inDays(1, 'en'), inDays(0.5, 'en')]).toEqual(['1 day', '0.5 days']);
+  });
+});
