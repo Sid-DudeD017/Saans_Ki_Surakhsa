@@ -65,9 +65,9 @@ const CASE_SELECT = `
     JOIN complaints k ON k.id = c.complaint_id
     LEFT JOIN help_requests h ON h.id = c.help_request_id`;
 
-/** The district triage found, else the linked farm's, else unassigned. */
-const districtOf = (r: CaseRow) => r.district ?? r.help_district ?? "unassigned";
-const DISTRICT_SQL = "COALESCE(c.district, h.district, 'unassigned')";
+/** The district triage found, else the linked farm's, else supervisor_queue. */
+const districtOf = (r: CaseRow) => r.district ?? r.help_district ?? "supervisor_queue";
+const DISTRICT_SQL = "COALESCE(c.district, h.district, 'supervisor_queue')";
 
 const factsOf = (r: CaseRow): CaseFacts => ({
   id: r.id,
@@ -76,6 +76,7 @@ const factsOf = (r: CaseRow): CaseFacts => ({
   type: r.type,
   hasHelpRequest: !!r.help_request_id,
   reporterConsent: r.complaint_body?.reporter_consent === true,
+  reporterId: r.complaint_body?.reporter_id ?? "",
 });
 
 // Not "this case is in Patiala": a refusal says nothing about the case.
@@ -294,6 +295,20 @@ async function decisions(deps: IntakeDeps, id: string) {
   }));
 }
 
+async function ticketNotes(deps: IntakeDeps, id: string, showInternal: boolean) {
+  const query = showInternal
+    ? "SELECT * FROM ticket_notes WHERE case_id = $1 ORDER BY created_at"
+    : "SELECT * FROM ticket_notes WHERE case_id = $1 AND internal = false ORDER BY created_at";
+  const { rows } = await deps.db.query<{ id: string; author_id: string; body: string; internal: boolean; created_at: Date }>(query, [id]);
+  return rows.map((n) => ({
+    id: n.id,
+    authorId: n.author_id,
+    body: n.body,
+    internal: n.internal,
+    createdAt: indiaTime(n.created_at),
+  }));
+}
+
 export async function getCase(deps: IntakeDeps, id: string, officer: Officer): Promise<Response> {
   const r = await loadCase(deps, id);
   if (!r) return notFound(id);
@@ -301,6 +316,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
   const rules = rulesOf(deps);
   if (!(await rules.may(officer, "ViewCase", facts))) return forbidden("you can't open this case");
   const showReporter = await rules.may(officer, "ViewReporter", facts);
+  const showInternalNotes = await rules.may(officer, "ViewInternalNotes", facts);
   const rec = recommendation(r, deps.now());
   const help = r.help_body;
   const channel = r.type === "farmer_support" ? "kisan_saathi" : "anonymous";
@@ -325,6 +341,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
     ...(r.help_link ? { helpLink: { distanceMeters: r.help_link.distance_m, ambiguous: r.help_link.ambiguous, ...(r.help_link.other_help_request_id ? { otherHelpRequestId: r.help_link.other_help_request_id } : {}) } } : {}),
     ...(rec?.machine ? { recommendedMachine: rec.machine } : {}),
     decisions: await decisions(deps, id),
+    notes: await ticketNotes(deps, id, showInternalNotes),
   });
 }
 

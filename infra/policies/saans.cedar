@@ -6,7 +6,7 @@
 permit (
   principal,
   action in [
-    Saans::Action::"ViewCase", Saans::Action::"ViewEvidence",
+    Saans::Action::"ViewCase", Saans::Action::"ViewEvidence", Saans::Action::"ViewInternalNotes",
     Saans::Action::"Approve", Saans::Action::"Change", Saans::Action::"Reject",
     Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close"
   ],
@@ -19,23 +19,36 @@ when { principal.role == "district_officer" && resource.district == principal.di
 permit (
   principal,
   action in [
-    Saans::Action::"ViewCase", Saans::Action::"ViewEvidence",
+    Saans::Action::"ViewCase", Saans::Action::"ViewEvidence", Saans::Action::"ViewInternalNotes",
     Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken"
   ],
   resource is Saans::Case
 )
 when { principal.role == "field_officer" && resource.district == principal.district };
 
-// The state command centre sees every district, and decides only the reports no district covers.
-@id("state-admin-views-all")
+// A citizen can only view their own cases (no internal notes).
+@id("citizen-own-tickets")
 permit (
   principal,
-  action in [Saans::Action::"ViewCase", Saans::Action::"ViewEvidence"],
+  action in [
+    Saans::Action::"ViewCase", Saans::Action::"ViewEvidence"
+  ],
   resource is Saans::Case
 )
-when { principal.role == "state_admin" };
+when { principal.role == "citizen" && resource.reporterId == principal.id };
 
-@id("state-admin-decides-unassigned")
+// Supervisors see station-wide (list all, view all, decide on supervisor_queue).
+@id("supervisor-views-all")
+permit (
+  principal,
+  action in [
+    Saans::Action::"ViewCase", Saans::Action::"ViewEvidence", Saans::Action::"ViewInternalNotes"
+  ],
+  resource is Saans::Case
+)
+when { principal.role == "supervisor" };
+
+@id("supervisor-decides-supervisor-queue")
 permit (
   principal,
   action in [
@@ -44,18 +57,19 @@ permit (
   ],
   resource is Saans::Case
 )
-when { principal.role == "state_admin" && resource.district == "unassigned" };
+when { principal.role == "supervisor" && resource.district == "supervisor_queue" };
 
-// Queues: officers list their own district; the state command centre lists all of them.
+// Queues: officers list their own district.
 @id("list-own-district")
 permit (principal, action == Saans::Action::"ListCases", resource is Saans::District)
 when {
   (principal.role == "district_officer" || principal.role == "field_officer") && resource.name == principal.district
 };
 
-@id("state-admin-lists-all")
+// Supervisors list all districts.
+@id("supervisor-lists-all")
 permit (principal, action == Saans::Action::"ListCases", resource is Saans::District)
-when { principal.role == "state_admin" };
+when { principal.role == "supervisor" };
 
 // Who reported is shown only to the district officer, and only if the reporter agreed. Protects reporters
 // and stops reports being used to harass farmers.

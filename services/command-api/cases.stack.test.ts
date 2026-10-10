@@ -117,7 +117,7 @@ describe.skipIf(!stack)("help before penalty, and the case console's API, on Pos
     await farmerFiles(spot);
     const far = await detail(await citizenReports(offset(spot, 6000, 0)));
     expect(far.case.helpRequestId).toBeUndefined();
-    expect(far.report.district).toBe("unassigned");
+    expect(far.report.district).toBe("supervisor_queue");
 
     const covered = offset(HERE, 20_000, 0);
     await farmerFiles(covered, "MATCHED");

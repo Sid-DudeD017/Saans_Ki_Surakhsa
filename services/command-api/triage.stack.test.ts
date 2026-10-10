@@ -91,8 +91,18 @@ describe.skipIf(!stack)("triage on PostGIS", () => {
       expect((await caseRow(patiala.caseId)).district).toBe("Patiala");
     });
 
-    it("a report outside both districts has none", async () => {
+    it("(e) no jurisdiction match goes to the supervisor queue", async () => {
+      // It sets null in DB, which the case API coalesces into supervisor_queue.
       expect((await caseRow((await report(somewhere(), "garbage")).caseId)).district).toBeNull();
+    });
+
+    it("(f) a point on a district border routes deterministically", async () => {
+      // 30.155, 75.986 is roughly on the border of Sangrur and Patiala in the demo districts.
+      const border = { lat: 30.155, lon: 75.986 };
+      const dist1 = (await caseRow((await report(border, "garbage")).caseId)).district;
+      expect(dist1).toBeDefined();
+      const dist2 = (await caseRow((await report(border, "garbage")).caseId)).district;
+      expect(dist1).toBe(dist2);
     });
   });
 
