@@ -623,6 +623,7 @@ export default function ShalaPage() {
   const [aroundYouOpen, setAroundYouOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
 
   // Shared privacy-first location hook
   const {
@@ -1149,16 +1150,52 @@ export default function ShalaPage() {
           </details>
         )}
 
-        {/* Section G: Play */}
+        {/* Section G: Play - Collapsed behind Play button (Procedure 10 & Option A) */}
         {status === 'ok' && air && (
-          <Card padding="lg">
-            <div style={{ marginBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', fontWeight: 700 }}>
-                🎮 {WORDS.playGame[language]}
-              </h3>
+          <details
+            open={gameOpen}
+            onToggle={(e) => setGameOpen(e.currentTarget.open)}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '0.75rem',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            <summary
+              style={{
+                padding: '0.875rem 1rem',
+                cursor: 'pointer',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: '#0f172a',
+                userSelect: 'none',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🎮 {WORDS.playGame[language]}</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                  (Filter Frenzy • {CATEGORY_NAMES[air.category][language]})
+                </span>
+              </div>
+              <span style={{ fontSize: '0.8125rem', color: '#0284c7', fontWeight: 600 }}>
+                {gameOpen ? '▲ Close' : '▶ Play'}
+              </span>
+            </summary>
+            <div style={{ padding: '0 1rem 1rem 1rem' }}>
+              {gameOpen && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <FilterFrenzy category={air.category} language={language} />
+                </div>
+              )}
             </div>
-            <FilterFrenzy category={air.category} language={language} />
-          </Card>
+          </details>
         )}
 
         {/* Section H: Report - 4-step report sheet with status tracking */}

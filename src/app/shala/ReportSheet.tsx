@@ -1296,68 +1296,77 @@ export function ReportSheet({
                     borderRadius: '0.5rem',
                     overflow: 'hidden',
                     touchAction: 'none',
-                    cursor: isDragging ? 'grabbing' : 'grab',
-                    border: '1px solid #cbd5e1',
+                    cursor: isDragging ? 'grabbing' : 'crosshair',
+                    border: '1.5px solid #0284c7',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)',
                   }}
                   role="region"
-                  aria-label="Map to select smoke location"
+                  aria-label="Map to select smoke location. Drag the pin or click anywhere to position it."
                 >
-                  {/* Background raster tile grid */}
-                  <div
+                  {/* Real OpenStreetMap SVG/Raster Layer */}
+                  <svg
+                    viewBox="-200 -120 400 240"
                     style={{
                       position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: `translate(-50%, -50%) translate(${mapOffset.x}px, ${mapOffset.y}px)`,
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(5, 64px)',
-                      gridTemplateRows: 'repeat(5, 64px)',
-                      opacity: 0.85,
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
                       pointerEvents: 'none',
                     }}
+                    aria-hidden
                   >
-                    {tiles.slice(0, 25).map((t, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          width: '64px',
-                          height: '64px',
-                          border: '1px solid #94a3b8',
-                          backgroundColor: idx % 2 === 0 ? '#cbd5e1' : '#e2e8f0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.65rem',
-                          color: '#64748b',
-                        }}
-                      >
-                        {idx === 12 ? '📍' : ''}
-                      </div>
+                    {tilesAround(initialLocation, ZOOM, 200).map((t) => (
+                      <image
+                        key={`${t.x}-${t.y}`}
+                        href={`https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`}
+                        x={t.left}
+                        y={t.top}
+                        width={256}
+                        height={256}
+                      />
                     ))}
-                  </div>
+                    {/* Initial Location reference pulse ring */}
+                    <circle cx={0} cy={0} r={18} fill="rgba(2, 132, 199, 0.15)" stroke="#0284c7" strokeWidth={1.5} strokeDasharray="3 3" />
+                    <circle cx={0} cy={0} r={4} fill="#0284c7" />
+                  </svg>
 
-                  {/* Center Crosshair Marker */}
+                  {/* Movable Pin that follows finger/mouse drag and click offset */}
                   <div
                     style={{
                       position: 'absolute',
                       top: '50%',
                       left: '50%',
-                      transform: 'translate(-50%, -50%)',
+                      transform: `translate(-50%, -100%) translate(${mapOffset.x}px, ${mapOffset.y}px)`,
                       pointerEvents: 'none',
-                      zIndex: 2,
+                      zIndex: 10,
+                      transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+                      filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.35))',
                     }}
                   >
                     <div
                       style={{
-                        position: 'relative',
-                        width: '32px',
-                        height: '32px',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
+                        userSelect: 'none',
                       }}
                     >
-                      <span style={{ fontSize: '2rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
+                      <div
+                        style={{
+                          backgroundColor: '#dc2626',
+                          color: '#ffffff',
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          padding: '0.15rem 0.4rem',
+                          borderRadius: '9999px',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                          marginBottom: '-2px',
+                        }}
+                      >
+                        {selectedTile?.label[language] || 'Smoke here'}
+                      </div>
+                      <span style={{ fontSize: '2.25rem', lineHeight: 1 }}>
                         📍
                       </span>
                     </div>
@@ -1370,15 +1379,17 @@ export function ReportSheet({
                       bottom: '0.5rem',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                      backgroundColor: 'rgba(15, 23, 42, 0.85)',
                       color: '#ffffff',
-                      padding: '0.25rem 0.6rem',
-                      borderRadius: '9999px',
                       fontSize: '0.75rem',
                       fontWeight: 600,
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '9999px',
                       pointerEvents: 'none',
+                      backdropFilter: 'blur(4px)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                       whiteSpace: 'nowrap',
-                      zIndex: 3,
+                      zIndex: 5,
                     }}
                   >
                     👆 {REPORT_I18N.step2Instruction[language]}
