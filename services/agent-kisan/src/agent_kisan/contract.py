@@ -197,7 +197,8 @@ def _live_examples() -> tuple[dict, dict]:
         calls = {
             ("/v1/farm/coverage", "post"): client.post("/v1/farm/coverage", json=GURPREET_COVERAGE),
             ("/v1/farm/plan", "post"): client.post("/v1/farm/plan", json=GURPREET_PLAN),
-            ("/v1/chcs", "get"): client.get("/v1/chcs", params={"village": "Bhawanigarh"}),
+            ("/v1/chcs", "get"): client.get("/v1/chcs", params={"village": "Bhawanigarh", "harvest_date": "2026-10-20",
+                                                                "wheat_deadline": "2026-11-09"}),
             ("/v1/farm/fires", "get"): client.get("/v1/farm/fires", params={"lat": 30.266, "lon": 76.04}),
             ("/v1/allocations", "post"): client.post("/v1/allocations",
                                                      json=REQUEST_EXAMPLES[("/v1/allocations", "post")]),

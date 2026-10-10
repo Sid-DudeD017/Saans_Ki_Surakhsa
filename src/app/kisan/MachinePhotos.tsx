@@ -84,6 +84,11 @@ export function MachinePhotos({ language }: { language: Language }) {
     farmStore.set((f) => ({ ...f, machines: f.machines.filter((m) => m.id !== id) }));
   }
 
+  /** What if: change a machine's days or count; the verdict above works itself out again. */
+  function change(id: string, update: Partial<Pick<OwnedMachine, 'days' | 'count'>>) {
+    farmStore.set((f) => ({ ...f, machines: f.machines.map((m) => (m.id === id ? { ...m, ...update } : m)) }));
+  }
+
   const busy = phase.at === 'sending';
   const note = phase.at === 'confirm' ? describeGuess(phase.result.machine) : null;
 
@@ -240,6 +245,15 @@ export function MachinePhotos({ language }: { language: Language }) {
                       {say('remove', language)}
                     </Button>
                   </div>
+                  {m.type !== 'other' && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                      {!m.owned && m.days !== undefined ? (
+                        <Stepper label={say('daysStep', language)} value={m.days} min={1} max={60} onChange={(days) => change(m.id, { days })} language={language} />
+                      ) : (
+                        <Stepper label={say('countStep', language)} value={m.count} min={1} max={9} onChange={(count) => change(m.id, { count })} language={language} />
+                      )}
+                    </div>
+                  )}
                 </Card>
               </li>
             ))}

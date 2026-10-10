@@ -107,11 +107,19 @@ export function getCoverage(req: CoverageRequest): Promise<CoverageResponse> {
   return call('/v1/farm/coverage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
 }
 
-/** CHCs near the farm that have this machine, nearest first (K14's "Rent from a CHC"). */
-export function getChcs(where: { lat: number; lon: number } | { village: string }, machine: string, maxKm = 25): Promise<ChcsResponse> {
+/**
+ * CHCs near the farm that have this machine, nearest first (K14's "Rent from a CHC"). Given the farm's
+ * season, each machine also says how many days it's free in it and the first one.
+ */
+export function getChcs(
+  where: { lat: number; lon: number } | { village: string },
+  machine: string,
+  maxKm = 25,
+  season?: { harvest_date: string; wheat_deadline: string },
+): Promise<ChcsResponse> {
   if (USE_MOCKS) return mockChcs(machine);
   const q = new URLSearchParams({ machine, max_km: String(maxKm) });
-  for (const [k, v] of Object.entries(where)) q.set(k, String(v));
+  for (const [k, v] of Object.entries({ ...where, ...season })) q.set(k, String(v));
   return call(`/v1/chcs?${q}`);
 }
 
