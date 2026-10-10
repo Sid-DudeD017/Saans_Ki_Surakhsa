@@ -17,14 +17,41 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    getAqi(28.6472, 77.3058)
-      .then((data) => {
-        if (mounted) setAqiData(data);
-      })
-      .catch((err) => console.error('Failed to load AQI', err));
+
+    const fetchCurrentAqi = (lat: number, lon: number) => {
+      getAqi(lat, lon)
+        .then((data) => {
+          if (mounted) setAqiData(data);
+        })
+        .catch((err) => console.error('Failed to load AQI', err));
+    };
+
+    let activeLat = 28.73;
+    let activeLon = 77.12;
+
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          activeLat = pos.coords.latitude;
+          activeLon = pos.coords.longitude;
+          if (mounted) fetchCurrentAqi(activeLat, activeLon);
+        },
+        () => {
+          if (mounted) fetchCurrentAqi(activeLat, activeLon);
+        },
+        { timeout: 3000 }
+      );
+    } else {
+      fetchCurrentAqi(activeLat, activeLon);
+    }
+
+    const interval = setInterval(() => {
+      if (mounted) fetchCurrentAqi(activeLat, activeLon);
+    }, 120_000);
 
     return () => {
       mounted = false;
+      clearInterval(interval);
     };
   }, []);
 
