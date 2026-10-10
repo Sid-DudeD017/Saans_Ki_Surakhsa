@@ -20,6 +20,8 @@ type Evidence = NonNullable<KisanGrievance['evidence']>[number];
 const BIG: React.CSSProperties = { minHeight: '3rem', fontSize: '1rem' };
 const FIELD: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   padding: '0.6rem 0.9rem',
   fontSize: '1.05rem',
   borderRadius: '0.5rem',
