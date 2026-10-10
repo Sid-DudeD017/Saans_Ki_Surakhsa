@@ -27,5 +27,5 @@ namespace Saans {
   action ViewCase, ViewEvidence, ViewReporter, ViewInternalNotes appliesTo { principal: Officer, resource: Case };
 
   // The six officer actions of CaseActionInput.
-  action Approve, Change, Reject, MarkInField, RecordActionTaken, Close appliesTo { principal: Officer, resource: Case };
+  action Approve, Change, Reject, MarkInField, RecordActionTaken, Close, OverrideThreat appliesTo { principal: Officer, resource: Case };
 }

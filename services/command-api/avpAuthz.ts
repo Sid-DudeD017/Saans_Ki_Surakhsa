@@ -18,6 +18,7 @@ export const AVP_ACTION: Record<CaseVerb, string | null> = {
   MarkInField: "mark_in_field",
   RecordActionTaken: "record_action",
   Close: "close",
+  OverrideThreat: "assign",
 };
 
 type Check = typeof authorizeResource;

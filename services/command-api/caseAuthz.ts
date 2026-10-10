@@ -25,7 +25,7 @@ export interface CaseFacts {
   reporterId: string;
 }
 
-export type CaseVerb = "ViewCase" | "ViewEvidence" | "ViewReporter" | "ViewInternalNotes" | "Approve" | "Change" | "Reject" | "MarkInField" | "RecordActionTaken" | "Close";
+export type CaseVerb = "ViewCase" | "ViewEvidence" | "ViewReporter" | "ViewInternalNotes" | "Approve" | "Change" | "Reject" | "MarkInField" | "RecordActionTaken" | "Close" | "OverrideThreat";
 
 export const VERB_FOR: Record<CaseAction, CaseVerb> = {
   APPROVE: "Approve",
@@ -34,6 +34,7 @@ export const VERB_FOR: Record<CaseAction, CaseVerb> = {
   MARK_IN_FIELD: "MarkInField",
   RECORD_ACTION_TAKEN: "RecordActionTaken",
   CLOSE: "Close",
+  OVERRIDE_THREAT: "OverrideThreat",
 };
 
 /** Every queue an officer could list: the demo districts and the reports neither covers. */

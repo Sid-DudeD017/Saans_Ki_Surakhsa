@@ -8,7 +8,7 @@ permit (
   action in [
     Saans::Action::"ViewCase", Saans::Action::"ViewEvidence", Saans::Action::"ViewInternalNotes",
     Saans::Action::"Approve", Saans::Action::"Change", Saans::Action::"Reject",
-    Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close"
+    Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close", Saans::Action::"OverrideThreat"
   ],
   resource is Saans::Case
 )
@@ -53,7 +53,7 @@ permit (
   principal,
   action in [
     Saans::Action::"Approve", Saans::Action::"Change", Saans::Action::"Reject",
-    Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close"
+    Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close", Saans::Action::"OverrideThreat"
   ],
   resource is Saans::Case
 )
@@ -83,7 +83,7 @@ forbid (
   principal,
   action in [
     Saans::Action::"Approve", Saans::Action::"Change", Saans::Action::"Reject",
-    Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close"
+    Saans::Action::"MarkInField", Saans::Action::"RecordActionTaken", Saans::Action::"Close", Saans::Action::"OverrideThreat"
   ],
   resource is Saans::Case
 )
