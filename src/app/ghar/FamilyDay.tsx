@@ -119,14 +119,15 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
                   memberName: m.name || 'Unnamed Member',
                   role: m.role || 'N/A',
                   baselineAvg: exposure.average,
-                  improvedAvg: comp ? comp.improvedAvg : null
+                  improvedAvg: comp ? comp.improvedAvg : null,
+                  blocks: m.blocks
                 });
                 added++;
               }
             });
 
             if (added > 0) {
-              const newFamily = { ...family, savedResults: newSaved };
+              const newFamily = { ...family, members: [], savedResults: newSaved };
               setFamily(newFamily);
               saveFamilyState(newFamily);
             } else {
@@ -316,37 +317,56 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
           <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#0f172a' }}>Saved Simulation Reports</h3>
           <div style={{ display: 'grid', gap: '1rem' }}>
             {family.savedResults.map(res => (
-              <div key={res.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <strong style={{ color: '#0f172a' }}>{res.memberName}</strong>
-                    <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.5rem', borderRadius: '1rem', color: '#475569' }}>{res.role}</span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    Saved on {new Date(res.timestamp).toLocaleDateString()} at {new Date(res.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em' }}>BASELINE</div>
-                    <div style={{ fontWeight: 800, color: '#ef4444' }}>{res.baselineAvg} µg/m³</div>
-                  </div>
-                  {res.improvedAvg !== null && (
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', letterSpacing: '0.05em' }}>WITH PURIFIER</div>
-                      <div style={{ fontWeight: 800, color: '#15803d' }}>{res.improvedAvg} µg/m³</div>
+              <div key={res.id} style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1rem', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <strong style={{ color: '#0f172a' }}>{res.memberName}</strong>
+                      <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.1rem 0.5rem', borderRadius: '1rem', color: '#475569' }}>{res.role}</span>
                     </div>
-                  )}
-                  <button onClick={() => {
-                    const newSaved = family.savedResults.filter(s => s.id !== res.id);
-                    const newFamily = { ...family, savedResults: newSaved };
-                    setFamily(newFamily);
-                    saveFamilyState(newFamily);
-                  }} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '0.375rem', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }} title="Delete saved result" onMouseOver={e => e.currentTarget.style.background = '#fecaca'} onMouseOut={e => e.currentTarget.style.background = '#fee2e2'}>
-                    ✕
-                  </button>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      Saved on {new Date(res.timestamp).toLocaleDateString()} at {new Date(res.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em' }}>BASELINE</div>
+                      <div style={{ fontWeight: 800, color: '#ef4444' }}>{res.baselineAvg} µg/m³</div>
+                    </div>
+                    {res.improvedAvg !== null && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', letterSpacing: '0.05em' }}>WITH PURIFIER</div>
+                        <div style={{ fontWeight: 800, color: '#15803d' }}>{res.improvedAvg} µg/m³</div>
+                      </div>
+                    )}
+                    <button onClick={() => {
+                      const newSaved = family.savedResults.filter(s => s.id !== res.id);
+                      const newFamily = { ...family, savedResults: newSaved };
+                      setFamily(newFamily);
+                      saveFamilyState(newFamily);
+                    }} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '0.375rem', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s' }} title="Delete saved result" onMouseOver={e => e.currentTarget.style.background = '#fecaca'} onMouseOut={e => e.currentTarget.style.background = '#fee2e2'}>
+                      ✕
+                    </button>
+                  </div>
                 </div>
+
+                {res.blocks && res.blocks.length > 0 && (
+                  <div style={{ marginTop: '0.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>DAILY SCHEDULE & ROOM OCCUPANCY</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', marginTop: '0.75rem' }}>
+                      {res.blocks.map(b => (
+                        <div key={b.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#fff', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}>
+                          <span style={{ fontWeight: 700, color: '#475569' }}>{b.start} - {b.end}</span>
+                          <span style={{ color: '#cbd5e1' }}>|</span>
+                          <span style={{ color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {b.locationId === 'out' ? 'Outdoors / School' : rooms.find(r => r.id === b.locationId)?.name || b.locationId}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
