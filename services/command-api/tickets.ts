@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Db } from "./deps";
-import { mapCaseToTicket, mapStatusToDb } from "./ticketMapper";
+import { mapCaseToTicket, mapStatusToDb, mapStatusToWire } from "./ticketMapper";
 import { newId } from "./deps";
 
 export class TicketError extends Error {
@@ -55,10 +55,10 @@ export async function createTicket(db: Db, body: any) {
   return { ticket: mapCaseToTicket(res.rows[0], false), status: 201 };
 }
 
-export async function getTicket(db: Db, id: string, isOfficer: boolean) {
+export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: string) {
   const res = await db.query(`SELECT * FROM cases WHERE id = $1`, [id]);
   if (res.rows.length === 0) throw new TicketError("not_found", "Ticket not found");
-  return mapCaseToTicket(res.rows[0], isOfficer);
+  return mapCaseToTicket(res.rows[0], isOfficer, user);
 }
 
 export async function listTickets(db: Db, isOfficer: boolean, filters: { district?: string, status?: string }) {
@@ -104,6 +104,12 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   if (parsed.action === "citizen_confirm" && row.status !== "RESOLVED") {
      throw new TicketError("conflict", "Cannot confirm a ticket that is not resolved");
   }
+  if (parsed.action === "citizen_reopen" && row.status !== "RESOLVED") {
+     throw new TicketError("conflict", "Cannot reopen a ticket that is not resolved");
+  }
+  if (row.status === "OPEN" && parsed.action === "resolve") {
+     throw new TicketError("conflict", "Cannot transition from submitted directly to resolved");
+  }
 
   let nextStatus = row.status;
   
@@ -112,14 +118,14 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   else if (parsed.action === "request_info") nextStatus = "AWAITING_INFO";
   else if (parsed.action === "resolve") nextStatus = "RESOLVED";
   else if (parsed.action === "citizen_confirm") nextStatus = "CLOSED";
-  else if (parsed.action === "citizen_reopen") nextStatus = "OPEN";
+  else if (parsed.action === "citizen_reopen") nextStatus = "REOPENED";
   else if (parsed.action === "update_status" && parsed.status) {
     nextStatus = mapStatusToDb(parsed.status as any);
   }
 
-  // Audit entry
-  const before = JSON.stringify({ status: row.status });
-  const after = JSON.stringify({ status: nextStatus });
+  // Audit entry using wire codes
+  const before = JSON.stringify({ status: mapStatusToWire(row.status as string) });
+  const after = JSON.stringify({ status: mapStatusToWire(nextStatus as string) });
   const entryHash = newId("hash");
   await db.query(`
     INSERT INTO audit_log (ticket_id, actor, role, action, before_state, after_state, previous_hash, entry_hash)
@@ -132,9 +138,12 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   // Public vs internal notes & evidence
   let extraSql = "";
   let extraParams: any[] = [];
-  if (parsed.reason || parsed.summary) {
+  if (parsed.action === "resolve") {
+    extraSql = `, resolution_summary = $2`;
+    extraParams = [parsed.summary];
+  } else if (parsed.reason || parsed.summary) {
     const text = parsed.summary || parsed.reason;
-    if (isOfficer && !["resolve", "request_info"].includes(parsed.action)) {
+    if (isOfficer && !["request_info"].includes(parsed.action)) {
        extraSql = `, internal_notes = coalesce(internal_notes, '[]'::jsonb) || $2::jsonb`;
        extraParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
     } else {
@@ -148,12 +157,12 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
 
   const res = await db.query(`
     UPDATE cases 
-    SET status = $1, version = version + 1 ${extraSql}
+    SET status = $1, version = version + 1, updated_at = now() ${extraSql}
     WHERE id = $${extraParams.length + 2}
     RETURNING *
   `, [nextStatus, ...extraParams, id]);
 
-  return mapCaseToTicket(res.rows[0], isOfficer);
+  return mapCaseToTicket(res.rows[0], isOfficer, user);
 }
 
 export async function getTicketHistory(db: Db, id: string) {

@@ -209,6 +209,7 @@ ALTER TABLE cases ADD COLUMN IF NOT EXISTS duplicate_of text;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_notes jsonb;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS internal_notes jsonb;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS evidence jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS resolution_summary text;
 
 ALTER TABLE cases ALTER COLUMN complaint_id DROP NOT NULL;
 ALTER TABLE cases ALTER COLUMN location DROP NOT NULL;

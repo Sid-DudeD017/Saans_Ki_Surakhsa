@@ -80,29 +80,46 @@ describe("tickets API", () => {
 
   it("resolve", async () => {
     const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await applyTicketAction(db, res.ticket.id, { action: "update_status", status: "in_progress" }, "officer-1", true);
     const resolved = await applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "Cleaned up" }, "officer-1", true);
     expect(resolved.status).toBe("resolved");
   });
 
   it("citizen confirm", async () => {
     const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await applyTicketAction(db, res.ticket.id, { action: "update_status", status: "in_progress" }, "officer-1", true);
     await applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "done" }, "officer-1", true);
     const confirmed = await applyTicketAction(db, res.ticket.id, { action: "citizen_confirm" }, "citizen-1", false);
     expect(confirmed.status).toBe("closed");
   });
 
-  it("citizen reopen", async () => {
+  it("full lifecycle with history", async () => {
+    // create -> accept -> request_info -> update_status(in_progress) -> resolve -> citizen_confirm
     const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
-    const reopened = await applyTicketAction(db, res.ticket.id, { action: "citizen_reopen", reason: "still bad" }, "citizen-1", false);
-    expect(reopened.status).toBe("submitted");
-  });
+    const id = res.ticket.id;
+    await applyTicketAction(db, id, { action: "update_status", status: "under_review" }, "officer-1", true);
+    await applyTicketAction(db, id, { action: "accept" }, "officer-1", true);
+    await applyTicketAction(db, id, { action: "request_info", reason: "need more" }, "officer-1", true);
+    await applyTicketAction(db, id, { action: "update_status", status: "in_progress" }, "officer-1", true);
+    await applyTicketAction(db, id, { action: "resolve", summary: "done" }, "officer-1", true);
+    
+    // citizen reopen
+    const reopened = await applyTicketAction(db, id, { action: "citizen_reopen", reason: "not done" }, "citizen-1", false);
+    expect(reopened.status).toBe("reopened");
 
-  it("status history", async () => {
-    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
-    await applyTicketAction(db, res.ticket.id, { action: "accept" }, "officer-1", true);
+    // officer reviews
+    const reviewed = await applyTicketAction(db, id, { action: "update_status", status: "under_review" }, "officer-1", true);
+    expect(reviewed.status).toBe("under_review");
+
+    await applyTicketAction(db, id, { action: "resolve", summary: "done for real" }, "officer-1", true);
+    const closed = await applyTicketAction(db, id, { action: "citizen_confirm" }, "citizen-1", false);
+    expect(closed.status).toBe("closed");
+
     const history = await getTicketHistory(db, res.ticket.id);
-    expect(history.length).toBeGreaterThan(0);
-    expect(history[0].action).toBe("accept");
+    expect(history.length).toBeGreaterThan(5);
+    // wire formats in history
+    const afterState = typeof history[0].after_state === "string" ? JSON.parse(history[0].after_state) : history[0].after_state;
+    expect(afterState.status).toBe("under_review");
   });
 
   it("400 validation", async () => {
@@ -117,6 +134,7 @@ describe("tickets API", () => {
   
   it("403 citizen confirm by officer rejected", async () => {
     const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await applyTicketAction(db, res.ticket.id, { action: "update_status", status: "in_progress" }, "officer-1", true);
     await applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "done" }, "officer-1", true);
     await expect(applyTicketAction(db, res.ticket.id, { action: "citizen_confirm" }, "officer-1", true)).rejects.toThrow("Action citizen_confirm is restricted to citizens");
   });
