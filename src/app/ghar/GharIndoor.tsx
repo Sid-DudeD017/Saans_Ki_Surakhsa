@@ -5,7 +5,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { type IndoorEstimate, type IndoorRequest, type PlanItem } from '../../../packages/aqi/indoor';
 import { INDOOR_DEFAULTS } from '../../../packages/aqi/indoorDefaults';
 import { Button, Card, Badge } from '../../components/ui';
-import { AlertCircle } from 'lucide-react';
 import { USE_MOCKS, getIndoorEstimate } from './gharApi';
 import { IndoorChart } from './IndoorChart';
 import { getAqi, type AqiData } from '../../lib/api';
@@ -264,7 +263,7 @@ export function GharIndoor() {
         
         <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.85rem', color: '#64748b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <AlertCircle size={16} /> We started with typical presets. Adjust room size, window sealing, or heating sources anytime to update predictive accuracy.
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> We started with typical presets. Adjust room size, window sealing, or heating sources anytime to update predictive accuracy.
           </div>
           <Button variant="secondary" size="sm" style={{ background: '#d97706', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             🚨 Report Smoke / Dust
