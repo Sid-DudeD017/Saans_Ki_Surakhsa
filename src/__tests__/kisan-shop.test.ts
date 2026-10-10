@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CAPACITY_ACRES_PER_DAY, DECOMPOSER_MIN_WINDOW_DAYS } from '../app/kisan/coverage';
-import { SHOP } from '../app/kisan/shop';
+import { SHOP } from '../app/kisan/shopCatalogue';
 
 const LANGS = ['pa', 'hi', 'en'] as const;
 
@@ -62,5 +62,43 @@ describe('kisan_shop.json', () => {
 
   it('never invents a machine price', () => {
     for (const item of SHOP.items.filter((i) => i.kind === 'machine')) expect(item.price_inr).toBeNull();
+  });
+});
+
+import type { FarmProfile } from '../app/kisan/farmProfile';
+import { rankShop } from '../app/kisan/shopRank';
+
+const GURPREET: FarmProfile = {
+  paddyAcres: 18,
+  tractors: 1,
+  harvestDate: '2026-10-20',
+  wheatBy: '2026-11-09',
+  machines: [{ id: 'a', type: 'super_seeder', count: 1, owned: false, days: 2, addedAt: '' }],
+};
+
+describe('what fits this farm (K15, K16)', () => {
+  it("Gurpreet: every machine the check knows clears his 7 acres; the decomposer is too late in 20 days", () => {
+    const fit = rankShop(GURPREET, SHOP.items)!;
+    expect(fit.gapAcres).toBe(7);
+    expect(fit.windowDays).toBe(20);
+    expect(fit.fits[0]).toEqual({ id: 'happy_seeder', gainAcres: 7, days: 1, tooLate: false });
+    const decomposer = fit.fits.find((f) => f.id === 'pusa_decomposer')!;
+    expect(decomposer).toMatchObject({ tooLate: true, gainAcres: 0 });
+    // Machines the engine doesn't know come last.
+    expect(fit.fits.slice(-2).map((f) => f.gainAcres)).toEqual([null, null]);
+  });
+
+  it('with 25 days or more the decomposer counts for the whole gap', () => {
+    const fit = rankShop({ ...GURPREET, wheatBy: '2026-11-15' }, SHOP.items)!;
+    expect(fit.fits.find((f) => f.id === 'pusa_decomposer')).toMatchObject({ tooLate: false, gainAcres: fit.gapAcres });
+  });
+
+  it('no tractor: a machine clears nothing', () => {
+    const fit = rankShop({ ...GURPREET, tractors: 0, machines: [] }, SHOP.items)!;
+    expect(fit.fits.find((f) => f.id === 'super_seeder')?.gainAcres).toBe(0);
+  });
+
+  it('needs the farm card first', () => {
+    expect(rankShop({ machines: [] }, SHOP.items)).toBeNull();
   });
 });

@@ -2,7 +2,7 @@
 // from real calls to the agent. The first message gets the read-back, the next one files it. The
 // proposal is loaded only when mocks are on, so it stays out of the normal bundle.
 import { coverageResponse, type CoverageRequest, type CoverageResponse } from './coverage';
-import type { KisanStatus, Language, MessageResponse, PhotoResponse, PlanResponse } from './kisanApi';
+import type { ChcsResponse, KisanStatus, Language, MessageResponse, PhotoResponse, PlanResponse } from './kisanApi';
 
 type Proposal = { paths: Record<string, Record<string, { responses: Record<string, { content: Record<string, { example: unknown }> }> }>> };
 
@@ -61,4 +61,11 @@ export async function mockCoverage(req: CoverageRequest): Promise<CoverageRespon
 export async function mockPlan(): Promise<PlanResponse> {
   await pause();
   return example<PlanResponse>('/v1/farm/plan');
+}
+
+/** The contract's two demo CHCs, keeping those that have the machine. */
+export async function mockChcs(machine: string): Promise<ChcsResponse> {
+  await pause();
+  const all = await example<ChcsResponse>('/v1/chcs', 'get');
+  return { ...all, chcs: all.chcs.filter((c) => c.machines.some((m) => m.machine === machine)) };
 }

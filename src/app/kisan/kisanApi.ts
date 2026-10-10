@@ -4,7 +4,7 @@
 // (the default), the contract's own examples answer instead: Gurpreet's conversation, read back, filed.
 import type { components } from '../../../packages/contracts/types';
 import type { CoverageRequest, CoverageResponse } from './coverage';
-import { mockCoverage, mockMessage, mockPhoto, mockPlan, mockStatus, mockVoice } from './mock';
+import { mockChcs, mockCoverage, mockMessage, mockPhoto, mockPlan, mockStatus, mockVoice } from './mock';
 
 export type { CoverageRequest, CoverageResponse };
 
@@ -17,6 +17,7 @@ export type MachineGuess = components['schemas']['MachineGuess'];
 export type FarmHint = components['schemas']['FarmHint'];
 export type PlanRequest = components['schemas']['PlanRequest'];
 export type PlanResponse = components['schemas']['PlanResponse'];
+export type ChcsResponse = components['schemas']['ChcsResponse'];
 export type Language = 'pa' | 'hi' | 'en';
 
 /** One line of the read-back card (agent_kisan/readback.py). */
@@ -99,6 +100,14 @@ export function sendVoice(audio: Blob, filename: string, language: Language, ses
 export function getCoverage(req: CoverageRequest): Promise<CoverageResponse> {
   if (USE_MOCKS) return mockCoverage(req);
   return call('/v1/farm/coverage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+}
+
+/** CHCs near the farm that have this machine, nearest first (K14's "Rent from a CHC"). */
+export function getChcs(where: { lat: number; lon: number } | { village: string }, machine: string, maxKm = 25): Promise<ChcsResponse> {
+  if (USE_MOCKS) return mockChcs(machine);
+  const q = new URLSearchParams({ machine, max_km: String(maxKm) });
+  for (const [k, v] of Object.entries(where)) q.set(k, String(v));
+  return call(`/v1/chcs?${q}`);
 }
 
 /** The zero-burn plan: CHC machines for the gap on dry days, and what's still short (K11). */

@@ -16,6 +16,7 @@ import { USE_MOCKS, type Language, type Readback } from './kisanApi';
 import { KisanTabs, useTab, type Tab } from './KisanTabs';
 import { MachineCheck } from './MachineCheck';
 import { MachinePhotos } from './MachinePhotos';
+import { Shop } from './Shop';
 import { FONT, say, type StringKey } from './strings';
 
 function Panel({ tab, current, children }: { tab: Tab; current: Tab; children: React.ReactNode }) {
@@ -78,7 +79,7 @@ export default function KisanPage() {
       </Panel>
 
       <Panel tab="shop" current={tab}>
-        <Soon text="shopSoon" language={lang} />
+        <Shop language={lang} />
       </Panel>
 
       <Panel tab="help" current={tab}>
