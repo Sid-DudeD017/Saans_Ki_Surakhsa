@@ -2,7 +2,7 @@
 // from real calls to the agent. The first message gets the read-back, the next one files it. The
 // proposal is loaded only when mocks are on, so it stays out of the normal bundle.
 import { coverageResponse, type CoverageRequest, type CoverageResponse } from './coverage';
-import type { ChcsResponse, KisanStatus, Language, MessageResponse, PhotoResponse, PlanResponse } from './kisanApi';
+import type { ChcsResponse, ComplaintResponse, KisanStatus, Language, MessageResponse, PhotoResponse, PlanResponse, TicketStatus } from './kisanApi';
 
 type Proposal = { paths: Record<string, Record<string, { responses: Record<string, { content: Record<string, { example: unknown }> }> }>> };
 
@@ -68,4 +68,31 @@ export async function mockChcs(machine: string): Promise<ChcsResponse> {
   await pause();
   const all = await example<ChcsResponse>('/v1/chcs', 'get');
   return { ...all, chcs: all.chcs.filter((c) => c.machines.some((m) => m.machine === machine)) };
+}
+
+// Demo tickets: the same key gives the same ticket (like Command's Idempotency-Key), and an officer
+// "opens" each one a few seconds after it's sent.
+const demoTickets = new Map<string, { id: string; at: number }>();
+
+export async function mockGrievance(key: string): Promise<ComplaintResponse> {
+  await pause();
+  const seen = demoTickets.get(key) ?? { id: `complaint-demo-${key.slice(-8)}`, at: Date.now() };
+  demoTickets.set(key, seen);
+  return { id: seen.id, status: 'received' };
+}
+
+export async function mockTicketStatus(id: string): Promise<TicketStatus> {
+  await pause();
+  const sent = [...demoTickets.values()].find((t) => t.id === id);
+  const opened = !sent || Date.now() - sent.at > 5000;
+  const now = new Date().toISOString();
+  return {
+    id,
+    status: opened ? 'case_opened' : 'received',
+    stage_label: opened ? 'Case opened' : 'Report received',
+    explanation: '',
+    type: 'kisan_grievance',
+    received_at: new Date(sent?.at ?? Date.now()).toISOString(),
+    updated_at: now,
+  };
 }

@@ -1,0 +1,97 @@
+{
+  "$comment": "Numbers Kisan Saathi's Help tab shows (K23). A wrong official number is worse than none, so every entry names a source in `sources` with the date it was checked, and a number with no official source is left out: Patiala's Chief Agriculture Officer is missing because only unofficial directories list it. `everywhere` shows in every district; `districts` adds a district's own offices. Check these again before the demo. src/__tests__/kisan-help.test.ts holds the file to these rules.",
+  "sources": {
+    "erss_faq": {
+      "title": "112 India: frequently asked questions",
+      "publisher": "Emergency Response Support System, Ministry of Home Affairs",
+      "url": "https://112.gov.in/faq",
+      "checked_on": "2026-10-10"
+    },
+    "mkisan_kcc": {
+      "title": "About Kisan Call Centre",
+      "publisher": "mKisan, Ministry of Agriculture & Farmers Welfare",
+      "url": "https://mkisan.gov.in/Home/AboutKCC",
+      "checked_on": "2026-10-10"
+    },
+    "sangrur_contacts": {
+      "title": "Key contacts (page updated 8 May 2026)",
+      "publisher": "District Administration Sangrur, Government of Punjab",
+      "url": "https://sangrur.nic.in/key-contacts/",
+      "checked_on": "2026-10-10"
+    },
+    "ppcb_contacts": {
+      "title": "Address, email and telephone nos. of designated officers (file last changed 2019)",
+      "publisher": "Punjab Pollution Control Board",
+      "url": "https://ppcb.punjab.gov.in/media/documents/contactdetails.pdf",
+      "checked_on": "2026-10-10"
+    }
+  },
+  "everywhere": [
+    {
+      "id": "emergency",
+      "number": "112",
+      "emergency": true,
+      "names": { "pa": "ਐਮਰਜੈਂਸੀ (ਪੁਲਿਸ, ਅੱਗ ਬੁਝਾਊ, ਐਂਬੂਲੈਂਸ)", "hi": "आपातकाल (पुलिस, दमकल, एम्बुलेंस)", "en": "Emergency (police, fire, ambulance)" },
+      "when": {
+        "pa": "ਅੱਗ ਫੈਲ ਰਹੀ ਹੋਵੇ, ਕੋਈ ਜ਼ਖ਼ਮੀ ਹੋਵੇ ਜਾਂ ਖ਼ਤਰਾ ਹੋਵੇ",
+        "hi": "आग फैल रही हो, कोई घायल हो या ख़तरा हो",
+        "en": "A fire is spreading, someone is hurt, or you're in danger"
+      },
+      "source": "erss_faq"
+    },
+    {
+      "id": "kisan_call_centre",
+      "number": "1800-180-1551",
+      "emergency": false,
+      "names": { "pa": "ਕਿਸਾਨ ਕਾਲ ਸੈਂਟਰ (ਮੁਫ਼ਤ)", "hi": "किसान कॉल सेंटर (मुफ़्त)", "en": "Kisan Call Centre (free)" },
+      "when": {
+        "pa": "ਖੇਤੀ ਬਾਰੇ ਸਵਾਲ, ਸਵੇਰੇ 6 ਤੋਂ ਰਾਤ 10 ਵਜੇ ਤੱਕ, ਪੰਜਾਬੀ ਅਤੇ ਹਿੰਦੀ ਵਿੱਚ",
+        "hi": "खेती के सवाल, सुबह 6 से रात 10 बजे तक, पंजाबी और हिंदी में",
+        "en": "Farming questions, 6 am to 10 pm, in Punjabi and Hindi"
+      },
+      "source": "mkisan_kcc"
+    }
+  ],
+  "districts": {
+    "Sangrur": [
+      {
+        "id": "cao_sangrur",
+        "number": "01672-234220",
+        "emergency": false,
+        "names": { "pa": "ਮੁੱਖ ਖੇਤੀਬਾੜੀ ਅਫ਼ਸਰ, ਸੰਗਰੂਰ", "hi": "मुख्य कृषि अधिकारी, संगरूर", "en": "Chief Agriculture Officer, Sangrur" },
+        "when": {
+          "pa": "CHC, ਮਸ਼ੀਨ ਜਾਂ ਸਬਸਿਡੀ ਬਾਰੇ ਤੁਹਾਡੀ ਸ਼ਿਕਾਇਤ ਤੇ ਕੋਈ ਕਾਰਵਾਈ ਨਹੀਂ ਹੋਈ",
+          "hi": "CHC, मशीन या सब्सिडी पर आपकी शिकायत पर कोई कार्रवाई नहीं हुई",
+          "en": "Nothing has happened on your complaint about a CHC, machine or subsidy"
+        },
+        "source": "sangrur_contacts"
+      },
+      {
+        "id": "ppcb_sangrur",
+        "number": "01672-233475",
+        "emergency": false,
+        "names": { "pa": "ਪ੍ਰਦੂਸ਼ਣ ਕੰਟਰੋਲ ਬੋਰਡ, ਸੰਗਰੂਰ ਦਫ਼ਤਰ", "hi": "प्रदूषण नियंत्रण बोर्ड, संगरूर कार्यालय", "en": "Pollution Control Board, Sangrur office" },
+        "when": {
+          "pa": "ਨੇੜੇ ਪਰਾਲੀ ਜਾਂ ਕੂੜਾ ਸੜ ਰਿਹਾ ਹੈ",
+          "hi": "पास में पराली या कूड़ा जल रहा है",
+          "en": "Stubble or rubbish is being burnt nearby"
+        },
+        "source": "sangrur_contacts"
+      }
+    ],
+    "Patiala": [
+      {
+        "id": "ppcb_patiala",
+        "number": "0175-2228132",
+        "emergency": false,
+        "names": { "pa": "ਪ੍ਰਦੂਸ਼ਣ ਕੰਟਰੋਲ ਬੋਰਡ, ਪਟਿਆਲਾ ਦਫ਼ਤਰ", "hi": "प्रदूषण नियंत्रण बोर्ड, पटियाला कार्यालय", "en": "Pollution Control Board, Patiala office" },
+        "when": {
+          "pa": "ਨੇੜੇ ਪਰਾਲੀ ਜਾਂ ਕੂੜਾ ਸੜ ਰਿਹਾ ਹੈ",
+          "hi": "पास में पराली या कूड़ा जल रहा है",
+          "en": "Stubble or rubbish is being burnt nearby"
+        },
+        "source": "ppcb_contacts"
+      }
+    ]
+  }
+}

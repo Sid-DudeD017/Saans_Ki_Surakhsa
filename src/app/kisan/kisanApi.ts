@@ -4,7 +4,7 @@
 // (the default), the contract's own examples answer instead: Gurpreet's conversation, read back, filed.
 import type { components } from '../../../packages/contracts/types';
 import type { CoverageRequest, CoverageResponse } from './coverage';
-import { mockChcs, mockCoverage, mockMessage, mockPhoto, mockPlan, mockStatus, mockVoice } from './mock';
+import { mockChcs, mockCoverage, mockGrievance, mockMessage, mockPhoto, mockPlan, mockStatus, mockTicketStatus, mockVoice } from './mock';
 
 export type { CoverageRequest, CoverageResponse };
 
@@ -18,6 +18,9 @@ export type FarmHint = components['schemas']['FarmHint'];
 export type PlanRequest = components['schemas']['PlanRequest'];
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type ChcsResponse = components['schemas']['ChcsResponse'];
+export type KisanGrievance = components['schemas']['KisanGrievance'];
+export type ComplaintResponse = components['schemas']['ComplaintResponse'];
+export type TicketStatus = components['schemas']['ComplaintStatus'];
 export type Language = 'pa' | 'hi' | 'en';
 
 /** One line of the read-back card (agent_kisan/readback.py). */
@@ -108,6 +111,25 @@ export function getChcs(where: { lat: number; lon: number } | { village: string 
   const q = new URLSearchParams({ machine, max_km: String(maxKm) });
   for (const [k, v] of Object.entries(where)) q.set(k, String(v));
   return call(`/v1/chcs?${q}`);
+}
+
+/**
+ * A farmer's complaint to Saans Command (K20). The idempotency key is the draft's: a retry after a
+ * dropped connection sends the same key, so the farmer gets one ticket, not two.
+ */
+export function submitGrievance(body: KisanGrievance, idempotencyKey: string): Promise<ComplaintResponse> {
+  if (USE_MOCKS) return mockGrievance(idempotencyKey);
+  return call('/v1/complaints', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Where a ticket has got to (K21): GET /v1/complaints/{id}. */
+export function getTicketStatus(id: string): Promise<TicketStatus> {
+  if (USE_MOCKS) return mockTicketStatus(id);
+  return call(`/v1/complaints/${encodeURIComponent(id)}`);
 }
 
 /** The zero-burn plan: CHC machines for the gap on dry days, and what's still short (K11). */
