@@ -78,17 +78,18 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
         { id: 'b2', start: '06:00', end: '22:00', locationId: 'out' }
       ]
     };
-    setFamily(prev => ({ members: [...prev.members, newMember] }));
+    setFamily(prev => ({ ...prev, members: [...prev.members, newMember] }));
   };
 
   const updateMember = (id: string, updates: Partial<FamilyMember>) => {
     setFamily(prev => ({
+      ...prev,
       members: prev.members.map(m => m.id === id ? { ...m, ...updates } : m)
     }));
   };
 
   const removeMember = (id: string) => {
-    setFamily(prev => ({ members: prev.members.filter(m => m.id !== id) }));
+    setFamily(prev => ({ ...prev, members: prev.members.filter(m => m.id !== id) }));
   };
 
   if (outdoorForecast.length < 24) return null;
