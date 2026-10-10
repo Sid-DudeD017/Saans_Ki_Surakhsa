@@ -47,7 +47,9 @@ export interface Transcript {
   seconds?: number;
 }
 
-const BASE = '';
+const BASE = ''; // this site: the agent forwarder (/v1/agent/kisan/*, /v1/farm/*, /v1/chcs)
+// Saans Command's API on AWS, for complaints and their status (src/lib/api.ts does the same for uploads).
+const COMMAND_BASE = (process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || '').replace(/\/$/, '');
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 
 /** An error the screen can show: the server's error.message (ErrorEnvelope), or why it couldn't be reached. */
@@ -57,10 +59,10 @@ export class KisanError extends Error {
   }
 }
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
+async function call<T>(path: string, init?: RequestInit, base = BASE): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, init);
+    res = await fetch(`${base}${path}`, init);
   } catch {
     throw new KisanError('network', 0);
   }
@@ -123,13 +125,13 @@ export function submitGrievance(body: KisanGrievance, idempotencyKey: string): P
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(body),
-  });
+  }, COMMAND_BASE);
 }
 
 /** Where a ticket has got to (K21): GET /v1/complaints/{id}. */
 export function getTicketStatus(id: string): Promise<TicketStatus> {
   if (USE_MOCKS) return mockTicketStatus(id);
-  return call(`/v1/complaints/${encodeURIComponent(id)}`);
+  return call(`/v1/complaints/${encodeURIComponent(id)}`, undefined, COMMAND_BASE);
 }
 
 /** The zero-burn plan: CHC machines for the gap on dry days, and what's still short (K11). */

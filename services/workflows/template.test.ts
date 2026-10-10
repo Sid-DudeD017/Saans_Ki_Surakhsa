@@ -31,7 +31,7 @@ const modules: Record<string, Record<string, unknown>> = {
 describe("infra/template.yaml", () => {
   it("every function's handler exists", () => {
     const functions = Object.entries(resources).filter(([, r]) => r.Type === "AWS::Serverless::Function");
-    expect(functions.length).toBe(15);
+    expect(functions.length).toBe(16);
     for (const [name, fn] of functions) {
       const handler = fn.Properties.Handler as string;
       const dot = handler.lastIndexOf(".");
@@ -53,7 +53,7 @@ describe("infra/template.yaml", () => {
         .map((e) => `${e.Properties.Method} ${e.Properties.Path}`),
     );
     expect(paths.sort()).toEqual([
-      "GET /health", "GET /v1/cases", "GET /v1/cases/{id}", "GET /v1/officer/whoami",
+      "GET /health", "GET /v1/cases", "GET /v1/cases/{id}", "GET /v1/complaints/{id}", "GET /v1/officer/whoami",
       "POST /v1/cases/{id}/actions", "POST /v1/complaints", "POST /v1/uploads",
     ]);
   });
