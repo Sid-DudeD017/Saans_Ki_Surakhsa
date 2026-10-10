@@ -491,6 +491,24 @@ const STRINGS = {
     en: 'Set your farm location above first; the complaint goes to that district.',
   },
   complaintFailed: { pa: 'ਸ਼ਿਕਾਇਤ ਨਹੀਂ ਗਈ: {why}', hi: 'शिकायत नहीं गई: {why}', en: "The complaint didn't send: {why}" },
+  smsLabel: { pa: 'ਟਿਕਟ ਨੰਬਰ SMS ਤੇ ਭੇਜੋ (ਜੇ ਚਾਹੋ)', hi: 'टिकट नंबर SMS पर भेजें (चाहें तो)', en: 'Text me the ticket number (optional)' },
+  smsHint: {
+    pa: 'ਤੁਹਾਡਾ 10 ਅੰਕਾਂ ਦਾ ਮੋਬਾਈਲ ਨੰਬਰ। ਇਹ ਸਿਰਫ਼ ਇਸ ਇੱਕ SMS ਲਈ ਹੈ ਅਤੇ ਅਫ਼ਸਰ ਨੂੰ ਨਹੀਂ ਜਾਂਦਾ।',
+    hi: 'आपका 10 अंकों का मोबाइल नंबर। यह सिर्फ़ इस एक SMS के लिए है और अधिकारी को नहीं जाता।',
+    en: "Your 10-digit mobile number. It's used for this one SMS and isn't sent to the officer.",
+  },
+  smsInvalid: {
+    pa: 'ਮੋਬਾਈਲ ਨੰਬਰ 10 ਅੰਕਾਂ ਦਾ ਹੋਵੇ ਅਤੇ 6, 7, 8 ਜਾਂ 9 ਨਾਲ ਸ਼ੁਰੂ ਹੋਵੇ।',
+    hi: 'मोबाइल नंबर 10 अंकों का हो और 6, 7, 8 या 9 से शुरू हो।',
+    en: 'A mobile number has 10 digits and starts with 6, 7, 8 or 9.',
+  },
+  smsSending: { pa: 'SMS ਭੇਜ ਰਿਹਾ ਹਾਂ…', hi: 'SMS भेज रहा हूँ…', en: 'Sending the SMS…' },
+  smsSent: { pa: 'ਟਿਕਟ ਨੰਬਰ {to} ਤੇ SMS ਕਰ ਦਿੱਤਾ', hi: 'टिकट नंबर {to} पर SMS कर दिया', en: 'Ticket number texted to {to}' },
+  smsFailed: {
+    pa: 'SMS ਨਹੀਂ ਗਿਆ। ਟਿਕਟ ਨੰਬਰ ਲਿਖ ਲਓ।',
+    hi: 'SMS नहीं गया। टिकट नंबर लिख लें।',
+    en: "The SMS didn't go. Please write the ticket number down.",
+  },
   sentTitle: { pa: 'ਸ਼ਿਕਾਇਤ ਭੇਜ ਦਿੱਤੀ', hi: 'शिकायत भेज दी', en: 'Complaint sent' },
   yourTicket: { pa: 'ਤੁਹਾਡਾ ਟਿਕਟ ਨੰਬਰ', hi: 'आपका टिकट नंबर', en: 'Your ticket number' },
   keepTicket: {
@@ -510,6 +528,12 @@ const STRINGS = {
   t_acted_on: { pa: 'ਕਾਰਵਾਈ ਹੋਈ', hi: 'कार्रवाई हुई', en: 'Action taken' },
   t_closed: { pa: 'ਬੰਦ', hi: 'बंद', en: 'Closed' },
   statusUnknown: { pa: 'ਹਾਲੇ ਪਤਾ ਨਹੀਂ ਲੱਗਿਆ', hi: 'अभी पता नहीं चला', en: "Couldn't check right now" },
+  ignoredTitle: { pa: 'ਸਮੇਂ ਸਿਰ ਕਿਸੇ ਅਫ਼ਸਰ ਨੇ ਕਾਰਵਾਈ ਨਹੀਂ ਕੀਤੀ', hi: 'समय पर किसी अधिकारी ने कार्रवाई नहीं की', en: 'No officer acted in time' },
+  ignoredCall: {
+    pa: 'ਸ਼ਿਕਾਇਤ ਵੱਡੇ ਅਫ਼ਸਰ ਕੋਲ ਭੇਜ ਦਿੱਤੀ ਗਈ ਹੈ। ਹੁਣੇ ਫ਼ੋਨ ਕਰੋ ਅਤੇ ਆਪਣਾ ਟਿਕਟ ਨੰਬਰ ਦੱਸੋ।',
+    hi: 'शिकायत बड़े अधिकारी को भेज दी गई है। अभी फ़ोन करें और अपना टिकट नंबर बताएँ।',
+    en: 'Your complaint has gone up to a senior officer. Call now and give your ticket number.',
+  },
   notHappy: {
     pa: 'ਜਵਾਬ ਤੋਂ ਖ਼ੁਸ਼ ਨਹੀਂ? ਉੱਪਰ ਦਿੱਤੇ ਨੰਬਰਾਂ ਤੇ ਫ਼ੋਨ ਕਰੋ ਅਤੇ ਆਪਣਾ ਟਿਕਟ ਨੰਬਰ ਦੱਸੋ।',
     hi: 'जवाब से ख़ुश नहीं? ऊपर दिए नंबरों पर फ़ोन करें और अपना टिकट नंबर बताएँ।',

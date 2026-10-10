@@ -119,3 +119,78 @@ def test_outbox_and_phone_helpers(tmp_path):
     assert receipt["via"] == "outbox" and json.loads((tmp_path / "sms.jsonl").read_text())["text"] == "ਸਾਂਸ"
     assert valid_phone(PHONE) and not valid_phone("+915876543210") and not valid_phone("9876543210")
     assert masked(PHONE) == "+91******3210"
+
+
+# ---- the ticket number by SMS (K22) ----
+
+TICKET = "complaint-3f2a9c1e-7b4d-4e7a-9a51-0c2d6b8e1f00"
+
+
+@pytest.fixture
+def ticket_texts(monkeypatch):
+    from datetime import datetime, timezone
+
+    texts, seen = Texts(), {}
+    tickets = {TICKET: {"id": TICKET, "type": "kisan_grievance", "received_at": datetime.now(timezone.utc).isoformat()}}
+    monkeypatch.setattr(api, "notifier_factory", lambda: texts)
+    monkeypatch.setattr(api, "ticket_lookup", lambda tid: seen.setdefault(tid, tickets.get(tid)))
+    monkeypatch.setattr(api, "_texted_tickets", set())
+    return TestClient(api.app), texts, tickets
+
+
+def test_a_farmer_gets_the_ticket_number_once(ticket_texts):
+    client, texts, _ = ticket_texts
+    res = client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": PHONE, "language": "pa"})
+    assert res.status_code == 200
+    assert res.json() == {"ticket_id": TICKET, "to": "+91******3210", "via": "test"}
+    assert texts.sent == [(PHONE, f"ਸਾਂਸ: ਤੁਹਾਡੀ ਸ਼ਿਕਾਇਤ ਮਿਲ ਗਈ ਹੈ। ਟਿਕਟ ਨੰਬਰ {TICKET}। ਇਹ ਨੰਬਰ ਸੰਭਾਲ ਕੇ ਰੱਖੋ।")]
+    again = client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": "+919000000001"})
+    assert again.status_code == 409 and len(texts.sent) == 1
+
+
+def test_only_a_recent_farmers_complaint_is_texted(ticket_texts):
+    client, texts, tickets = ticket_texts
+    tickets["complaint-old"] = {"type": "kisan_grievance", "received_at": "2026-10-01T09:00:00Z"}
+    tickets["complaint-fire"] = {"type": "farm_fire", "received_at": tickets[TICKET]["received_at"]}
+    send = lambda tid: client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": tid, "phone": PHONE}).status_code
+    assert send("complaint-nope") == 404
+    assert send("complaint-old") == 409
+    assert send("complaint-fire") == 409
+    assert texts.sent == []
+    assert client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": "case-1", "phone": PHONE}).status_code == 422
+    assert client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": "98765"}).status_code == 422
+
+
+def test_a_failed_ticket_sms_can_be_tried_again(ticket_texts, monkeypatch):
+    client, texts, _ = ticket_texts
+
+    class Broken:
+        def send(self, phone, text):
+            raise RuntimeError("throttled")
+
+    monkeypatch.setattr(api, "notifier_factory", lambda: Broken())
+    assert client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": PHONE}).status_code == 503
+    monkeypatch.setattr(api, "notifier_factory", lambda: texts)
+    assert client.post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": PHONE}).status_code == 200
+
+
+def test_real_sms_needs_command_to_confirm_the_ticket(monkeypatch):
+    monkeypatch.setattr(api, "ticket_lookup", None)
+    monkeypatch.setattr(api, "_texted_tickets", set())
+    monkeypatch.delenv("SAANS_API_URL", raising=False)
+    monkeypatch.setenv("KISAN_SMS", "sns")
+    res = TestClient(api.app).post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": PHONE})
+    assert res.status_code == 503
+
+
+def test_without_command_the_outbox_still_gets_it(monkeypatch, tmp_path):
+    monkeypatch.setattr(api, "ticket_lookup", None)
+    monkeypatch.setattr(api, "notifier_factory", None)
+    monkeypatch.setattr(api, "_texted_tickets", set())
+    monkeypatch.delenv("SAANS_API_URL", raising=False)
+    monkeypatch.delenv("KISAN_SMS", raising=False)
+    monkeypatch.setenv("KISAN_SMS_OUTBOX", str(tmp_path / "sms.jsonl"))
+    res = TestClient(api.app).post("/v1/agent/kisan/ticket-sms", json={"ticket_id": TICKET, "phone": PHONE, "language": "en"})
+    assert res.status_code == 200 and res.json()["via"] == "outbox"
+    lines = (tmp_path / "sms.jsonl").read_text().splitlines()
+    assert len(lines) == 1 and json.loads(lines[0])["text"] == f"Saans: we have your complaint. Ticket number {TICKET}. Keep this number."

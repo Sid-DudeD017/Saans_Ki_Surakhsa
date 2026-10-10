@@ -1,5 +1,6 @@
 // The Shop and Help tabs end to end on a phone-sized screen in demo mode: what fits Gurpreet's farm,
-// renting from a CHC, Sangrur's numbers, and a complaint that becomes a ticket.
+// renting from a CHC, Sangrur's numbers, and a complaint that becomes a ticket, texted to the farmer and
+// escalated when nobody acts.
 import { devices, expect, test, type Page } from '@playwright/test';
 
 test.use({ ...devices['Pixel 7'] });
@@ -57,6 +58,7 @@ test('the Shop leads with the best way to close the gap, and Saathi books it', a
 });
 
 test("a complaint becomes a ticket the farmer can follow; Sangrur's numbers are shown", async ({ page }) => {
+  test.setTimeout(90_000); // it waits out the demo officer and the demo deadline
   await asGurpreet(page, 'help');
   const help = page.locator('#kisan-panel-help');
   await expect(help).toContainText('Chief Agriculture Officer, Sangrur');
@@ -70,11 +72,17 @@ test("a complaint becomes a ticket the farmer can follow; Sangrur's numbers are 
   await page.locator('#kisan-complaint-text').fill('Booked for 2 November. It never came.');
   await help.getByRole('button', { name: 'Next' }).click();
   await expect(help).toContainText('CHC: Demo CHC A (Bhawanigarh)');
+  const phone = page.locator('#kisan-complaint-phone');
+  await phone.fill('58765');
+  await expect(help).toContainText('A mobile number has 10 digits');
+  await expect(help.getByRole('button', { name: /Send complaint/ })).toBeDisabled();
+  await phone.fill('98765 43210');
   await help.getByRole('button', { name: /Send complaint/ }).click();
 
   await expect(help).toContainText('Complaint sent');
   const ticket = (await page.locator('#kisan-ticket-number').innerText()).trim();
   expect(ticket).toMatch(/^complaint-/);
+  await expect(page.locator('#kisan-ticket-sms')).toHaveText(/Ticket number texted to \+91\*{6}3210/); // K22
   const mine = help.getByRole('listitem').filter({ hasText: ticket });
   await expect(mine).toContainText("The CHC machine didn't come");
   await expect(mine).toContainText('Received');
@@ -83,6 +91,15 @@ test("a complaint becomes a ticket the farmer can follow; Sangrur's numbers are 
   await page.waitForTimeout(5500);
   await help.getByRole('button', { name: /Refresh/ }).click();
   await expect(mine).toContainText('The officer has it');
+  await expect(mine).not.toContainText('No officer acted in time');
+
+  // Nobody acts before the (demo) deadline: the number to call moves to the top of the ticket (K24).
+  await page.waitForTimeout(10_000);
+  await help.getByRole('button', { name: /Refresh/ }).click();
+  await expect(mine).toContainText('No officer acted in time');
+  await expect(mine.getByRole('link', { name: /Call/ })).toHaveAttribute('href', 'tel:01672234220');
+  const order = await mine.innerText();
+  expect(order.indexOf('No officer acted in time')).toBeLessThan(order.indexOf(ticket));
 
   // It's still there after a reload.
   await page.reload();

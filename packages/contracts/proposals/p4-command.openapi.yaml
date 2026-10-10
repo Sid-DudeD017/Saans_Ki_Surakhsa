@@ -606,6 +606,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EvidenceMetadata'
+        escalated:
+          type: boolean
+          description: >-
+            True once the case's deadline passed with no officer acting and it went up to the district's
+            Deputy Commissioner. Who it went to is not shown.
     EvidenceMetadata:
       type: object
       required: [object_key, media_type, hash, captured_timestamp]

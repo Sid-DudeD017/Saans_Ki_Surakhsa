@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
-import { GRIEVANCE_SUBTYPES, HELPLINES, TICKET_STEPS, districtAt, farmDistrict, farmPoint, helplinesFor, stepOf } from '../app/kisan/help';
-import { mockGrievance } from '../app/kisan/mock';
+import { GRIEVANCE_SUBTYPES, HELPLINES, TICKET_STEPS, districtAt, escalationLine, farmDistrict, farmPoint, helplinesFor, mobileNumber, stepOf, stillIgnored } from '../app/kisan/help';
+import { mockGrievance, mockTicketSms } from '../app/kisan/mock';
 import { say } from '../app/kisan/strings';
 import { subtypeKey } from '../app/kisan/ComplaintSheet';
 
@@ -77,5 +77,26 @@ describe('complaints and tickets', () => {
     expect(stepOf('something new')).toBe(0);
     const statuses = p4.components.schemas.ComplaintStatus.properties.status.enum as string[];
     for (const s of statuses) expect(say(`t_${s}` as Parameters<typeof say>[0], 'pa')).not.toBe('');
+  });
+
+  it("an escalated ticket nobody has acted on asks the farmer to call the district's agriculture office (K24)", () => {
+    expect(p4.components.schemas.ComplaintStatus.properties.escalated.type).toBe('boolean');
+    expect(stillIgnored({ status: 'case_opened', escalated: true })).toBe(true);
+    expect(stillIgnored({ status: 'case_opened', escalated: false })).toBe(false);
+    expect(stillIgnored({ status: 'case_opened' })).toBe(false); // an older Command that doesn't say
+    expect(stillIgnored({ status: 'acted_on', escalated: true })).toBe(false);
+    expect(stillIgnored({ status: 'closed', escalated: true })).toBe(false);
+    expect(escalationLine('Sangrur')).toMatchObject({ id: 'cao_sangrur', number: '01672-234220' });
+    // No verified number for Patiala's agriculture office, nor for an unknown district: the Kisan Call Centre.
+    expect(escalationLine('Patiala').id).toBe('kisan_call_centre');
+    expect(escalationLine(null).id).toBe('kisan_call_centre');
+  });
+
+  it('takes a mobile number however it is typed, and nothing else (K22)', async () => {
+    for (const typed of ['9876543210', '98765 43210', '98765-43210', '+919876543210', '09876543210']) {
+      expect(mobileNumber(typed)).toBe('+919876543210');
+    }
+    for (const typed of ['', '5876543210', '987654321', '98765432100', 'nine eight seven']) expect(mobileNumber(typed)).toBeNull();
+    expect(await mockTicketSms('complaint-demo-1', '+919876543210')).toEqual({ ticket_id: 'complaint-demo-1', to: '+91******3210', via: 'outbox' });
   });
 });

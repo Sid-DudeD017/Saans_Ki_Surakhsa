@@ -365,6 +365,79 @@ def kisan_status(session_id: str) -> dict:
             "history": s.status.history}
 
 
+# ---- a complaint's ticket number by SMS (K22) ----
+
+TICKET_SMS_WINDOW = timedelta(minutes=30)
+
+
+class TicketSmsRequest(BaseModel):
+    ticket_id: str = Field(pattern=r"^complaint-[0-9A-Za-z-]{1,64}$",
+                           description="The id Saans Command's POST /v1/complaints returned")
+    phone: str = Field(pattern=r"^\+91[6-9]\d{9}$", description="The farmer's +91 mobile; used for this one SMS, not kept")
+    language: Literal["pa", "hi", "en"] = "pa"
+
+
+class TicketSmsResponse(BaseModel):
+    ticket_id: str
+    to: str = Field(description="The number the SMS went to, masked")
+    via: str = Field(description="sns, or outbox when SMS is off")
+
+
+ticket_lookup: Callable[[str], dict | None] | None = None  # tests swap in a fake; None = Command, if SAANS_API_URL is set
+_texted_tickets: set[str] = set()
+_texted_lock = threading.Lock()
+
+
+def _command_ticket(ticket_id: str) -> dict | None:
+    """Command's GET /v1/complaints/{id}, or None if Command has no such complaint."""
+    import os
+
+    res = httpx.get(f"{os.environ['SAANS_API_URL'].rstrip('/')}/v1/complaints/{ticket_id}", timeout=5.0)
+    if res.status_code == 404:
+        return None
+    res.raise_for_status()
+    return res.json()
+
+
+@app.post("/v1/agent/kisan/ticket-sms", response_model=TicketSmsResponse, responses=_errors(404, 409, 503))
+def ticket_sms(req: TicketSmsRequest) -> dict:
+    """Texts a farmer the ticket number of the complaint they just sent to Saans Command (K22). So that it
+    can't be used to text strangers, it sends one SMS per ticket, and only for a farmer's complaint
+    (kisan_grievance) Command received in the last 30 minutes. Command never gets the phone number."""
+    import os
+    from datetime import datetime
+
+    from agent_kisan.notify import masked, sms_text
+
+    lookup = ticket_lookup or (_command_ticket if os.environ.get("SAANS_API_URL") else None)
+    if lookup is not None:
+        try:
+            ticket = lookup(req.ticket_id)
+        except (httpx.HTTPError, ValueError) as e:
+            raise HTTPException(status_code=503, detail=f"couldn't check the ticket with Command ({type(e).__name__})") from e
+        if ticket is None:
+            raise HTTPException(status_code=404, detail="Command has no complaint with that ticket number")
+        if ticket.get("type") != "kisan_grievance":
+            raise HTTPException(status_code=409, detail="only a farmer's complaint can be texted")
+        received = datetime.fromisoformat(str(ticket.get("received_at")))
+        if datetime.now(received.tzinfo) - received > TICKET_SMS_WINDOW:
+            raise HTTPException(status_code=409, detail="this ticket is too old to text")
+    elif os.environ.get("KISAN_SMS") == "sns":  # real SMS only for tickets Command confirms
+        raise HTTPException(status_code=503, detail="can't check the ticket: SAANS_API_URL is not set")
+
+    with _texted_lock:
+        if req.ticket_id in _texted_tickets:
+            raise HTTPException(status_code=409, detail="this ticket number was already texted")
+        _texted_tickets.add(req.ticket_id)
+    try:
+        receipt = _notifier().send(req.phone, sms_text("ticket", req.language, ticket=req.ticket_id))
+    except Exception as e:  # let the farmer try again
+        with _texted_lock:
+            _texted_tickets.discard(req.ticket_id)
+        raise HTTPException(status_code=503, detail=f"the SMS didn't send ({type(e).__name__})") from e
+    return {"ticket_id": req.ticket_id, "to": masked(req.phone), "via": str(receipt.get("via", "unknown"))}
+
+
 # ---- district allocator (for Saans Command) ----
 
 class AllocationRequest(BaseModel):

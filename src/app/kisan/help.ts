@@ -36,6 +36,16 @@ export function helplinesFor(district: string | null): Helpline[] {
   return [...all.filter((h) => h.emergency), ...own.filter((h) => !h.emergency), ...HELPLINES.everywhere.filter((h) => !h.emergency)];
 }
 
+/**
+ * Who to call when a complaint passed its deadline with nobody acting (K24): the district's Chief
+ * Agriculture Officer, whose office the complaint went to, or the Kisan Call Centre where we have no
+ * verified number for that office.
+ */
+export function escalationLine(district: string | null): Helpline {
+  const own = (district && HELPLINES.districts[district]) || [];
+  return own.find((h) => h.id.startsWith('cao_')) ?? HELPLINES.everywhere.find((h) => h.id === 'kisan_call_centre')!;
+}
+
 type Ring = [number, number][]; // [lon, lat]
 
 function inside(point: { lat: number; lon: number }, ring: Ring): boolean {
@@ -106,4 +116,15 @@ export const TICKET_STEPS = ['received', 'sent_to_officer', 'case_opened', 'acte
 export function stepOf(status: string): number {
   const i = (TICKET_STEPS as readonly string[]).indexOf(status === 'merged' ? 'case_opened' : status);
   return i < 0 ? 0 : i;
+}
+
+/** A ticket that went up the chain for want of action, and still hasn't been acted on. */
+export function stillIgnored(status: { status: string; escalated?: boolean }): boolean {
+  return !!status.escalated && status.status !== 'acted_on' && status.status !== 'closed';
+}
+
+/** An Indian mobile number as typed (spaces and dashes allowed), or null if it isn't one. */
+export function mobileNumber(typed: string): string | null {
+  const digits = typed.replace(/[\s-]/g, '').replace(/^(\+91|0)/, '');
+  return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null;
 }

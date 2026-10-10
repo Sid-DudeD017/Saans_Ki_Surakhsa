@@ -430,6 +430,85 @@ paths:
     servers:
       - url: http://localhost:8010
         description: Kisan Saathi on a laptop
+  /v1/agent/kisan/ticket-sms:
+    post:
+      summary: Ticket Sms
+      description: |-
+        Texts a farmer the ticket number of the complaint they just sent to Saans Command (K22). So that it
+        can't be used to text strangers, it sends one SMS per ticket, and only for a farmer's complaint
+        (kisan_grievance) Command received in the last 30 minutes. Command never gets the phone number.
+      operationId: ticket_sms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketSmsRequest"
+            example:
+              ticket_id: complaint-3f2a9c1e-7b4d-4e7a-9a51-0c2d6b8e1f00
+              phone: "+919876543210"
+              language: pa
+        required: true
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketSmsResponse"
+              example:
+                ticket_id: complaint-3f2a9c1e-7b4d-4e7a-9a51-0c2d6b8e1f00
+                to: +91******3210
+                via: sns
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: not_found
+                  message: Command has no complaint with that ticket number
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: conflict
+                  message: this ticket number was already texted
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: invalid_request
+                  message: "body.phone: String should match pattern '^\\+91[6-9]\\d{9}$'"
+                  details:
+                    - field: body.phone
+                      problem: String should match pattern '^\+91[6-9]\d{9}$'
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: unavailable
+                  message: couldn't check the ticket with Command (ConnectError)
+      tags:
+        - Kisan
+      security: []
+      x-owner: P1
+    servers:
+      - url: http://localhost:8010
+        description: Kisan Saathi on a laptop
   /v1/agent/kisan/voice:
     post:
       summary: Kisan Voice
@@ -3240,6 +3319,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EvidenceMetadata"
+        escalated:
+          type: boolean
+          description: True once the case's deadline passed with no officer acting and it went up to the district's Deputy Commissioner. Who it went to is not shown.
     Coverage:
       properties:
         coverage_pct:
@@ -5654,6 +5736,50 @@ components:
         - nearby_fires
       title: SupportRequest
       type: object
+    TicketSmsRequest:
+      properties:
+        ticket_id:
+          type: string
+          pattern: ^complaint-[0-9A-Za-z-]{1,64}$
+          title: Ticket Id
+          description: The id Saans Command's POST /v1/complaints returned
+        phone:
+          type: string
+          pattern: ^\+91[6-9]\d{9}$
+          title: Phone
+          description: The farmer's +91 mobile; used for this one SMS, not kept
+        language:
+          type: string
+          enum:
+            - pa
+            - hi
+            - en
+          title: Language
+          default: pa
+      type: object
+      required:
+        - ticket_id
+        - phone
+      title: TicketSmsRequest
+    TicketSmsResponse:
+      properties:
+        ticket_id:
+          type: string
+          title: Ticket Id
+        to:
+          type: string
+          title: To
+          description: The number the SMS went to, masked
+        via:
+          type: string
+          title: Via
+          description: sns, or outbox when SMS is off
+      type: object
+      required:
+        - ticket_id
+        - to
+        - via
+      title: TicketSmsResponse
     TractorDays:
       properties:
         available:
