@@ -201,4 +201,19 @@ CREATE INDEX IF NOT EXISTS cases_deadline ON cases (deadline, id);
 CREATE INDEX IF NOT EXISTS case_reports_case ON case_reports (case_id);
 CREATE INDEX IF NOT EXISTS districts_boundary ON districts USING gist (boundary);
 CREATE INDEX IF NOT EXISTS workflow_events_complaint ON workflow_events (complaint_id, id);
+
+-- Stage 5: Ticket fields and relaxed constraints
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reporter_identity text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reporter_consent boolean DEFAULT false;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS duplicate_of text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_notes jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS evidence jsonb;
+
+ALTER TABLE cases ALTER COLUMN complaint_id DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN location DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN authorities DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN penalty DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN deadline DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN verification_status DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN evidence_summary DROP NOT NULL;
 `;
