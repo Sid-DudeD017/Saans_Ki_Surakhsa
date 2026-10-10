@@ -19,6 +19,7 @@ export interface SavedResult {
   role: string;
   baselineAvg: number;
   improvedAvg: number | null;
+  blocks?: TimeBlock[];
 }
 
 export interface FamilyState {
