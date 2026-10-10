@@ -96,8 +96,9 @@ export interface ComplaintResponse {
 // In-memory mock notification store
 let notificationsStore: MockNotification[] = [...INITIAL_MOCK_NOTIFICATIONS];
 
-// Two places serve /v1/*: this Next.js site (Shala, Ghar, fires, the Kisan agent forwarder) and Saans
-// Command's API on AWS (uploads, complaints, cases), at NEXT_PUBLIC_COMMAND_API_BASE_URL.
+// Two places serve /v1/*: this Next.js site (air quality, fires, Shala, Ghar, the Kisan agent
+// forwarder) and Saans Command's API on AWS (uploads, complaints, cases), at
+// NEXT_PUBLIC_COMMAND_API_BASE_URL.
 function getSiteBaseUrl(): string {
   return '';
 }
@@ -114,7 +115,7 @@ function getCommandBaseUrl(): string {
 export async function getAqi(lat: number, lon: number): Promise<AqiData> {
   if (typeof window !== 'undefined') {
     try {
-      const base = getBaseUrl();
+      const base = getSiteBaseUrl();
       const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
       if (res.ok) {
         const d = await res.json();
@@ -150,7 +151,7 @@ export async function getAqi(lat: number, lon: number): Promise<AqiData> {
     return { ...DETERMINISTIC_EVENT.aqiReading };
   }
 
-  const base = getCommandBaseUrl();
+  const base = getSiteBaseUrl();
   const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch AQI: ${res.statusText}`);
