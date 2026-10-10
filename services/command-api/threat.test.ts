@@ -20,8 +20,8 @@ describe("threat assessment", () => {
 
   it("never defaults to low if urgency is true", () => {
     const result = assessThreat({ urgency: true });
-    expect(result.score).toBe(10); // urgency alone is 10, but level should be medium
-    expect(result.level).toBe("medium");
+    expect(result.score).toBe(10); // urgency alone is 10, but level should be high
+    expect(result.level).toBe("high");
   });
 
   it("calculates medium threat for vulnerable people and sensitive location", () => {
@@ -40,6 +40,36 @@ describe("threat assessment", () => {
     const result = assessThreat({ evidenceQuality: "high", locationSensitive: true });
     expect(result.score).toBe(20); // 15 + 5
     expect(result.level).toBe("medium");
+  });
+
+  it("boundary: just below medium (15)", () => {
+    const result = assessThreat({ locationSensitive: true });
+    expect(result.score).toBe(15);
+    expect(result.level).toBe("low");
+  });
+
+  it("boundary: exactly medium (20)", () => {
+    const result = assessThreat({ vulnerablePeople: true });
+    expect(result.score).toBe(20);
+    expect(result.level).toBe("medium");
+  });
+
+  it("boundary: exactly high (50)", () => {
+    const result = assessThreat({ violence: true, urgency: true });
+    expect(result.score).toBe(50);
+    expect(result.level).toBe("high");
+  });
+
+  it("boundary: just below critical (75)", () => {
+    const result = assessThreat({ violence: true, vulnerablePeople: true, locationSensitive: true });
+    expect(result.score).toBe(75);
+    expect(result.level).toBe("high");
+  });
+
+  it("boundary: exactly critical (80)", () => {
+    const result = assessThreat({ violence: true, weapons: true });
+    expect(result.score).toBe(80);
+    expect(result.level).toBe("critical");
   });
 
   it("evaluates a complex critical scenario", () => {

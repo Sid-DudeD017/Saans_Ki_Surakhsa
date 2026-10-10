@@ -59,9 +59,9 @@ export function assessThreat(input: ThreatInput): ThreatAssessment {
 
   if (score >= 80 || (input.violence && input.weapons)) {
     level = "critical";
-  } else if (score >= 50) {
+  } else if (score >= 50 || input.urgency) {
     level = "high";
-  } else if (score >= 20 || input.urgency) {
+  } else if (score >= 20) {
     level = "medium";
   }
 
