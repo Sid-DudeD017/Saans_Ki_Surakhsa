@@ -14,7 +14,9 @@ export type CaseStatus = CommandCase['status'];
 export type { CaseAction };
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
-const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+const BASE = (
+  process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || ''
+).replace(/\/$/, '');
 
 /** The local stack's demo officers (non-production; Cognito replaces them at G7). */
 export const OFFICERS = officers.officers.map(({ token, name, district }) => ({ token, name, district }));

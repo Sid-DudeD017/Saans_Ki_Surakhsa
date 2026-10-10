@@ -96,8 +96,14 @@ export interface ComplaintResponse {
 // In-memory mock notification store
 let notificationsStore: MockNotification[] = [...INITIAL_MOCK_NOTIFICATIONS];
 
-function getBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
+function getSiteBaseUrl(): string {
+  return '';
+}
+
+function getCommandBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || ''
+  ).replace(/\/+$/, '');
 }
 
 /**
@@ -108,7 +114,7 @@ export async function getAqi(lat: number, lon: number): Promise<AqiData> {
     return { ...DETERMINISTIC_EVENT.aqiReading };
   }
 
-  const base = getBaseUrl();
+  const base = getCommandBaseUrl();
   const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch AQI: ${res.statusText}`);
@@ -130,7 +136,7 @@ export async function getFires(
     };
   }
 
-  const base = getBaseUrl();
+  const base = getSiteBaseUrl();
   const res = await fetch(
     `${base}/v1/fires?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`
   );

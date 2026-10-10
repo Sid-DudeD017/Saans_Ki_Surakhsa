@@ -43,7 +43,7 @@ export interface Transcript {
   seconds?: number;
 }
 
-const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+const BASE = '';
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 
 /** An error the screen can show: the server's error.message (ErrorEnvelope), or why it couldn't be reached. */
