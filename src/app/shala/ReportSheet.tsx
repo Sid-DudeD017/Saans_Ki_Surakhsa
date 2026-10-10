@@ -1420,21 +1420,21 @@ export function ReportSheet({
 
             {/* STEP 3: DETAILS */}
             {step === 3 && (
-              <Stack gap="md">
+              <Stack gap="sm">
                 <div>
-                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', color: '#0f172a', fontWeight: 700 }}>
                     📝 {REPORT_I18N.step3Title[language]}
                   </h4>
                 </div>
 
                 {/* Quick Chips Groups */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                   {CHIP_CATEGORIES.map((cat, idx) => (
                     <div key={idx}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         {cat.title[language]}:
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
                         {cat.chips.map((chip) => {
                           const isSelected = selectedChips.has(chip.id);
                           return (
@@ -1443,19 +1443,19 @@ export function ReportSheet({
                               type="button"
                               onClick={() => handleChipToggle(chip.id, chip.label[language])}
                               style={{
-                                padding: '0.5rem 0.875rem',
+                                padding: '0.35rem 0.65rem',
                                 borderRadius: '9999px',
                                 border: `1.5px solid ${isSelected ? '#0284c7' : '#cbd5e1'}`,
                                 backgroundColor: isSelected ? '#e0f2fe' : '#ffffff',
                                 color: isSelected ? '#0369a1' : '#334155',
-                                fontWeight: 600,
-                                fontSize: '0.8125rem',
+                                fontWeight: isSelected ? 700 : 500,
+                                fontSize: '0.75rem',
                                 cursor: 'pointer',
-                                minHeight: '44px',
-                                minWidth: '44px',
+                                minHeight: '38px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '0.25rem',
+                                transition: 'all 0.15s ease',
                               }}
                             >
                               {isSelected ? '✓ ' : '+ '}
