@@ -103,6 +103,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/kisan/ticket-sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ticket Sms
+         * @description Texts a farmer the ticket number of the complaint they just sent to Saans Command (K22). So that it
+         *     can't be used to text strangers, it sends one SMS per ticket, and only for a farmer's complaint
+         *     (kisan_grievance) Command received in the last 30 minutes. Command never gets the phone number.
+         */
+        post: operations["ticket_sms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agent/kisan/voice": {
         parameters: {
             query?: never;
@@ -976,6 +998,8 @@ export interface components {
             updated_at?: components["schemas"]["IndiaTimestamp"];
             description?: string;
             evidence?: components["schemas"]["EvidenceMetadata"][];
+            /** @description True once the case's deadline passed with no officer acting and it went up to the district's Deputy Commissioner. Who it went to is not shown. */
+            escalated?: boolean;
         };
         /** Coverage */
         Coverage: {
@@ -2290,6 +2314,40 @@ export interface components {
             /** @description The last satellite check around the farm, if any */
             nearby_fires: components["schemas"]["NearbyFires"] | null;
         };
+        /** TicketSmsRequest */
+        TicketSmsRequest: {
+            /**
+             * Ticket Id
+             * @description The id Saans Command's POST /v1/complaints returned
+             */
+            ticket_id: string;
+            /**
+             * Phone
+             * @description The farmer's +91 mobile; used for this one SMS, not kept
+             */
+            phone: string;
+            /**
+             * Language
+             * @default pa
+             * @enum {string}
+             */
+            language: "pa" | "hi" | "en";
+        };
+        /** TicketSmsResponse */
+        TicketSmsResponse: {
+            /** Ticket Id */
+            ticket_id: string;
+            /**
+             * To
+             * @description The number the SMS went to, masked
+             */
+            to: string;
+            /**
+             * Via
+             * @description sns, or outbox when SMS is off
+             */
+            via: string;
+        };
         /** TractorDays */
         TractorDays: {
             /** Available */
@@ -2992,6 +3050,118 @@ export interface operations {
                      *       "error": {
                      *         "code": "not_found",
                      *         "message": "unknown session_id"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    ticket_sms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "ticket_id": "complaint-3f2a9c1e-7b4d-4e7a-9a51-0c2d6b8e1f00",
+                 *       "phone": "+919876543210",
+                 *       "language": "pa"
+                 *     }
+                 */
+                "application/json": components["schemas"]["TicketSmsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "ticket_id": "complaint-3f2a9c1e-7b4d-4e7a-9a51-0c2d6b8e1f00",
+                     *       "to": "+91******3210",
+                     *       "via": "sns"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["TicketSmsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "not_found",
+                     *         "message": "Command has no complaint with that ticket number"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "conflict",
+                     *         "message": "this ticket number was already texted"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "invalid_request",
+                     *         "message": "body.phone: String should match pattern '^\\+91[6-9]\\d{9}$'",
+                     *         "details": [
+                     *           {
+                     *             "field": "body.phone",
+                     *             "problem": "String should match pattern '^\\+91[6-9]\\d{9}$'"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "unavailable",
+                     *         "message": "couldn't check the ticket with Command (ConnectError)"
                      *       }
                      *     }
                      */

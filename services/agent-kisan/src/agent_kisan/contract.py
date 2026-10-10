@@ -17,6 +17,7 @@ from pydantic.json_schema import models_json_schema
 
 from agent_kisan import api
 from agent_kisan.fires import Fire, FiresNear
+from agent_kisan.schemas import india_now
 from agent_kisan.seed import repo_root
 
 PROPOSAL = repo_root() / "packages" / "contracts" / "proposals" / "p1-kisan.openapi.json"
@@ -61,6 +62,8 @@ REQUEST_EXAMPLES = {
     ("/v1/agent/kisan/help-requests/{help_request_id}/status", "post"): {
         "status": "machine_assigned", "machineType": "Happy Seeder", "chcName": "Demo CHC B",
         "chcPhone": "+91 00000 00002", "date": "2026-11-02"},
+    ("/v1/agent/kisan/ticket-sms", "post"): {"ticket_id": "complaint-3f2a9c1e-7b4d-4e7a-9a51-0c2d6b8e1f00",
+                                             "phone": "+919876543210", "language": "pa"},
 }
 P4_ERROR = "./p4-command.openapi.yaml#/components/schemas/ErrorEnvelope"  # one error shape for every service
 # Errors a call on the demo story can't trigger (no Bedrock, a full seed): each route's real message,
@@ -72,6 +75,7 @@ HAND_ERRORS = {
     ("/v1/farm/plan", "post", "503"): "CHC data unavailable: data/seed/chc_demo.json not found",
     ("/v1/chcs", "get", "503"): "CHC data unavailable: data/seed/chc_demo.json not found",
     (f"{KISAN}/messages", "post", "409"): "still answering the previous message in this conversation",
+    (f"{KISAN}/ticket-sms", "post", "503"): "couldn't check the ticket with Command (ConnectError)",
     (f"{KISAN}/messages", "post", "503"): "the language model is unavailable: AccessDeniedException",
     (f"{KISAN}/voice", "post", "409"): "still answering the previous message in this conversation",
     (f"{KISAN}/voice", "post", "413"): "voice notes can be up to 10 MB",
@@ -176,12 +180,15 @@ def _live_examples() -> tuple[dict, dict]:
     import tempfile
 
     hooks = ("today", "fire_source", "chat_factory", "transcriber_factory", "notifier_factory", "speaker_factory",
-             "machine_identifier")
+             "machine_identifier", "ticket_lookup")
     saved = {h: getattr(api, h) for h in hooks}
     saved_env = {k: os.environ.get(k) for k in ("KISAN_SERVICE_TOKEN", "KISAN_PHOTOS")}
     api.today, api.fire_source = (lambda: TODAY), _demo_fires
     api.chat_factory, api.transcriber_factory, api.notifier_factory = _ScriptedChat, _Transcriber, _Sms
     api.speaker_factory = _no_voice
+    ticket = REQUEST_EXAMPLES[(f"{KISAN}/ticket-sms", "post")]["ticket_id"]
+    api.ticket_lookup = lambda tid: {"type": "kisan_grievance", "received_at": india_now()} if tid == ticket else None
+    api._texted_tickets.clear()
     api.machine_identifier = lambda jpeg: {"machine": "super_seeder", "confidence": 0.86,
                                            "why": "A rotor in front of the seed drill, behind a tractor."}
     _ScriptedChat.ids = iter(["3f9c2a", "7d41b0", "c09e55"])
@@ -211,6 +218,7 @@ def _live_examples() -> tuple[dict, dict]:
                                                 files={"audio": ("note.m4a", b"audio", "audio/mp4")}),
             (f"{k}/photo", "post"): client.post(f"{k}/photo", data={"session_id": sid},
                                                 files={"photo": ("farm.jpg", _photo(), "image/jpeg")}),
+            (f"{k}/ticket-sms", "post"): client.post(f"{k}/ticket-sms", json=REQUEST_EXAMPLES[(f"{k}/ticket-sms", "post")]),
         }
         status_url = f"{k}/help-requests/{{help_request_id}}/status"
         bad = {
@@ -237,6 +245,10 @@ def _live_examples() -> tuple[dict, dict]:
             (f"{k}/voice", "post", "404"): client.post(f"{k}/voice", data={"session_id": "nope"},
                                                      files={"audio": ("note.m4a", b"audio", "audio/mp4")}),
             (f"{k}/voice", "post", "422"): client.post(f"{k}/voice", files={"audio": ("note.m4a", b"", "audio/mp4")}),
+            (f"{k}/ticket-sms", "post", "404"): client.post(f"{k}/ticket-sms", json={"ticket_id": "complaint-nope",
+                                                                                   "phone": "+919876543210"}),
+            (f"{k}/ticket-sms", "post", "409"): client.post(f"{k}/ticket-sms", json=REQUEST_EXAMPLES[(f"{k}/ticket-sms", "post")]),
+            (f"{k}/ticket-sms", "post", "422"): client.post(f"{k}/ticket-sms", json={"ticket_id": "complaint-1", "phone": "98765"}),
         }
         del os.environ["KISAN_SERVICE_TOKEN"]  # status updates switched off
         bad[(status_url, "post", "503")] = client.post(f"{k}/help-requests/kisan-{sid}/status",
@@ -248,6 +260,7 @@ def _live_examples() -> tuple[dict, dict]:
             setattr(api, h, v)
         for name, v in saved_env.items():
             os.environ.pop(name, None) if v is None else os.environ.__setitem__(name, v)
+        api._texted_tickets.clear()
         for s in ("3f9c2a", "7d41b0", "c09e55"):
             api._chats.pop(s, None)
             api._locks.pop(s, None)

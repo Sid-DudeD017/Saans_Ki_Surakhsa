@@ -2,7 +2,7 @@
 // from real calls to the agent. The first message gets the read-back, the next one files it. The
 // proposal is loaded only when mocks are on, so it stays out of the normal bundle.
 import { coverageResponse, type CoverageRequest, type CoverageResponse } from './coverage';
-import type { ChcsResponse, ComplaintResponse, KisanStatus, Language, MessageResponse, PhotoResponse, PlanResponse, TicketStatus } from './kisanApi';
+import type { ChcsResponse, ComplaintResponse, KisanStatus, Language, MessageResponse, PhotoResponse, PlanResponse, TicketSmsResponse, TicketStatus } from './kisanApi';
 
 type Proposal = { paths: Record<string, Record<string, { responses: Record<string, { content: Record<string, { example: unknown }> }> }>> };
 
@@ -74,6 +74,10 @@ export async function mockChcs(machine: string): Promise<ChcsResponse> {
 // "opens" each one a few seconds after it's sent.
 const demoTickets = new Map<string, { id: string; at: number }>();
 
+// The demo officer opens a ticket after 5 s; with nobody acting, its deadline passes after 15 s.
+export const DEMO_OPENED_MS = 5000;
+export const DEMO_ESCALATED_MS = 15000;
+
 export async function mockGrievance(key: string): Promise<ComplaintResponse> {
   await pause();
   const seen = demoTickets.get(key) ?? { id: `complaint-demo-${key.slice(-8)}`, at: Date.now() };
@@ -84,7 +88,8 @@ export async function mockGrievance(key: string): Promise<ComplaintResponse> {
 export async function mockTicketStatus(id: string): Promise<TicketStatus> {
   await pause();
   const sent = [...demoTickets.values()].find((t) => t.id === id);
-  const opened = !sent || Date.now() - sent.at > 5000;
+  const age = sent ? Date.now() - sent.at : Infinity;
+  const opened = age > DEMO_OPENED_MS;
   const now = new Date().toISOString();
   return {
     id,
@@ -94,5 +99,13 @@ export async function mockTicketStatus(id: string): Promise<TicketStatus> {
     type: 'kisan_grievance',
     received_at: new Date(sent?.at ?? Date.now()).toISOString(),
     updated_at: now,
+    // The demo's 48-hour deadline passes in seconds; a ticket from before a reload isn't escalated.
+    escalated: !!sent && age > DEMO_ESCALATED_MS,
   };
+}
+
+/** No SMS in demo mode: the answer the agent gives when it writes to the outbox. */
+export async function mockTicketSms(ticketId: string, phone: string): Promise<TicketSmsResponse> {
+  await pause();
+  return { ticket_id: ticketId, to: `${phone.slice(0, 3)}${'*'.repeat(phone.length - 7)}${phone.slice(-4)}`, via: 'outbox' };
 }

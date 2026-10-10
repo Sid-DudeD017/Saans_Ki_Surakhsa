@@ -1,12 +1,14 @@
 'use client';
 
 // My complaints (K21): every ticket this phone sent, with where it has got to, from Command's
-// GET /v1/complaints/{id}. Statuses load when the list is shown and on Refresh.
+// GET /v1/complaints/{id}. Statuses load when the list is shown and on Refresh. A ticket whose deadline
+// passed with no officer acting puts the number to call at its top (K24).
 import React, { useEffect, useState } from 'react';
 
 import { Button, Card } from '../../components/ui';
 import { subtypeKey } from './ComplaintSheet';
-import { TICKET_STEPS, stepOf, ticketStore } from './help';
+import { TICKET_STEPS, escalationLine, stepOf, stillIgnored, ticketStore } from './help';
+import { HelplineRow } from './Helplines';
 import { getTicketStatus, type Language, type TicketStatus } from './kisanApi';
 import { indiaClock, say, sayWith, type StringKey } from './strings';
 
@@ -18,7 +20,7 @@ async function statusesOf(ids: string): Promise<Loaded> {
   return Object.fromEntries(results);
 }
 
-export function MyTickets({ language }: { language: Language }) {
+export function MyTickets({ district, language }: { district: string | null; language: Language }) {
   const { tickets } = ticketStore.use();
   const [statuses, setStatuses] = useState<Loaded>({});
   const ids = tickets.map((t) => t.id).join(',');
@@ -52,8 +54,19 @@ export function MyTickets({ language }: { language: Language }) {
               const status = statuses[t.id];
               const known = status && status !== 'failed' ? status : null;
               const step = known ? stepOf(known.status) : -1;
+              const ignored = known ? stillIgnored(known) : false;
               return (
-                <li key={t.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '0.7rem 0.85rem', display: 'grid', gap: '0.35rem' }}>
+                <li
+                  key={t.id}
+                  style={{ border: `1px solid ${ignored ? '#b45309' : '#e2e8f0'}`, borderRadius: '0.75rem', padding: '0.7rem 0.85rem', display: 'grid', gap: '0.35rem' }}
+                >
+                  {ignored && (
+                    <div style={{ display: 'grid', gap: '0.5rem', background: '#fffbeb', borderRadius: '0.5rem', padding: '0.6rem', marginBottom: '0.25rem' }}>
+                      <strong style={{ color: '#b45309' }}>⚠️ {say('ignoredTitle', language)}</strong>
+                      <span style={{ color: '#334155', fontSize: '0.95rem' }}>{say('ignoredCall', language)}</span>
+                      <HelplineRow line={escalationLine(district)} language={language} />
+                    </div>
+                  )}
                   <strong style={{ color: '#0f172a' }}>{say(subtypeKey(t.subtype), language)}</strong>
                   <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '0.8rem', color: '#475569', overflowWrap: 'anywhere', userSelect: 'all' }}>{t.id}</span>
                   <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{sayWith('sentOn', language, { date: indiaClock(t.sentAt, language) })}</span>
