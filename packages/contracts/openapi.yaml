@@ -1128,7 +1128,10 @@ paths:
   /v1/chcs:
     get:
       summary: Chcs Near
-      description: CHCs within reach of a farm, nearest first (demo data until the KVK list comes in).
+      description: |-
+        CHCs within reach of a farm, nearest first (demo data until the KVK list comes in). Given the
+        farm's season (harvest to wheat deadline), each machine also says how many days it is free in it
+        and the first one.
       operationId: chcs_near
       parameters:
         - name: lat
@@ -1178,6 +1181,26 @@ paths:
             type: number
             default: 15
             title: Max Km
+        - name: harvest_date
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                format: date
+              - type: "null"
+            description: "With wheat_deadline: count each machine's free days in the season"
+            title: Harvest Date
+          description: "With wheat_deadline: count each machine's free days in the season"
+        - name: wheat_deadline
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                format: date
+              - type: "null"
+            title: Wheat Deadline
       responses:
         "200":
           description: Successful Response
@@ -1196,12 +1219,12 @@ paths:
                       - machine: super_seeder
                         units: 1
                         cost_per_acre_inr: 1000
-                        free_days: null
-                        first_free: null
+                        free_days: 1
+                        first_free: 2026-11-02
                       - machine: happy_seeder
                         units: 1
                         cost_per_acre_inr: 750
-                        free_days: null
+                        free_days: 0
                         first_free: null
                   - chc_id: demo-chc-b
                     name: Demo CHC B
@@ -1212,7 +1235,7 @@ paths:
                       - machine: happy_seeder
                         units: 1
                         cost_per_acre_inr: 750
-                        free_days: null
+                        free_days: 0
                         first_free: null
                 demo_data: true
         "422":

@@ -5,7 +5,7 @@
 // yes. A checklist shows what the agent still needs, ticking as he speaks, with an example sentence
 // for the next gap. The confirmed read-back also fills the farm profile the other tabs use.
 import Link from 'next/link';
-import React, { useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { Alert, Button, Card } from '../../components/ui';
 import { useLanguage } from '../../lib/i18n';
@@ -83,7 +83,16 @@ function Bubble({ line, language, onFix }: { line: Line; language: Language; onF
   );
 }
 
-export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Readback) => void; farm?: () => FarmHint | undefined }) {
+export function KisanChat({
+  onConfirmed,
+  farm,
+  ask,
+}: {
+  onConfirmed?: (readback: Readback) => void;
+  farm?: () => FarmHint | undefined;
+  /** A message another tab sends for the farmer ("Ask Saathi to book it"); a new id sends it once. */
+  ask?: { id: number; text: string } | null;
+}) {
   const { language: shellLanguage } = useLanguage();
   const [language, setLanguage] = useState<Language>(shellLanguage);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -157,6 +166,17 @@ export function KisanChat({ onConfirmed, farm }: { onConfirmed?: (readback: Read
       setLines((old) => old.map((l) => (l.pending ? { who: 'farmer', text: '', voice: true } : l)));
     });
   });
+
+  // A request from the Machines or Shop tab: send it as the farmer's next message, once the tab shows.
+  const asked = useRef<number | null>(null);
+  useEffect(() => {
+    if (!ask || asked.current === ask.id) return;
+    asked.current = ask.id;
+    const t = window.setTimeout(() => sendText(ask.text), 0);
+    return () => window.clearTimeout(t);
+    // sendText is recreated every render; the request's id is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask?.id]);
 
   /** "Heard wrong? Fix it": the words go into the text box to correct and send as text. */
   function fix(text: string) {

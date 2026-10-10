@@ -59,3 +59,73 @@ export function rankShop(farm: FarmProfile, items: ShopItem[]): ShopFit | null {
   fits.sort((a, b) => order(b) - order(a));
   return { gapAcres: base.gapAcres, windowDays: window, fits };
 }
+
+/** One way to rent: a machine from one CHC, with what it can do for this farm in the days it's free. */
+export interface RentOption {
+  itemId: string;
+  machine: string;
+  chc: { id: string; name: string; distanceKm: number | null };
+  /** After the CHC's subsidy, per acre. */
+  ratePerAcre: number;
+  /** Gap acres it can clear in its free days this season (all its gain if free days aren't known). */
+  acres: number;
+  /** Working days that takes. */
+  days: number;
+  freeDays: number | null;
+  firstFree: string | null;
+  cost: number;
+  /** It clears the whole gap. */
+  enough: boolean;
+}
+
+/** The CHC search's answer (ChcsResponse), as much of it as this needs. */
+export interface ChcsFound {
+  chcs: { chc_id: string; name: string; distance_km?: number | null; machines: { machine: string; cost_per_acre_inr: number; free_days?: number | null; first_free?: string | null }[] }[];
+}
+
+/**
+ * Every machine in the shop that helps and can be rented, at its best CHC (most acres in its free days,
+ * then cheapest, then nearest). Best first: whole gap cleared, then most acres, cheapest, nearest.
+ */
+export function rentOptions(fit: ShopFit, items: ShopItem[], found: Record<string, ChcsFound | undefined>): RentOption[] {
+  const out: RentOption[] = [];
+  for (const f of fit.fits) {
+    const item = items.find((i) => i.id === f.id);
+    const type = item?.engine_type;
+    if (!item || !type || !item.rent_from_chc || !f.gainAcres || f.gainAcres <= 0) continue;
+    const perDay = CAPACITY_ACRES_PER_DAY[type];
+    const gain = Math.min(f.gainAcres, fit.gapAcres);
+    const options = (found[type]?.chcs ?? []).flatMap((c) =>
+      c.machines
+        .filter((m) => m.machine === type)
+        .map((m): RentOption => {
+          const freeDays = m.free_days ?? null;
+          const acres = freeDays === null ? gain : Math.min(gain, freeDays * perDay);
+          return {
+            itemId: item.id,
+            machine: type,
+            chc: { id: c.chc_id, name: c.name, distanceKm: c.distance_km ?? null },
+            ratePerAcre: m.cost_per_acre_inr,
+            acres,
+            days: Math.ceil((acres / perDay) * 2) / 2,
+            freeDays,
+            firstFree: m.first_free ?? null,
+            cost: Math.round(acres * m.cost_per_acre_inr),
+            enough: acres >= fit.gapAcres - 0.01,
+          };
+        }),
+    );
+    options.sort(byBest);
+    if (options[0] && options[0].acres > 0) out.push(options[0]);
+  }
+  return out.sort(byBest);
+}
+
+function byBest(a: RentOption, b: RentOption): number {
+  return (
+    Number(b.enough) - Number(a.enough) ||
+    b.acres - a.acres ||
+    a.cost - b.cost ||
+    (a.chc.distanceKm ?? Infinity) - (b.chc.distanceKm ?? Infinity)
+  );
+}

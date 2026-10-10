@@ -270,8 +270,14 @@ def farm_plan(req: PlanRequest) -> PlanResponse:
 
 @app.get("/v1/chcs", response_model=ChcsResponse, responses=_errors(503))
 def chcs_near(lat: float | None = None, lon: float | None = None, village: str | None = None,
-              district: str | None = None, machine: str | None = None, max_km: float = DEFAULT_MAX_KM) -> dict:
-    """CHCs within reach of a farm, nearest first (demo data until the KVK list comes in)."""
+              district: str | None = None, machine: str | None = None, max_km: float = DEFAULT_MAX_KM,
+              harvest_date: date | None = Query(default=None, description="With wheat_deadline: count each machine's free days in the season"),
+              wheat_deadline: date | None = None) -> dict:
+    """CHCs within reach of a farm, nearest first (demo data until the KVK list comes in). Given the
+    farm's season (harvest to wheat deadline), each machine also says how many days it is free in it
+    and the first one."""
+    if (harvest_date is None) != (wheat_deadline is None) or (harvest_date and wheat_deadline < harvest_date):
+        raise HTTPException(status_code=422, detail="give both harvest_date and wheat_deadline, the deadline not before the harvest")
     if machine is not None and machine not in CAPACITY_ACRES_PER_DAY:
         raise HTTPException(status_code=422, detail=f"unknown machine; known: {', '.join(CAPACITY_ACRES_PER_DAY)}")
     try:
@@ -281,7 +287,8 @@ def chcs_near(lat: float | None = None, lon: float | None = None, village: str |
     location = (lat, lon) if lat is not None and lon is not None else villages.get((village or "").strip().lower())
     if location is None and not district:
         raise HTTPException(status_code=422, detail="give lat and lon, a known village, or a district")
-    found = find_chcs(chcs, farm_location=location, district=district, machine=machine, max_km=max_km)
+    window = (harvest_date, wheat_deadline) if harvest_date and wheat_deadline else None
+    found = find_chcs(chcs, farm_location=location, district=district, machine=machine, max_km=max_km, window=window)
     return {"chcs": found, "demo_data": demo}
 
 

@@ -19,20 +19,41 @@ async function asGurpreet(page: Page, tab: string) {
   await page.goto(`/kisan?tab=${tab}`);
 }
 
-test('the Shop ranks what fits the farm, and renting finds a CHC', async ({ page }) => {
+test('the Shop leads with the best way to close the gap, and Saathi books it', async ({ page }) => {
   await asGurpreet(page, 'shop');
   const shop = page.locator('#kisan-panel-shop');
-  const first = shop.getByRole('listitem').first();
-  await expect(first).toContainText('Happy Seeder');
-  await expect(first).toContainText('Fits your farm');
-  await expect(first).toContainText('Clears your 7 acres left in about 1 day');
-  await expect(shop.getByRole('listitem').filter({ hasText: 'PUSA' })).toContainText('Too late this season');
+  await expect(shop).toContainText('For your 7 acres left, before 9 Nov');
 
-  const superSeeder = shop.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Super Seeder', exact: true }) });
+  // Demo CHCs: the only free machine nearby is CHC A's Super Seeder, on 2 Nov.
+  const best = page.locator('#kisan-best');
+  await expect(page.locator('#kisan-best-title')).toHaveText('Rent a Super Seeder');
+  await expect(best).toContainText('Demo CHC A (Bhawanigarh) · 2 km');
+  await expect(best).toContainText('5.5 acres');
+  await expect(best).toContainText('₹5,500');
+  await expect(best).toContainText('2 Nov');
+  await expect(best).toContainText('Free only 1 day before your deadline');
+  await expect(best).toContainText('1.5 acres still short');
+
+  // The rest, grouped: what clears it all in time first, the decomposer too late.
+  const inTime = shop.locator('section[aria-labelledby=kisan-shop-inTime]');
+  await expect(inTime.getByRole('listitem').first()).toContainText('Happy Seeder');
+  await expect(inTime.getByRole('listitem').first()).toContainText('Clears your 7 acres left in about 1 day');
+  await expect(shop.locator('section[aria-labelledby=kisan-shop-other]').getByRole('listitem').filter({ hasText: 'PUSA' })).toContainText('Too late this season');
+
+  // A row opens to its subsidy and the CHCs that rent it.
+  const superSeeder = inTime.getByRole('listitem').filter({ hasText: /^Super Seeder/ });
+  await expect(superSeeder).toContainText('Demo CHC A (Bhawanigarh): ₹5,500, free from 2 Nov');
+  await superSeeder.getByRole('button', { expanded: false }).click();
   await expect(superSeeder).toContainText('up to ₹1,20,000');
   await superSeeder.getByRole('button', { name: /Rent from a CHC/ }).click();
-  await expect(superSeeder).toContainText('Demo CHC A (Bhawanigarh)');
+  const chcA = superSeeder.getByRole('listitem').filter({ hasText: '₹1,000 an acre' });
+  await expect(chcA).toContainText('Demo CHC A (Bhawanigarh)');
+  await expect(chcA).toContainText('first free day: 2 Nov');
   await expect(superSeeder).not.toContainText('00000'); // placeholder phone numbers stay hidden
+
+  // Booking goes through Saathi in the Plan conversation.
+  await best.getByRole('button', { name: /Ask Saathi to book it/ }).click();
+  await expect(page.locator('#kisan-panel-plan')).toContainText('Please book a Super Seeder from Demo CHC A (Bhawanigarh) for 5.5 acres, before 9 Nov.');
 });
 
 test("a complaint becomes a ticket the farmer can follow; Sangrur's numbers are shown", async ({ page }) => {

@@ -29,11 +29,22 @@ test("Gurpreet's rented Super Seeder isn't enough; a CHC booking gets him to 92%
   await expect(machines.getByText('1 × Super Seeder')).toBeVisible();
   await expect(machines.getByText('Rented · 2 days')).toBeVisible();
 
-  await machines.getByRole('button', { name: 'Work it out' }).click();
+  // The verdict works itself out at the top of the tab: the gap first, and what more days would do.
   const verdict = machines.getByRole('status').filter({ hasText: 'Not enough' });
   await expect(verdict).toContainText('61%');
+  await expect(verdict).toContainText('7 acres not covered');
   await expect(verdict).toContainText('11 of 18 acres cleared by 9 Nov without fire');
-  await expect(verdict).toContainText('7 acres left: about 17.5 t of straw');
+  await expect(page.locator('#kisan-what-if')).toHaveText('1.5 more days of the Super Seeder → 100%');
+  await expect(page.locator('#kisan-season [data-kind=own]')).toHaveCount(2);
+
+  // What if he rents it for 4 days? The ring follows the − / + on the machine.
+  const days = machines.getByRole('group', { name: 'Days' });
+  await days.getByRole('button', { name: 'One more' }).click();
+  await days.getByRole('button', { name: 'One more' }).click();
+  await expect(machines.getByRole('status').filter({ hasText: 'Enough' })).toContainText('All 18 acres cleared without fire');
+  await days.getByRole('button', { name: 'One fewer' }).click();
+  await days.getByRole('button', { name: 'One fewer' }).click();
+  await expect(verdict).toContainText('61%');
 
   // The plan needs the farm's location; without it the button says so.
   await machines.getByRole('button', { name: /Find CHC machines/ }).click();
@@ -44,11 +55,15 @@ test("Gurpreet's rented Super Seeder isn't enough; a CHC booking gets him to 92%
   await machines.getByRole('button', { name: /Find CHC machines/ }).click();
   await expect(machines.getByText('With these: 92%')).toBeVisible();
   await expect(machines.getByText('Still short: 1.5 acres')).toBeVisible();
+  await expect(page.locator('#kisan-season [data-kind=chc]')).toHaveCount(1); // 2 Nov
+  await expect(page.locator('#kisan-season [data-kind=rain]')).toHaveCount(2);
 
-  // Nothing is booked from here: the farmer asks in the conversation.
-  await machines.getByRole('button', { name: /Ask in the conversation/ }).click();
+  // Nothing is booked from here: Saathi asks for it in the conversation.
+  await machines.getByRole('button', { name: /Ask Saathi to book it/ }).click();
   await expect(page).toHaveURL(/\/kisan$/);
-  await expect(page.locator('#kisan-panel-plan')).toBeVisible();
+  const plan = page.locator('#kisan-panel-plan');
+  await expect(plan).toContainText('Please book these CHC machines for me: Super Seeder, 2 Nov, Demo CHC A (Bhawanigarh).');
+  await expect(plan.getByText('Your plan')).toBeVisible(); // demo mode: Saathi reads the plan back
 });
 
 test('the tab is in the URL and the back button returns to it', async ({ page }) => {

@@ -267,6 +267,90 @@ const STRINGS = {
   },
   askInChat: { pa: 'ਗੱਲਬਾਤ ਵਿੱਚ ਮੰਗੋ', hi: 'बातचीत में माँगें', en: 'Ask in the conversation' },
 
+  // Machines tab: the gap first, the season strip, what-if days, booking through Saathi
+  gapNotCovered: { pa: '{gap} ਕਿੱਲੇ ਬਾਕੀ ਰਹਿ ਜਾਣਗੇ', hi: '{gap} किल्ले बाकी रह जाएँगे', en: '{gap} acres not covered' },
+  allCovered: { pa: 'ਸਾਰੇ {total} ਕਿੱਲੇ ਬਿਨਾਂ ਅੱਗ ਦੇ ਸਾਫ਼', hi: 'सारे {total} किल्ले बिना आग के साफ़', en: 'All {total} acres cleared without fire' },
+  atRisk: {
+    pa: '{straw} ਟਨ ਪਰਾਲੀ · ਸਾੜੀ ਤਾਂ ਲਗਭਗ {kg} ਕਿਲੋ PM2.5 ਧੂੰਆਂ',
+    hi: '{straw} टन पराली · जलाई तो लगभग {kg} किलो PM2.5 धुआँ',
+    en: '{straw} t of straw · about {kg} kg of PM2.5 smoke if burnt',
+  },
+  whatIfDays: {
+    pa: '{machine} ਦੇ {days} ਦਿਨ ਹੋਰ → {pct}%',
+    hi: '{machine} के {days} दिन और → {pct}%',
+    en: '{days} more {dayWord} of the {machine} → {pct}%',
+  },
+  closeGap: { pa: 'ਬਾਕੀ ਦਾ ਹੱਲ ਲੱਭੋ', hi: 'बाकी का हल ढूँढें', en: 'Close the gap' },
+  workingOut: { pa: 'ਹਿਸਾਬ ਲਾ ਰਿਹਾ ਹਾਂ…', hi: 'हिसाब लगा रहा हूँ…', en: 'Working it out…' },
+  seasonTitle: { pa: 'ਤੁਹਾਡਾ ਮੌਸਮ: {from} ਤੋਂ {to}', hi: 'आपका मौसम: {from} से {to}', en: 'Your season: {from} to {to}' },
+  daysLeftToSow: { pa: 'ਕਣਕ ਬੀਜਣ ਲਈ {n} ਦਿਨ ਬਾਕੀ', hi: 'गेहूँ बोने के लिए {n} दिन बाकी', en: '{n} days left to sow wheat' },
+  sowingPassed: { pa: 'ਕਣਕ ਦੀ ਬਿਜਾਈ ਦੀ ਤਰੀਕ ਲੰਘ ਗਈ', hi: 'गेहूँ की बुआई की तारीख़ निकल गई', en: 'The wheat sowing date has passed' },
+  day_own: { pa: 'ਤੁਹਾਡੀਆਂ ਮਸ਼ੀਨਾਂ', hi: 'आपकी मशीनें', en: 'your machines' },
+  day_chc: { pa: 'CHC ਬੁਕਿੰਗ', hi: 'CHC बुकिंग', en: 'CHC booking' },
+  day_rain: { pa: 'ਮੀਂਹ', hi: 'बारिश', en: 'rain' },
+  day_idle: { pa: 'ਕੋਈ ਮਸ਼ੀਨ ਨਹੀਂ', hi: 'कोई मशीन नहीं', en: 'no machine' },
+  seasonHint: {
+    pa: 'ਮੀਂਹ ਅਤੇ CHC ਦੇ ਦਿਨ CHC ਮਸ਼ੀਨਾਂ ਲੱਭਣ ਤੋਂ ਬਾਅਦ ਦਿਸਣਗੇ।',
+    hi: 'बारिश और CHC के दिन CHC मशीनें ढूँढने के बाद दिखेंगे।',
+    en: 'Rain and CHC days show once you look for CHC machines.',
+  },
+  askSaathiBook: { pa: 'ਸਾਥੀ ਨੂੰ ਬੁੱਕ ਕਰਨ ਲਈ ਕਹੋ', hi: 'साथी से बुक करने को कहें', en: 'Ask Saathi to book it' },
+  bookPlanMsg: {
+    pa: 'ਕਿਰਪਾ ਕਰਕੇ ਮੇਰੇ ਲਈ ਇਹ CHC ਮਸ਼ੀਨਾਂ ਬੁੱਕ ਕਰ ਦਿਓ: {items}।',
+    hi: 'कृपया मेरे लिए ये CHC मशीनें बुक कर दीजिए: {items}।',
+    en: 'Please book these CHC machines for me: {items}.',
+  },
+  bookOneMsg: {
+    pa: 'ਕਿਰਪਾ ਕਰਕੇ {chc} ਤੋਂ {acres} ਕਿੱਲਿਆਂ ਲਈ {machine} ਬੁੱਕ ਕਰ ਦਿਓ, {deadline} ਤੋਂ ਪਹਿਲਾਂ।',
+    hi: 'कृपया {chc} से {acres} किल्लों के लिए {machine} बुक कर दीजिए, {deadline} से पहले।',
+    en: 'Please book a {machine} from {chc} for {acres} acres, before {deadline}.',
+  },
+  daysStep: { pa: 'ਦਿਨ', hi: 'दिन', en: 'Days' },
+  countStep: { pa: 'ਗਿਣਤੀ', hi: 'गिनती', en: 'How many' },
+
+  // Shop: the best pick and the rest
+  bestForYou: { pa: 'ਤੁਹਾਡੇ ਲਈ ਸਭ ਤੋਂ ਵਧੀਆ', hi: 'आपके लिए सबसे अच्छा', en: 'Best for you' },
+  rentA: { pa: '{machine} ਕਿਰਾਏ ਤੇ ਲਓ', hi: '{machine} किराए पर लें', en: 'Rent a {machine}' },
+  forYourGap: { pa: 'ਤੁਹਾਡੇ ਬਾਕੀ {gap} ਕਿੱਲਿਆਂ ਲਈ, {date} ਤੋਂ ਪਹਿਲਾਂ', hi: 'आपके बाकी {gap} किल्लों के लिए, {date} से पहले', en: 'For your {gap} acres left, before {date}' },
+  statClears: { pa: 'ਸਾਫ਼ ਕਰੇਗਾ', hi: 'साफ़ करेगा', en: 'it clears' },
+  statCost: { pa: 'ਖ਼ਰਚਾ, ₹{rate}/ਕਿੱਲਾ', hi: 'ख़र्च, ₹{rate}/किल्ला', en: 'cost, ₹{rate}/acre' },
+  statFree: { pa: 'ਪਹਿਲਾ ਖ਼ਾਲੀ ਦਿਨ', hi: 'पहला ख़ाली दिन', en: 'first free day' },
+  askChc: { pa: 'CHC ਤੋਂ ਪੁੱਛੋ', hi: 'CHC से पूछें', en: 'ask the CHC' },
+  acresN: { pa: '{n} ਕਿੱਲੇ', hi: '{n} किल्ले', en: '{n} acres' },
+  freeOnly: {
+    pa: 'ਤੁਹਾਡੀ ਤਰੀਕ ਤੋਂ ਪਹਿਲਾਂ ਸਿਰਫ਼ {n} ਦਿਨ ਖ਼ਾਲੀ',
+    hi: 'आपकी तारीख़ से पहले सिर्फ़ {n} दिन ख़ाली',
+    en: 'Free only {n} {dayWord} before your deadline',
+  },
+  stillShortAsk: {
+    pa: 'ਹਾਲੇ {acres} ਕਿੱਲੇ ਬਾਕੀ: ਸਾਥੀ ਵਿਭਾਗ ਤੋਂ ਹੋਰ ਮਸ਼ੀਨ ਮੰਗ ਸਕਦਾ ਹੈ',
+    hi: 'अभी {acres} किल्ले बाकी: साथी विभाग से और मशीन माँग सकता है',
+    en: '{acres} acres still short: Saathi can ask the department for more',
+  },
+  noRental: {
+    pa: 'ਨੇੜੇ ਕਿਸੇ CHC ਕੋਲ ਤੁਹਾਡੇ ਦਿਨਾਂ ਵਿੱਚ ਖ਼ਾਲੀ ਮਸ਼ੀਨ ਨਹੀਂ। ਸਾਥੀ ਵਿਭਾਗ ਤੋਂ ਮੰਗ ਸਕਦਾ ਹੈ।',
+    hi: 'पास के किसी CHC के पास आपके दिनों में ख़ाली मशीन नहीं। साथी विभाग से माँग सकता है।',
+    en: 'No CHC near you has a machine free in your season. Saathi can ask the department.',
+  },
+  pricesNeedLocation: {
+    pa: 'CHC ਦੇ ਰੇਟ ਅਤੇ ਖ਼ਾਲੀ ਦਿਨ ਵੇਖਣ ਲਈ ਉੱਪਰ ਖੇਤ ਦੀ ਥਾਂ ਦੱਸੋ।',
+    hi: 'CHC के रेट और ख़ाली दिन देखने के लिए ऊपर खेत की जगह बताएँ।',
+    en: 'Set your farm location above to see CHC rates and free days.',
+  },
+  checkingChcs: { pa: 'ਨੇੜੇ ਦੇ CHC ਵੇਖ ਰਿਹਾ ਹਾਂ…', hi: 'पास के CHC देख रहा हूँ…', en: 'Checking CHCs near you…' },
+  group_inTime: { pa: 'ਸਮੇਂ ਸਿਰ ਸਾਰਾ ਸਾਫ਼ ਕਰਦੇ ਹਨ', hi: 'समय पर सारा साफ़ करते हैं', en: 'Clear all of it in time' },
+  group_part: { pa: 'ਕੁਝ ਹਿੱਸਾ ਸਾਫ਼ ਕਰਦੇ ਹਨ', hi: 'कुछ हिस्सा साफ़ करते हैं', en: 'Clear part of it' },
+  group_other: { pa: 'ਬਹੁਤ ਦੇਰ, ਜਾਂ ਹਿਸਾਬ ਵਿੱਚ ਨਹੀਂ', hi: 'बहुत देर, या हिसाब में नहीं', en: 'Too late, or not in the check yet' },
+  group_all: { pa: 'ਸਾਰੀਆਂ ਮਸ਼ੀਨਾਂ', hi: 'सारी मशीनें', en: 'Everything in the shop' },
+  showDetails: { pa: 'ਪੂਰੀ ਜਾਣਕਾਰੀ', hi: 'पूरी जानकारी', en: 'Details' },
+  hideDetails: { pa: 'ਛੋਟਾ ਕਰੋ', hi: 'छोटा करें', en: 'Hide details' },
+  needMachineMsg: {
+    pa: 'ਮੈਨੂੰ {deadline} ਤੋਂ ਪਹਿਲਾਂ {acres} ਕਿੱਲਿਆਂ ਲਈ {machine} ਚਾਹੀਦਾ ਹੈ। ਨੇੜੇ ਕੋਈ ਖ਼ਾਲੀ ਨਹੀਂ, ਕਿਰਪਾ ਕਰਕੇ ਵਿਭਾਗ ਤੋਂ ਮੰਗ ਲਓ।',
+    hi: 'मुझे {deadline} से पहले {acres} किल्लों के लिए {machine} चाहिए। पास में कोई ख़ाली नहीं, कृपया विभाग से माँग लीजिए।',
+    en: 'I need a {machine} for {acres} acres before {deadline}. None near me is free; please ask the department.',
+  },
+  rentSummary: { pa: '{chc}: ₹{cost}, {date} ਤੋਂ ਖ਼ਾਲੀ', hi: '{chc}: ₹{cost}, {date} से ख़ाली', en: '{chc}: ₹{cost}, free from {date}' },
+
   // Shop (K14–K17)
   shopTitle: { pa: 'ਕਿਰਾਏ ਤੇ ਲਓ ਜਾਂ ਖਰੀਦੋ', hi: 'किराए पर लें या खरीदें', en: 'Rent or buy' },
   shopIntro: {
