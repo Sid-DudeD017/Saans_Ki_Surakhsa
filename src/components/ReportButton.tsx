@@ -24,6 +24,7 @@ export const ReportButton: React.FC = () => {
         <button
           onClick={() => setIsOpen(true)}
           aria-label={t.report.buttonLabel}
+          className="saans-fab-button"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -37,7 +38,6 @@ export const ReportButton: React.FC = () => {
             borderRadius: '9999px',
             boxShadow: '0 4px 14px rgba(234, 88, 12, 0.45)',
             cursor: 'pointer',
-            transition: 'transform 0.15s ease, background-color 0.15s ease',
             minHeight: '44px',
           }}
         >
@@ -52,6 +52,7 @@ export const ReportButton: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="report-modal-title"
+          className="saans-modal-backdrop"
           style={{
             position: 'fixed',
             inset: 0,
@@ -67,6 +68,7 @@ export const ReportButton: React.FC = () => {
           onClick={() => setIsOpen(false)}
         >
           <div
+            className="saans-modal-sheet"
             style={{
               maxWidth: '560px',
               width: '100%',

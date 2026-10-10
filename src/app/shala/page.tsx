@@ -47,13 +47,13 @@ function CampusOverviewSkeleton({ language }: { language: 'pa' | 'hi' | 'en' }) 
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ width: '120px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '0.5rem' }} />
-            <div style={{ width: '260px', height: '24px', backgroundColor: '#cbd5e1', borderRadius: '4px', marginBottom: '0.5rem' }} />
-            <div style={{ width: '180px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            <div className="saans-skeleton" style={{ width: '120px', height: '14px', borderRadius: '4px', marginBottom: '0.5rem' }} />
+            <div className="saans-skeleton" style={{ width: '260px', height: '24px', borderRadius: '4px', marginBottom: '0.5rem' }} />
+            <div className="saans-skeleton" style={{ width: '180px', height: '14px', borderRadius: '4px' }} />
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ width: '80px', height: '48px', backgroundColor: '#cbd5e1', borderRadius: '6px', marginLeft: 'auto', marginBottom: '0.5rem' }} />
-            <div style={{ width: '100px', height: '20px', backgroundColor: '#e2e8f0', borderRadius: '9999px', marginLeft: 'auto' }} />
+            <div className="saans-skeleton" style={{ width: '80px', height: '48px', borderRadius: '6px', marginLeft: 'auto', marginBottom: '0.5rem' }} />
+            <div className="saans-skeleton" style={{ width: '100px', height: '20px', borderRadius: '9999px', marginLeft: 'auto' }} />
           </div>
         </div>
 
@@ -227,6 +227,7 @@ function ForecastStrip({
         <div
           role="region"
           aria-label={WORDS.nextHours[language]}
+          className="saans-scrollbar"
           style={{
             display: 'flex',
             gap: '0.75rem',
@@ -246,6 +247,7 @@ function ForecastStrip({
                 key={i}
                 role="group"
                 aria-label={srText}
+                className="saans-forecast-cell"
                 style={{
                   minWidth: '85px',
                   flex: '0 0 auto',
@@ -712,7 +714,7 @@ export default function ShalaPage() {
 
 
   return (
-    <Container maxWidth="md" style={{ paddingTop: '1rem', paddingBottom: '4rem' }}>
+    <Container maxWidth="md" className="saans-compact-mobile" style={{ paddingTop: '1rem', paddingBottom: '4rem' }}>
       {/* Clean minimal page title */}
       <div style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', fontWeight: 800 }}>
@@ -800,6 +802,7 @@ export default function ShalaPage() {
         {status === 'ok' && air && (
           <Card
             padding="md"
+            className="saans-interactive-card"
             style={{ backgroundColor: '#ffffff' }}
             role="region"
             aria-label={`Air quality ${air.aqi}, ${CATEGORY_NAMES[air.category].en.toLowerCase()}`}

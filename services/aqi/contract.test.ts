@@ -125,17 +125,19 @@ describe("Contract Tests - API Handlers", () => {
   });
 
   it("validates /v1/aqi/forecast output matches ForecastResponse schema", async () => {
+    const nowDate = new Date();
+    const startDate = new Date(nowDate.getTime() - 2 * 3600000).toISOString();
     const mockSnapshot = {
       version: 1,
-      generated_at: "2026-10-09T08:00:00.000Z",
-      start: "2026-10-09T00:00:00.000Z",
-      hours: 24,
+      generated_at: nowDate.toISOString(),
+      start: startDate,
+      hours: 48,
       step_deg: 0.25,
       anchors: [[114, 308], [114, 309], [115, 308], [115, 309]],
-      pm25: Array(4).fill(Array(24).fill(50)),
-      wind_u: Array(4).fill(Array(24).fill(0)),
-      wind_v: Array(4).fill(Array(24).fill(0)),
-      mixing_m: Array(4).fill(Array(24).fill(500)),
+      pm25: Array(4).fill(Array(48).fill(50)),
+      wind_u: Array(4).fill(Array(48).fill(0)),
+      wind_v: Array(4).fill(Array(48).fill(0)),
+      mixing_m: Array(4).fill(Array(48).fill(500)),
       fires: [],
       stations: [],
       sources: { open_meteo: 'ok', cpcb: 'ok', openaq: 'ok', firms: 'ok' }
