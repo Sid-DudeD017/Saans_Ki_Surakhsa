@@ -131,6 +131,61 @@ CREATE TABLE IF NOT EXISTS workflow_events (
   at            timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id          text PRIMARY KEY,
+  role        text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS status_history (
+  id          bigserial PRIMARY KEY,
+  case_id     text NOT NULL REFERENCES cases(id),
+  status      text NOT NULL,
+  changed_by  text NOT NULL,
+  reason      text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_notes (
+  id          bigserial PRIMARY KEY,
+  case_id     text NOT NULL REFERENCES cases(id),
+  author_id   text NOT NULL,
+  body        text NOT NULL,
+  internal    boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS consent_records (
+  complaint_id text PRIMARY KEY REFERENCES complaints(id),
+  consented    boolean NOT NULL,
+  recorded_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id             bigserial PRIMARY KEY,
+  actor          text NOT NULL,
+  role           text NOT NULL,
+  action         text NOT NULL,
+  ticket_id      text,
+  before_state   jsonb,
+  after_state    jsonb,
+  previous_hash  text NOT NULL,
+  entry_hash     text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION prevent_audit_log_mutation()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log is append-only';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_audit_log_immutable ON audit_log;
+CREATE TRIGGER trg_audit_log_immutable
+BEFORE UPDATE OR DELETE ON audit_log
+FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
+
 CREATE INDEX IF NOT EXISTS complaints_location ON complaints USING gist (location);
 CREATE INDEX IF NOT EXISTS cases_location ON cases USING gist (location);
 CREATE INDEX IF NOT EXISTS help_requests_location ON help_requests USING gist (location);
