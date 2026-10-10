@@ -738,13 +738,8 @@ export default function ShalaPage() {
 
 
   return (
-    <Container maxWidth="md" className="saans-compact-mobile" style={{ paddingTop: '1rem', paddingBottom: '4rem' }}>
-      {/* Clean minimal page title */}
-      <div style={{ marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', fontWeight: 800 }}>
-          🏫 Saans Shala
-        </h1>
-      </div>
+    <Container maxWidth="md" className="saans-compact-mobile" style={{ paddingTop: '0.25rem', paddingBottom: '4rem' }}>
+      {/* The app header (src/components/AppHeader.tsx) carries the name. */}
 
       <Stack gap="md">
         {/* Section A: Location bar */}
@@ -1337,7 +1332,7 @@ export default function ShalaPage() {
         </TabPanel>
       </Stack>
 
-      <BottomTabs tabs={shalaTabs} current={tab} onChange={go} prefix="shala" label={SHALA_TABS_NAME[language]} accent={SHALA_BLUE} />
+      <BottomTabs tabs={shalaTabs} current={tab} onChange={go} prefix="shala" label={SHALA_TABS_NAME[language]} accent={SHALA_BLUE} space="shala" />
     </Container>
   );
 }

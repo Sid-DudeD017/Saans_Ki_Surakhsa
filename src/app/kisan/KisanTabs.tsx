@@ -37,6 +37,7 @@ export function KisanTabs({ tab, onChange, language }: { tab: Tab; onChange: (ta
       prefix="kisan"
       label={say('tabs', language)}
       accent={GREEN}
+      space="kisan"
     />
   );
 }

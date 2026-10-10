@@ -1,10 +1,14 @@
 'use client';
 
-// The tab bar along the bottom of the phone, shared by Kisan Saathi, Saans Shala and Ghar ki Hawa so the
+// The tab bar floating along the bottom of the phone (a white pill, after Blinkit's), with the round
+// Switch button beside it, shared by Kisan Saathi, Saans Shala and Ghar ki Hawa so the
 // three modules look and work the same. The tab lives in the URL (?tab=rooms), so a link can open it
 // and the back button goes to the previous tab; the first tab has no ?tab. Panels stay mounted when
 // hidden, so a tab keeps what was typed and fetched in it.
 import React, { useCallback, useEffect, useSyncExternalStore } from 'react';
+
+import type { SpaceId } from '../lib/space';
+import { SpaceSwitch } from './SpaceSwitch';
 
 export interface TabItem<T extends string> {
   id: T;
@@ -12,7 +16,9 @@ export interface TabItem<T extends string> {
   label: string;
 }
 
-export const BAR_HEIGHT = '4.25rem';
+/** One tab's height, and the room the floating bar takes at the bottom of the page. */
+export const TAB_HEIGHT = '3.4rem';
+export const BAR_SPACE = '5.5rem';
 
 /** The tab named in a query string, or the first tab. */
 export function tabFromSearch<T extends string>(search: string, tabs: readonly T[]): T {
@@ -65,6 +71,7 @@ export function BottomTabs<T extends string>({
   prefix,
   label,
   accent,
+  space,
 }: {
   tabs: readonly TabItem<T>[];
   current: T;
@@ -75,18 +82,22 @@ export function BottomTabs<T extends string>({
   label: string;
   /** The module's colour for the chosen tab. */
   accent: string;
+  /** Puts the round Switch button beside the bar, for moving to another part of the app. */
+  space?: SpaceId;
 }) {
-  // The bar is fixed to the bottom: lift the shell's floating Report button above it, and pad the
-  // page so the footer isn't hidden underneath.
+  // The bar floats over the bottom of the page: lift the shell's Report button above it (and centre
+  // it, globals.css), and pad the page so the last card can scroll clear of it.
   useEffect(() => {
     const root = document.documentElement.style;
-    const body = document.body.style;
-    const before = body.paddingBottom;
-    root.setProperty('--saans-bottom-bar', BAR_HEIGHT);
-    body.paddingBottom = `calc(${BAR_HEIGHT} + env(safe-area-inset-bottom, 0px))`;
+    const body = document.body;
+    const before = body.style.paddingBottom;
+    root.setProperty('--saans-bottom-bar', BAR_SPACE);
+    body.style.paddingBottom = `calc(${BAR_SPACE} + env(safe-area-inset-bottom, 0px))`;
+    body.dataset.bottomBar = '';
     return () => {
       root.removeProperty('--saans-bottom-bar');
-      body.paddingBottom = before;
+      body.style.paddingBottom = before;
+      delete body.dataset.bottomBar;
     };
   }, []);
 
@@ -109,53 +120,76 @@ export function BottomTabs<T extends string>({
         right: 0,
         bottom: 0,
         zIndex: 30,
-        background: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
-        boxShadow: '0 -4px 12px rgba(15, 23, 42, 0.06)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        padding: '0 0.75rem calc(0.6rem + env(safe-area-inset-bottom, 0px))',
+        // Only the pill and the button take taps; the page shows (and scrolls) around them.
+        pointerEvents: 'none',
       }}
     >
-      <div role="tablist" style={{ maxWidth: '48rem', margin: '0 auto', display: 'grid', gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
-        {tabs.map((t, i) => {
-          const on = t.id === current;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              id={`${prefix}-tab-${t.id}`}
-              aria-selected={on}
-              aria-controls={`${prefix}-panel-${t.id}`}
-              tabIndex={on ? 0 : -1}
-              onClick={() => onChange(t.id)}
-              onKeyDown={(e) => keys(e, i)}
-              style={{
-                minHeight: BAR_HEIGHT,
-                minWidth: 0,
-                border: 'none',
-                background: on ? `color-mix(in srgb, ${accent} 8%, #ffffff)` : 'transparent',
-                boxShadow: on ? `inset 0 3px 0 ${accent}` : 'none',
-                color: on ? accent : '#475569',
-                fontWeight: on ? 700 : 500,
-                fontSize: '0.85rem',
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-                alignContent: 'center',
-                gap: '0.15rem',
-                padding: '0.4rem 0.2rem',
-                transition: 'background 150ms, color 150ms',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <span aria-hidden="true" style={{ fontSize: '1.35rem', lineHeight: 1, transform: on ? 'scale(1.1)' : 'none', transition: 'transform 150ms' }}>
-                {t.icon}
-              </span>
-              <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.label}</span>
-            </button>
-          );
-        })}
+      <div style={{ maxWidth: '40rem', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div
+          role="tablist"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            pointerEvents: 'auto',
+            display: 'grid',
+            gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
+            gap: '0.15rem',
+            padding: '0.3rem',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '2rem',
+            boxShadow: '0 10px 28px rgba(15, 23, 42, 0.16)',
+          }}
+        >
+          {tabs.map((t, i) => {
+            const on = t.id === current;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`${prefix}-tab-${t.id}`}
+                aria-selected={on}
+                aria-controls={`${prefix}-panel-${t.id}`}
+                tabIndex={on ? 0 : -1}
+                onClick={() => onChange(t.id)}
+                onKeyDown={(e) => keys(e, i)}
+                style={{
+                  minHeight: TAB_HEIGHT,
+                  minWidth: 0,
+                  border: 'none',
+                  borderRadius: '1.6rem',
+                  background: on ? `color-mix(in srgb, ${accent} 13%, #ffffff)` : 'transparent',
+                  color: on ? '#0f172a' : '#475569',
+                  fontWeight: on ? 800 : 500,
+                  fontSize: '0.75rem',
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                  alignContent: 'center',
+                  gap: '0.15rem',
+                  padding: '0.35rem 0.15rem',
+                  transition: 'background 150ms, color 150ms',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span aria-hidden="true" style={{ fontSize: '1.35rem', lineHeight: 1, transform: on ? 'scale(1.12)' : 'none', transition: 'transform 150ms' }}>
+                  {t.icon}
+                </span>
+                <span style={{ maxWidth: '100%', lineHeight: 1.1, textAlign: 'center', overflowWrap: 'anywhere', color: on ? `color-mix(in srgb, ${accent} 80%, #000000)` : undefined }}>
+                  {t.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {space && (
+          <div style={{ pointerEvents: 'auto', flex: 'none' }}>
+            <SpaceSwitch current={space} />
+          </div>
+        )}
       </div>
     </nav>
   );

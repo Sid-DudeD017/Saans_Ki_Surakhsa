@@ -14,6 +14,7 @@ export const ReportButton: React.FC = () => {
     <>
       {/* Floating Action Button */}
       <div
+        className="saans-report-fab"
         style={{
           position: 'fixed',
           // A screen with its own bottom bar (Kisan's tabs) sets --saans-bottom-bar to lift this above it.

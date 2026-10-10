@@ -189,18 +189,8 @@ export function GharIndoor() {
     // minmax(0, 1fr): the column is the screen's width, not the widest card's, so nothing spills off a phone.
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem', background: '#f8fafc', padding: 'clamp(0.5rem, 3vw, 1.5rem)', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', background: '#fff', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-        <div style={{ maxWidth: '600px' }}>
-          <h1 style={{ margin: '0 0 0.5rem', fontSize: '1.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#0f172a' }}>
-            🏡 Ghar ki Hawa <Badge style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>Live Microclimate</Badge>
-          </h1>
-          <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: 1.5 }}>
-            Understand how outdoor pollution penetrates your living space, monitor room-by-room risk levels throughout the day, and take targeted actions before spikes happen.
-          </p>
-        </div>
-        <LocationBar location={location} onSave={saveLocation} />
-      </div>
+      {/* Your home. The app header (src/components/AppHeader.tsx) carries the name. */}
+      <LocationBar location={location} onSave={saveLocation} />
 
       {/* Stats side-by-side */}
       <TabPanel id="air" current={tab} prefix="ghar">
@@ -311,7 +301,7 @@ export function GharIndoor() {
         </p>
       )}
 
-      <BottomTabs tabs={tabItems} current={tab} onChange={go} prefix="ghar" label={GHAR_TABS_NAME[lang]} accent={TEAL} />
+      <BottomTabs tabs={tabItems} current={tab} onChange={go} prefix="ghar" label={GHAR_TABS_NAME[lang]} accent={TEAL} space="ghar" />
     </div>
   );
 }
