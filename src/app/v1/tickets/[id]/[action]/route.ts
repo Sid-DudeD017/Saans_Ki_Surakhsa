@@ -12,19 +12,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const user = req.headers.get("x-user-id") || "anonymous";
     
     const rl = rateLimiter.check(ip, user);
-    if (!rl.allowed) return NextResponse.json({ error: { code: "unavailable", message: "Rate limit exceeded" } }, { status: 429 });
+    if (!rl.allowed) return NextResponse.json({ error: { code: "too_many_requests", message: "Rate limit exceeded" } }, { status: 429, headers: { 'Retry-After': (rl.retryAfter ?? 60).toString() } });
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     body.action = action; // override action from path
 
     const deps = await localDeps();
     const isOfficer = req.headers.get("authorization") ? true : false;
-    const actor = isOfficer ? "officer-x" : user; // simplistic auth parsing for demo
+    const actor = isOfficer ? "officer-x" : user; 
+    
+    if (!isOfficer && user === "anonymous") {
+        return NextResponse.json({ error: { code: "unauthenticated", message: "Missing authentication" } }, { status: 401 });
+    }
     
     const ticket = await applyTicketAction(deps.db, id, body, actor, isOfficer);
     return NextResponse.json({ ticket });
   } catch (e: any) {
-    if (e instanceof TicketError) return NextResponse.json({ error: { code: e.code, message: e.message } }, { status: e.code === "not_found" ? 404 : 400 });
+    let status = 400;
+    if (e instanceof TicketError) {
+      if (e.code === "not_found") status = 404;
+      else if (e.code === "forbidden") status = 403;
+      else if (e.code === "conflict") status = 409;
+      return NextResponse.json({ error: { code: e.code, message: e.message } }, { status });
+    }
     return NextResponse.json({ error: { code: "invalid_request", message: e.message } }, { status: 400 });
   }
 }
