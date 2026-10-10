@@ -149,7 +149,7 @@ describe('Family Logic & State', () => {
   });
 
   it('11. Family and schedule persistence through localStorage', () => {
-    const state = { members: [{ id: '1', name: 'Test', role: '', blocks: [] }] };
+    const state = { members: [{ id: '1', name: 'Test', role: '', blocks: [] }], savedResults: [] };
     saveFamilyState(state);
     const loaded = loadFamilyState();
     expect(loaded.members[0].id).toBe('1');

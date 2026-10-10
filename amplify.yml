@@ -6,6 +6,7 @@ frontend:
         - npm ci
     build:
       commands:
+        - env | grep -E '^(NASA_FIRMS_MAP_KEY|OPENAQ_API_KEY|CPCB_API_KEY)=' >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next

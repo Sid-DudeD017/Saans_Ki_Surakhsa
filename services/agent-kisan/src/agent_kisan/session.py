@@ -24,7 +24,7 @@ import httpx
 from agent_kisan.coverage import CAPACITY_ACRES_PER_DAY, CoverageResult, estimate_coverage
 from agent_kisan.filing import Filer, build_support_request
 from agent_kisan.fires import DEFAULT_RADIUS_KM, FireSource, FiresUnavailable, default_fires
-from agent_kisan.guard import unsure as unsure_numbers
+from agent_kisan.guard import numeric_slots, unsure as unsure_numbers
 from agent_kisan.notify import RequestStatus
 from agent_kisan.planner import Chc, Plan, find_chcs, plan_zero_burn
 from agent_kisan.readback import Readback, build as build_readback
@@ -86,6 +86,8 @@ class KisanSession:
     messages: list[str] = field(default_factory=list)  # what the farmer said, turn by turn
     distrusted: list[frozenset[float]] = field(default_factory=list)  # numbers speech recognition was unsure of
     explicitly_set: set[str] = field(default_factory=set)
+    # Numbers the farmer gave the app before this conversation (farm card, machine photos), by slot.
+    from_app: dict[str, float | date] = field(default_factory=dict)
     farmer_id: str | None = None  # from sign-in (P4's Cognito), when the app sends it
     readback: Readback | None = None  # the card and spoken script from the last read-back
     farmer_phone: str | None = None  # +91 mobile from sign-in, for SMS updates
@@ -111,7 +113,31 @@ class KisanSession:
         return None
 
     def unsure(self) -> list[dict]:
-        return unsure_numbers(self.profile, self.explicitly_set, self.messages, self.language, self.distrusted)
+        found = unsure_numbers(self.profile, self.explicitly_set, self.messages, self.language, self.distrusted)
+        # A number from the app was said by the farmer, just not here; trust it while it's unchanged.
+        trusted = {slot for slot, value in numeric_slots(self.profile, self.explicitly_set)
+                   if slot in self.from_app and self.from_app[slot] == value}
+        return [u for u in found if u["slot"] not in trusted]
+
+    def prefill(self, lat: float | None = None, lon: float | None = None, **fields) -> dict:
+        """What the farmer already told the app (the farm card, photographed machines), at the start of a
+        conversation. It fills only empty slots; the read-back still shows every detail for the farmer to
+        confirm. Returns {field: error} for values that didn't fit."""
+        errors = {}
+        given = set()
+        for name, value in fields.items():
+            if value is None or getattr(self.profile, name) is not None:
+                continue
+            try:
+                setattr(self.profile, name, _clean(name, value))
+                given.add(name)
+            except ValueError as e:
+                errors[name] = str(e)
+        if lat is not None and lon is not None and self.profile.lat is None:
+            self.profile.lat, self.profile.lon = float(lat), float(lon)
+        self.from_app.update({slot: value for slot, value in numeric_slots(self.profile, self.explicitly_set)
+                              if slot.split(".")[0] in given})
+        return errors
 
     # ---- tools call these ----
 

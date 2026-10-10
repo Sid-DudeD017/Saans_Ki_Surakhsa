@@ -7,7 +7,7 @@ import { useGharLanguage } from './gharTranslations';
 
 const W = 640;
 const H = 220;
-const PAD = { left: 40, right: 12, top: 12, bottom: 28 };
+const PAD = { left: 55, right: 12, top: 12, bottom: 45 };
 
 export function IndoorChart({ series }: { series: IndoorEstimate['hourly_series'] }) {
   const { tLocal } = useGharLanguage();
@@ -42,9 +42,18 @@ export function IndoorChart({ series }: { series: IndoorEstimate['hourly_series'
     srText = `ਅੰਦਰ ਅੱਜ ${indoorMin} ਅਤੇ ${indoorMax} µg/m³ ਦੇ ਵਿਚਕਾਰ ਰਹਿੰਦਾ ਹੈ; ਬਾਹਰ ਲਗਭਗ ${peakTime} ਵਜੇ ${Math.round(outdoorPeak)} µg/m³ ਤੱਕ ਪਹੁੰਚਦਾ ਹੈ।`;
   }
 
+  const centerY = PAD.top + (H - PAD.top - PAD.bottom) / 2;
+  const centerX = PAD.left + (W - PAD.left - PAD.right) / 2;
+
   return (
     <figure style={{ margin: 0 }}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={srText} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {/* Y Axis Label */}
+        <text x={16} y={centerY} transform={`rotate(-90, 16, ${centerY})`} textAnchor="middle" fontSize="12" fill="#475569" fontWeight="600" letterSpacing="0.05em">PM2.5 (µg/m³)</text>
+        
+        {/* X Axis Label */}
+        <text x={centerX} y={H - 4} textAnchor="middle" fontSize="12" fill="#475569" fontWeight="600" letterSpacing="0.05em">Time of Day</text>
+
         {ticks.map((v) => (
           <g key={v}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="#e2e8f0" />
@@ -55,16 +64,15 @@ export function IndoorChart({ series }: { series: IndoorEstimate['hourly_series'
         <text x={W - PAD.right} y={y(60) - 4} textAnchor="end" fontSize="11" fill="#15803d">60 · {tLocal('cat.satisfactory')}</text>
         {hours.map((h, i) =>
           i % 3 === 0 ? (
-            <text key={h.time} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="#64748b">{h.time.slice(11, 16)}</text>
+            <text key={h.time} x={x(i)} y={H - 22} textAnchor="middle" fontSize="11" fill="#64748b">{h.time.slice(11, 16)}</text>
           ) : null,
         )}
         <path d={line((h) => h.outdoor_pm25_ug_m3)} fill="none" stroke="#b45309" strokeWidth="2.5" />
         <path d={line((h) => h.indoor_pm25_ug_m3)} fill="none" stroke="#0369a1" strokeWidth="2.5" />
       </svg>
-      <figcaption style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#475569', marginTop: '0.25rem' }}>
+      <figcaption style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#475569', marginTop: '0.5rem', justifyContent: 'center' }}>
         <span><span aria-hidden style={{ display: 'inline-block', width: 14, height: 3, background: '#b45309', verticalAlign: 'middle', marginRight: 6 }} />{tLocal('chart.outside')}</span>
         <span><span aria-hidden style={{ display: 'inline-block', width: 14, height: 3, background: '#0369a1', verticalAlign: 'middle', marginRight: 6 }} />{tLocal('chart.this_room')}</span>
-        <span>{tLocal('chart.unit')}</span>
       </figcaption>
     </figure>
   );

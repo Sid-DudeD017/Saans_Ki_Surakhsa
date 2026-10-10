@@ -57,12 +57,219 @@ const STRINGS = {
   back: { pa: 'ਗੱਲਬਾਤ ਤੇ ਵਾਪਸ', hi: 'बातचीत पर वापस', en: 'Back to the conversation' },
   acres: { pa: 'ਏਕੜ', hi: 'एकड़', en: 'acres' },
   you: { pa: 'ਤੁਸੀਂ', hi: 'आप', en: 'You' },
+
+  // The page and its tabs
+  subtitle: { pa: 'ਪਰਾਲੀ ਬਿਨਾਂ ਅੱਗ ਦੇ ਸਾਂਭੋ', hi: 'पराली बिना आग के सँभालें', en: 'Clear your stubble without fire' },
+  tabs: { pa: 'ਕਿਸਾਨ ਸਾਥੀ ਦੇ ਹਿੱਸੇ', hi: 'किसान साथी के हिस्से', en: 'Kisan Saathi sections' },
+  tabPlan: { pa: 'ਯੋਜਨਾ', hi: 'योजना', en: 'Plan' },
+  tabMachines: { pa: 'ਮਸ਼ੀਨਾਂ', hi: 'मशीनें', en: 'Machines' },
+  tabShop: { pa: 'ਦੁਕਾਨ', hi: 'दुकान', en: 'Shop' },
+  tabHelp: { pa: 'ਮਦਦ', hi: 'मदद', en: 'Help' },
+  comingSoon: { pa: 'ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ', hi: 'जल्द आ रहा है', en: 'Coming soon' },
+  shopSoon: {
+    pa: 'ਕਿਰਾਏ ਜਾਂ ਖਰੀਦਣ ਲਈ ਮਸ਼ੀਨਾਂ ਅਤੇ ਡੀਕੰਪੋਜ਼ਰ ਇੱਥੇ ਆਉਣਗੇ।',
+    hi: 'किराए या खरीद के लिए मशीनें और डीकंपोज़र यहाँ आएँगे।',
+    en: 'Machines and decomposer to rent or buy will appear here.',
+  },
+  helpSoon: {
+    pa: 'ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰਨਾ ਅਤੇ ਫ਼ੋਨ ਕਰਨ ਲਈ ਨੰਬਰ ਇੱਥੇ ਆਉਣਗੇ।',
+    hi: 'शिकायत दर्ज करना और फ़ोन करने के लिए नंबर यहाँ आएँगे।',
+    en: 'Complaints and numbers to call will appear here.',
+  },
+  emergency: {
+    pa: 'ਅੱਗ ਫੈਲ ਰਹੀ ਹੋਵੇ ਜਾਂ ਖ਼ਤਰਾ ਹੋਵੇ: 112 ਤੇ ਫ਼ੋਨ ਕਰੋ',
+    hi: 'आग फैल रही हो या ख़तरा हो: 112 पर फ़ोन करें',
+    en: 'Fire spreading or danger: call 112',
+  },
+
+  // Farm location (K3)
+  locationNotSet: { pa: 'ਖੇਤ ਦੀ ਥਾਂ ਹਾਲੇ ਨਹੀਂ ਦੱਸੀ', hi: 'खेत की जगह अभी नहीं बताई', en: 'Farm location not set' },
+  farmAt: { pa: 'ਖੇਤ: {place}', hi: 'खेत: {place}', en: 'Farm: {place}' },
+  near: { pa: '{lat}, {lon} ਦੇ ਨੇੜੇ', hi: '{lat}, {lon} के पास', en: 'near {lat}, {lon}' },
+  setLocation: { pa: 'ਥਾਂ ਦੱਸੋ', hi: 'जगह बताएँ', en: 'Set location' },
+  change: { pa: 'ਬਦਲੋ', hi: 'बदलें', en: 'Change' },
+  useMyLocation: { pa: 'ਮੇਰੀ ਥਾਂ ਵਰਤੋ', hi: 'मेरी जगह इस्तेमाल करें', en: 'Use my location' },
+  locating: { pa: 'ਥਾਂ ਲੱਭ ਰਿਹਾ ਹਾਂ…', hi: 'जगह ढूँढ रहा हूँ…', en: 'Finding your location…' },
+  locationDenied: {
+    pa: 'ਫ਼ੋਨ ਨੇ ਥਾਂ ਨਹੀਂ ਦੱਸੀ। ਪਿੰਡ ਦਾ ਨਾਂ ਲਿਖੋ।',
+    hi: 'फ़ोन ने जगह नहीं बताई। गाँव का नाम लिखें।',
+    en: "Your phone didn't share its location. Type your village instead.",
+  },
+  villageName: { pa: 'ਪਿੰਡ ਦਾ ਨਾਂ', hi: 'गाँव का नाम', en: 'Village name' },
+  locationPrivacy: {
+    pa: 'ਅਸੀਂ ਸਿਰਫ਼ ਲਗਭਗ ਥਾਂ (ਕਰੀਬ 1 ਕਿਲੋਮੀਟਰ) ਰੱਖਦੇ ਹਾਂ, ਇਸੇ ਫ਼ੋਨ ਤੇ।',
+    hi: 'हम सिर्फ़ लगभग जगह (करीब 1 किलोमीटर) रखते हैं, इसी फ़ोन पर।',
+    en: 'We keep only the rough spot (about 1 km), on this phone.',
+  },
+  save: { pa: 'ਸੰਭਾਲੋ', hi: 'सहेजें', en: 'Save' },
+  cancel: { pa: 'ਰੱਦ ਕਰੋ', hi: 'रद्द करें', en: 'Cancel' },
+
+  // Farm profile (K4)
+  yourFarm: { pa: 'ਤੁਹਾਡਾ ਖੇਤ', hi: 'आपका खेत', en: 'Your farm' },
+  farmEmpty: {
+    pa: 'ਖੇਤ ਬਾਰੇ ਦੱਸੋ ਤਾਂ ਜੋ ਹਿਸਾਬ ਲਾ ਸਕੀਏ। ਯੋਜਨਾ ਵਾਲੀ ਗੱਲਬਾਤ ਵੀ ਇਹ ਭਰ ਦਿੰਦੀ ਹੈ।',
+    hi: 'खेत के बारे में बताइए ताकि हिसाब लगा सकें। योजना वाली बातचीत भी इसे भर देती है।',
+    en: 'Tell us about your farm so we can work things out. The Plan conversation fills this in too.',
+  },
+  fillFarm: { pa: 'ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ ਭਰੋ', hi: 'खेत की जानकारी भरें', en: 'Add farm details' },
+  fromChat: { pa: 'ਗੱਲਬਾਤ ਤੋਂ', hi: 'बातचीत से', en: 'From your conversation' },
+  killa: { pa: 'ਕਿੱਲੇ', hi: 'किल्ले', en: 'acres' },
+  farmInvalid: {
+    pa: 'ਝੋਨੇ ਦੇ ਕਿੱਲੇ ਅਤੇ ਟਰੈਕਟਰ 0 ਜਾਂ ਵੱਧ ਹੋਣ, ਅਤੇ ਕਣਕ ਦੀ ਤਾਰੀਖ਼ ਵਾਢੀ ਤੋਂ ਬਾਅਦ।',
+    hi: 'धान के किल्ले और ट्रैक्टर 0 या ज़्यादा हों, और गेहूँ की तारीख़ कटाई के बाद।',
+    en: 'Paddy and tractors must be 0 or more, and the wheat date must come after harvest.',
+  },
+
+  // Machine photos (K7, K8)
+  machinesTitle: { pa: 'ਤੁਹਾਡੀਆਂ ਮਸ਼ੀਨਾਂ', hi: 'आपकी मशीनें', en: 'Your machines' },
+  machinesIntro: {
+    pa: 'ਹਰ ਮਸ਼ੀਨ ਦੀ ਫ਼ੋਟੋ ਖਿੱਚੋ। ਫਿਰ ਅਸੀਂ ਦੱਸਾਂਗੇ ਕਿ ਇਹ ਤੁਹਾਡੇ ਖੇਤ ਲਈ ਕਾਫ਼ੀ ਹਨ ਜਾਂ ਨਹੀਂ।',
+    hi: 'हर मशीन की फ़ोटो खींचिए। फिर हम बताएँगे कि ये आपके खेत के लिए काफ़ी हैं या नहीं।',
+    en: "Take a photo of each machine. Then we'll tell you if they're enough for your farm.",
+  },
+  takePhoto: { pa: 'ਫ਼ੋਟੋ ਖਿੱਚੋ', hi: 'फ़ोटो खींचें', en: 'Take photo' },
+  fromGallery: { pa: 'ਗੈਲਰੀ ਵਿੱਚੋਂ ਚੁਣੋ', hi: 'गैलरी से चुनें', en: 'Choose from gallery' },
+  sendingPhoto: { pa: 'ਫ਼ੋਟੋ ਭੇਜ ਰਿਹਾ ਹਾਂ…', hi: 'फ़ोटो भेज रहा हूँ…', en: 'Sending photo…' },
+  looksLike: { pa: 'ਇਹ {machine} ਲੱਗਦੀ ਹੈ', hi: 'यह {machine} लगती है', en: 'This looks like a {machine}' },
+  sure: { pa: '{pct}% ਯਕੀਨ', hi: '{pct}% यकीन', en: '{pct}% sure' },
+  tapToCorrect: { pa: 'ਗ਼ਲਤ ਹੈ ਤਾਂ ਸਹੀ ਮਸ਼ੀਨ ਛੂਹੋ', hi: 'ग़लत है तो सही मशीन छुएँ', en: "If that's wrong, tap the right one" },
+  whichMachine: { pa: 'ਇਹ ਕਿਹੜੀ ਮਸ਼ੀਨ ਹੈ?', hi: 'यह कौन सी मशीन है?', en: 'Which machine is this?' },
+  noMachineSeen: {
+    pa: 'ਫ਼ੋਟੋ ਵਿੱਚ ਕੋਈ ਮਸ਼ੀਨ ਨਹੀਂ ਦਿਸੀ। ਫਿਰ ਖਿੱਚੋ ਜਾਂ ਹੇਠਾਂ ਚੁਣੋ।',
+    hi: 'फ़ोटो में कोई मशीन नहीं दिखी। फिर से खींचें या नीचे चुनें।',
+    en: "We couldn't see a machine. Take another photo or pick one below.",
+  },
+  notSure: {
+    pa: 'ਪੱਕਾ ਨਹੀਂ ਪਤਾ ਲੱਗਿਆ। ਹੇਠਾਂ ਚੁਣੋ।',
+    hi: 'पक्का पता नहीं चला। नीचे चुनें।',
+    en: "We're not sure which machine this is. Pick it below.",
+  },
+  aiUnavailable: {
+    pa: 'ਮਸ਼ੀਨ ਦੀ ਪਛਾਣ ਹਾਲੇ ਨਹੀਂ ਹੋ ਰਹੀ। ਹੇਠਾਂ ਚੁਣੋ।',
+    hi: 'मशीन की पहचान अभी नहीं हो रही। नीचे चुनें।',
+    en: "Machine recognition isn't available right now. Pick it below.",
+  },
+  howMany: { pa: 'ਕਿੰਨੀਆਂ?', hi: 'कितनी?', en: 'How many?' },
+  fewer: { pa: 'ਇੱਕ ਘੱਟ', hi: 'एक कम', en: 'One fewer' },
+  more: { pa: 'ਇੱਕ ਵੱਧ', hi: 'एक ज़्यादा', en: 'One more' },
+  mine: { pa: 'ਆਪਣੀ', hi: 'अपनी', en: 'Mine' },
+  rented: { pa: 'ਕਿਰਾਏ ਦੀ', hi: 'किराए की', en: 'Rented' },
+  addMachine: { pa: 'ਮੇਰੀਆਂ ਮਸ਼ੀਨਾਂ ਵਿੱਚ ਜੋੜੋ', hi: 'मेरी मशीनों में जोड़ें', en: 'Add to my machines' },
+  remove: { pa: 'ਹਟਾਓ', hi: 'हटाएँ', en: 'Remove' },
+  noMachinesYet: { pa: 'ਹਾਲੇ ਕੋਈ ਮਸ਼ੀਨ ਨਹੀਂ ਜੋੜੀ', hi: 'अभी कोई मशीन नहीं जोड़ी', en: 'No machines added yet' },
+  photoFailed: { pa: 'ਫ਼ੋਟੋ ਨਹੀਂ ਗਈ: {why}', hi: 'फ़ोटो नहीं गई: {why}', en: "The photo didn't send: {why}" },
+  tryAgain: { pa: 'ਫਿਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ', hi: 'फिर से कोशिश करें', en: 'Try again' },
+  photoPrivacy: {
+    pa: 'ਭੇਜੀ ਫ਼ੋਟੋ ਵਿੱਚ ਚਿਹਰੇ ਧੁੰਦਲੇ ਕੀਤੇ ਜਾਂਦੇ ਹਨ ਅਤੇ ਥਾਂ ਦੀ ਜਾਣਕਾਰੀ ਮਿਟਾ ਦਿੱਤੀ ਜਾਂਦੀ ਹੈ।',
+    hi: 'भेजी गई फ़ोटो में चेहरे धुंधले किए जाते हैं और जगह की जानकारी हटा दी जाती है।',
+    en: "In the photo we keep, faces are blurred and the photo's location data is removed.",
+  },
+  forDays: { pa: 'ਕਿੰਨੇ ਦਿਨਾਂ ਲਈ?', hi: 'कितने दिनों के लिए?', en: 'For how many days?' },
+  nDays: { pa: '{n} ਦਿਨ', hi: '{n} दिन', en: '{n} days' },
+  wholeSeason: { pa: 'ਪੂਰਾ ਸੀਜ਼ਨ', hi: 'पूरा सीज़न', en: 'whole season' },
+  otherNotCounted: {
+    pa: '"ਹੋਰ ਮਸ਼ੀਨ" ਹਿਸਾਬ ਵਿੱਚ ਨਹੀਂ ਗਿਣੀ ਜਾਂਦੀ।',
+    hi: '"दूसरी मशीन" हिसाब में नहीं गिनी जाती।',
+    en: '"Other machine" isn\'t counted in the check.',
+  },
+
+  // Is it enough? (K10)
+  checkTitle: { pa: 'ਕੀ ਤੁਹਾਡੀਆਂ ਮਸ਼ੀਨਾਂ ਕਾਫ਼ੀ ਹਨ?', hi: 'क्या आपकी मशीनें काफ़ी हैं?', en: 'Are your machines enough?' },
+  checkButton: { pa: 'ਹਿਸਾਬ ਲਾਓ', hi: 'हिसाब लगाएँ', en: 'Work it out' },
+  checkAgain: { pa: 'ਫਿਰ ਹਿਸਾਬ ਲਾਓ', hi: 'फिर से हिसाब लगाएँ', en: 'Work it out again' },
+  checking: { pa: 'ਹਿਸਾਬ ਲਾ ਰਿਹਾ ਹਾਂ…', hi: 'हिसाब लगा रहा हूँ…', en: 'Working it out…' },
+  changed: {
+    pa: 'ਖੇਤ ਜਾਂ ਮਸ਼ੀਨਾਂ ਬਦਲ ਗਈਆਂ ਹਨ।',
+    hi: 'खेत या मशीनें बदल गई हैं।',
+    en: 'Your farm or machines have changed.',
+  },
+  needPaddy: {
+    pa: 'ਪਹਿਲਾਂ ਖੇਤ ਵਾਲੇ ਕਾਰਡ ਤੇ ਝੋਨੇ ਦੇ ਕਿੱਲੇ ਭਰੋ।',
+    hi: 'पहले खेत वाले कार्ड पर धान के किल्ले भरें।',
+    en: 'Add your paddy acres on the farm card first.',
+  },
+  needDates: {
+    pa: 'ਪਹਿਲਾਂ ਖੇਤ ਵਾਲੇ ਕਾਰਡ ਤੇ ਵਾਢੀ ਅਤੇ ਕਣਕ ਦੀਆਂ ਤਾਰੀਖ਼ਾਂ ਭਰੋ।',
+    hi: 'पहले खेत वाले कार्ड पर कटाई और गेहूँ की तारीख़ें भरें।',
+    en: 'Add the harvest and wheat dates on the farm card first.',
+  },
+  verdict_enough: { pa: 'ਕਾਫ਼ੀ ਹਨ', hi: 'काफ़ी हैं', en: 'Enough' },
+  verdict_almost: { pa: 'ਲਗਭਗ', hi: 'लगभग', en: 'Almost' },
+  verdict_short: { pa: 'ਕਾਫ਼ੀ ਨਹੀਂ', hi: 'काफ़ी नहीं', en: 'Not enough' },
+  coveredBy: {
+    pa: '{date} ਤੱਕ {total} ਵਿੱਚੋਂ {covered} ਕਿੱਲੇ ਬਿਨਾਂ ਅੱਗ ਦੇ ਸਾਫ਼',
+    hi: '{date} तक {total} में से {covered} किल्ले बिना आग के साफ़',
+    en: '{covered} of {total} acres cleared by {date} without fire',
+  },
+  gapLeft: {
+    pa: '{gap} ਕਿੱਲੇ ਬਾਕੀ: ਲਗਭਗ {straw} ਟਨ ਪਰਾਲੀ',
+    hi: '{gap} किल्ले बाकी: लगभग {straw} टन पराली',
+    en: '{gap} acres left: about {straw} t of straw',
+  },
+  smokeIfBurnt: {
+    pa: 'ਜੇ ਸਾੜੀ ਤਾਂ: ਲਗਭਗ {kg} ਕਿਲੋ PM2.5 ਧੂੰਆਂ',
+    hi: 'अगर जलाई तो: लगभग {kg} किलो PM2.5 धुआँ',
+    en: "If it's burnt: about {kg} kg of PM2.5 smoke",
+  },
+  moreDays: {
+    pa: 'ਲਗਭਗ {days} ਦਿਨ ਹੋਰ {machine} ਨਾਲ ਪੂਰਾ ਹੋ ਜਾਵੇਗਾ',
+    hi: 'लगभग {days} दिन और {machine} से पूरा हो जाएगा',
+    en: 'About {days} more days of a {machine} would clear it',
+  },
+  assumedDry: {
+    pa: 'ਇਹ ਮੰਨ ਕੇ ਕਿ ਸਾਰੇ ਦਿਨ ਸੁੱਕੇ ਰਹਿਣਗੇ। CHC ਯੋਜਨਾ ਮੀਂਹ ਦੀ ਭਵਿੱਖਬਾਣੀ ਵੀ ਵੇਖਦੀ ਹੈ।',
+    hi: 'यह मानकर कि सारे दिन सूखे रहेंगे। CHC योजना बारिश का पूर्वानुमान भी देखती है।',
+    en: 'This assumes every day is dry. The CHC plan also checks the rain forecast.',
+  },
+
+  // From the verdict to action (K11)
+  findChc: { pa: 'ਬਾਕੀ ਲਈ CHC ਮਸ਼ੀਨ ਲੱਭੋ', hi: 'बाकी के लिए CHC मशीन ढूँढें', en: 'Find CHC machines for the rest' },
+  seeShop: { pa: 'ਕਿਰਾਏ ਜਾਂ ਖਰੀਦਣ ਲਈ ਵੇਖੋ', hi: 'किराए या खरीद के लिए देखें', en: 'See what to rent or buy' },
+  needLocation: {
+    pa: 'ਪਹਿਲਾਂ ਉੱਪਰ ਖੇਤ ਦੀ ਥਾਂ ਦੱਸੋ ਤਾਂ ਜੋ ਨੇੜੇ ਦੇ CHC ਲੱਭ ਸਕੀਏ।',
+    hi: 'पहले ऊपर खेत की जगह बताएँ ताकि पास के CHC ढूँढ सकें।',
+    en: 'Set your farm location above first, so we can find CHCs near you.',
+  },
+  planning: { pa: 'ਨੇੜੇ ਦੀਆਂ CHC ਮਸ਼ੀਨਾਂ ਲੱਭ ਰਿਹਾ ਹਾਂ…', hi: 'पास की CHC मशीनें ढूँढ रहा हूँ…', en: 'Looking for CHC machines near you…' },
+  chcPlanTitle: { pa: 'ਸੁਝਾਈਆਂ CHC ਮਸ਼ੀਨਾਂ', hi: 'सुझाई गई CHC मशीनें', en: 'Suggested CHC machines' },
+  fromChc: { pa: '{chc} ਤੋਂ', hi: '{chc} से', en: 'from {chc}' },
+  withThese: { pa: 'ਇਹਨਾਂ ਨਾਲ: {pct}%', hi: 'इनके साथ: {pct}%', en: 'With these: {pct}%' },
+  rainDays: { pa: 'ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ: {n} ਦਿਨ', hi: 'बारिश की संभावना: {n} दिन', en: 'Rain expected on {n} days' },
+  noChcFree: {
+    pa: 'ਤੁਹਾਡੇ ਖੇਤ ਦੇ ਨੇੜੇ ਸਮੇਂ ਸਿਰ ਕੋਈ CHC ਮਸ਼ੀਨ ਖਾਲੀ ਨਹੀਂ।',
+    hi: 'आपके खेत के पास समय पर कोई CHC मशीन खाली नहीं।',
+    en: 'No CHC machine near your farm is free in time.',
+  },
+  demoChc: { pa: 'ਡੈਮੋ CHC ਜਾਣਕਾਰੀ', hi: 'डेमो CHC जानकारी', en: 'Demo CHC data' },
+  notBookedYet: {
+    pa: 'ਹਾਲੇ ਕੁਝ ਬੁੱਕ ਨਹੀਂ ਹੋਇਆ। ਯੋਜਨਾ ਵਾਲੀ ਗੱਲਬਾਤ ਵਿੱਚ ਮੰਗੋ, ਵਿਭਾਗ ਨੂੰ ਤੁਹਾਡੀ ਬੇਨਤੀ ਪਹੁੰਚ ਜਾਵੇਗੀ।',
+    hi: 'अभी कुछ बुक नहीं हुआ। योजना वाली बातचीत में माँगिए, विभाग को आपकी बिनती पहुँच जाएगी।',
+    en: "Nothing is booked yet. Ask for it in the Plan conversation and your request goes to the department.",
+  },
+  askInChat: { pa: 'ਗੱਲਬਾਤ ਵਿੱਚ ਮੰਗੋ', hi: 'बातचीत में माँगें', en: 'Ask in the conversation' },
 } satisfies Record<string, Record<Language, string>>;
 
 export type StringKey = keyof typeof STRINGS;
 
 export function say(key: StringKey, language: Language): string {
   return STRINGS[key][language];
+}
+
+/** say() with {name} placeholders filled in. */
+export function sayWith(key: StringKey, language: Language, values: Record<string, string | number>): string {
+  return say(key, language).replace(/\{(\w+)\}/g, (all, name: string) => (name in values ? String(values[name]) : all));
+}
+
+const MACHINE_LABELS: Record<string, Record<Language, string>> = {
+  happy_seeder: { pa: 'ਹੈਪੀ ਸੀਡਰ', hi: 'हैप्पी सीडर', en: 'Happy Seeder' },
+  super_seeder: { pa: 'ਸੁਪਰ ਸੀਡਰ', hi: 'सुपर सीडर', en: 'Super Seeder' },
+  mulcher_rmb: { pa: 'ਮਲਚਰ + ਉਲਟਾਵਾਂ ਹਲ', hi: 'मल्चर + पलटने वाला हल', en: 'Mulcher + RMB plough' },
+  baler: { pa: 'ਬੇਲਰ', hi: 'बेलर', en: 'Baler' },
+  other: { pa: 'ਹੋਰ ਮਸ਼ੀਨ', hi: 'दूसरी मशीन', en: 'Other machine' },
+};
+
+export function machineLabel(type: string, language: Language): string {
+  return MACHINE_LABELS[type]?.[language] ?? type;
 }
 
 /** What each line of the read-back card is, in the farmer's language. */
@@ -130,4 +337,10 @@ export function indiaClock(at: string, language: Language): string {
   const hh = String(ist.getUTCHours()).padStart(2, '0');
   const mm = String(ist.getUTCMinutes()).padStart(2, '0');
   return `${ist.getUTCDate()} ${MONTHS[language][ist.getUTCMonth()]}, ${hh}:${mm}`;
+}
+
+/** "2026-11-09" as "9 ਨਵੰਬਰ" / "9 नवंबर" / "9 Nov". */
+export function dayMonth(isoDay: string, language: Language): string {
+  const [, m, d] = isoDay.split('-').map(Number);
+  return m >= 1 && m <= 12 && d ? `${d} ${MONTHS[language][m - 1]}` : isoDay;
 }
