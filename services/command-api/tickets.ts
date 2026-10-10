@@ -83,11 +83,28 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
   if (parsed.action === "resolve" && !parsed.summary) {
     throw new TicketError("invalid_request", "Resolution summary is required");
   }
+  
+  // Authorization rules
+  const officerOnly = ["accept", "reassign", "update_status", "resolve"];
+  const citizenOnly = ["citizen_confirm", "citizen_reopen"];
+  
+  if (!isOfficer && officerOnly.includes(parsed.action)) {
+    throw new TicketError("forbidden", `Action ${parsed.action} is restricted to officers`);
+  }
+  if (isOfficer && citizenOnly.includes(parsed.action)) {
+    throw new TicketError("forbidden", `Action ${parsed.action} is restricted to citizens`);
+  }
 
   const current = await db.query(`SELECT * FROM cases WHERE id = $1`, [id]);
   if (current.rows.length === 0) throw new TicketError("not_found", "Ticket not found");
 
   const row = current.rows[0];
+  
+  // Check state transitions (409)
+  if (parsed.action === "citizen_confirm" && row.status !== "RESOLVED") {
+     throw new TicketError("conflict", "Cannot confirm a ticket that is not resolved");
+  }
+
   let nextStatus = row.status;
   
   // Mapping actions to status
@@ -112,26 +129,29 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
     before, after, entryHash
   ]);
 
-  // Public vs internal notes
-  let notesSql = "";
-  let notesParams: any[] = [];
+  // Public vs internal notes & evidence
+  let extraSql = "";
+  let extraParams: any[] = [];
   if (parsed.reason || parsed.summary) {
     const text = parsed.summary || parsed.reason;
     if (isOfficer && !["resolve", "request_info"].includes(parsed.action)) {
-       notesSql = `, notes = notes || $2::jsonb`;
-       notesParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
+       extraSql = `, internal_notes = coalesce(internal_notes, '[]'::jsonb) || $2::jsonb`;
+       extraParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
     } else {
-       notesSql = `, public_notes = coalesce(public_notes, '[]'::jsonb) || $2::jsonb`;
-       notesParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
+       extraSql = `, public_notes = coalesce(public_notes, '[]'::jsonb) || $2::jsonb`;
+       extraParams = [JSON.stringify([{ at: new Date().toISOString(), by: user, text }])];
     }
+  } else if (parsed.action === "upload_evidence" && body.evidence) {
+    extraSql = `, evidence = coalesce(evidence, '[]'::jsonb) || $2::jsonb`;
+    extraParams = [JSON.stringify([body.evidence])];
   }
 
   const res = await db.query(`
     UPDATE cases 
-    SET status = $1, version = version + 1 ${notesSql}
-    WHERE id = $${notesParams.length + 2}
+    SET status = $1, version = version + 1 ${extraSql}
+    WHERE id = $${extraParams.length + 2}
     RETURNING *
-  `, [nextStatus, ...notesParams, id]);
+  `, [nextStatus, ...extraParams, id]);
 
   return mapCaseToTicket(res.rows[0], isOfficer);
 }

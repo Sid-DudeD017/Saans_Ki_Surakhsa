@@ -10,7 +10,7 @@ describe("tickets API", () => {
     await migrate(db);
   });
 
-  it("creates a ticket with SAANS- prefix and retrieves it", async () => {
+  it("create ticket with consent", async () => {
     const res = await createTicket(db, {
       type: "garbage",
       district: "Sangrur",
@@ -22,7 +22,10 @@ describe("tickets API", () => {
     expect(res.status).toBe(201);
     expect(res.ticket.id).toMatch(/^SAANS-\d{8}-[0-9A-Z]{6}$/);
     expect(res.ticket.status).toBe("submitted");
+  });
 
+  it("get ticket (citizen view vs officer view)", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Sangrur", idempotency_key: newId("test") });
     // Get as officer (sees internal)
     const officerView = await getTicket(db, res.ticket.id, true);
     expect((officerView as any).internal_notes).toBeDefined();
@@ -32,47 +35,99 @@ describe("tickets API", () => {
     expect((citizenView as any).internal_notes).toBeUndefined();
   });
 
-  it("applies actions and maps statuses correctly", async () => {
-    const res = await createTicket(db, {
-      type: "garbage",
-      district: "Patiala",
-      idempotency_key: newId("test"),
-    });
+  it("list with filters", async () => {
+    await createTicket(db, { type: "garbage", district: "Mohali", idempotency_key: newId("test") });
+    const list = await listTickets(db, true, { district: "Mohali" });
+    expect(list.length).toBeGreaterThan(0);
+    expect(list[0].district).toBe("Mohali");
+  });
 
-    const id = res.ticket.id;
-
-    // Officer accepts
-    const accepted = await applyTicketAction(db, id, { action: "accept" }, "officer-1", true);
+  it("accept", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const accepted = await applyTicketAction(db, res.ticket.id, { action: "accept" }, "officer-1", true);
     expect(accepted.status).toBe("in_progress");
+  });
 
-    // Officer requests info
-    const reqInfo = await applyTicketAction(db, id, { action: "request_info", reason: "Need photo" }, "officer-1", true);
+  it("note", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const noted = await applyTicketAction(db, res.ticket.id, { action: "note", reason: "Taking a look" }, "officer-1", true);
+    expect(noted.status).toBe("submitted"); // status shouldn't change
+  });
+
+  it("request info", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const reqInfo = await applyTicketAction(db, res.ticket.id, { action: "request_info", reason: "Need photo" }, "officer-1", true);
     expect(reqInfo.status).toBe("awaiting_information");
+  });
 
-    // Citizen provides info via citizen_reopen
-    const reopened = await applyTicketAction(db, id, { action: "citizen_reopen", reason: "Here is info" }, "citizen-1", false);
-    expect(reopened.status).toBe("submitted");
+  it("upload evidence", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const up = await applyTicketAction(db, res.ticket.id, { action: "upload_evidence", evidence: "photo.jpg" }, "citizen-1", false);
+    expect(up.status).toBe("submitted");
+  });
 
-    // Officer resolves
-    const resolved = await applyTicketAction(db, id, { action: "resolve", summary: "Cleaned up" }, "officer-1", true);
+  it("reassign", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const reassigned = await applyTicketAction(db, res.ticket.id, { action: "reassign", assignee: "officer-2" }, "officer-1", true);
+    expect(reassigned.status).toBe("submitted");
+  });
+
+  it("update status", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const updated = await applyTicketAction(db, res.ticket.id, { action: "update_status", status: "resolved" }, "officer-1", true);
+    expect(updated.status).toBe("resolved");
+  });
+
+  it("resolve", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const resolved = await applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "Cleaned up" }, "officer-1", true);
     expect(resolved.status).toBe("resolved");
+  });
 
-    // History
-    const history = await getTicketHistory(db, id);
+  it("citizen confirm", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "done" }, "officer-1", true);
+    const confirmed = await applyTicketAction(db, res.ticket.id, { action: "citizen_confirm" }, "citizen-1", false);
+    expect(confirmed.status).toBe("closed");
+  });
+
+  it("citizen reopen", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    const reopened = await applyTicketAction(db, res.ticket.id, { action: "citizen_reopen", reason: "still bad" }, "citizen-1", false);
+    expect(reopened.status).toBe("submitted");
+  });
+
+  it("status history", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await applyTicketAction(db, res.ticket.id, { action: "accept" }, "officer-1", true);
+    const history = await getTicketHistory(db, res.ticket.id);
     expect(history.length).toBeGreaterThan(0);
     expect(history[0].action).toBe("accept");
   });
 
-  it("fails to resolve without summary", async () => {
-    const res = await createTicket(db, {
-      type: "garbage",
-      district: "Patiala",
-      idempotency_key: newId("test"),
-    });
+  it("400 validation", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await expect(applyTicketAction(db, res.ticket.id, { action: "resolve" }, "officer-1", true)).rejects.toThrow("Resolution summary is required");
+  });
 
-    await expect(
-      applyTicketAction(db, res.ticket.id, { action: "resolve" }, "officer-1", true)
-    ).rejects.toThrow("Resolution summary is required");
+  it("403 resolve by a citizen rejected", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await expect(applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "done" }, "citizen-1", false)).rejects.toThrow("Action resolve is restricted to officers");
+  });
+  
+  it("403 citizen confirm by officer rejected", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await applyTicketAction(db, res.ticket.id, { action: "resolve", summary: "done" }, "officer-1", true);
+    await expect(applyTicketAction(db, res.ticket.id, { action: "citizen_confirm" }, "officer-1", true)).rejects.toThrow("Action citizen_confirm is restricted to citizens");
+  });
+
+  it("404 ticket not found", async () => {
+    await expect(applyTicketAction(db, "fake-id", { action: "accept" }, "officer-1", true)).rejects.toThrow("Ticket not found");
+  });
+
+  it("409 bad transition", async () => {
+    const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
+    await expect(applyTicketAction(db, res.ticket.id, { action: "citizen_confirm" }, "citizen-1", false)).rejects.toThrow("Cannot confirm a ticket that is not resolved");
   });
 
   it("handles idempotency", async () => {

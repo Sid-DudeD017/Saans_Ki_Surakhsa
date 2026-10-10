@@ -207,6 +207,7 @@ ALTER TABLE cases ADD COLUMN IF NOT EXISTS reporter_identity text;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS reporter_consent boolean DEFAULT false;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS duplicate_of text;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_notes jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS internal_notes jsonb;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS evidence jsonb;
 
 ALTER TABLE cases ALTER COLUMN complaint_id DROP NOT NULL;
