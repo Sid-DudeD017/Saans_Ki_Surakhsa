@@ -9,28 +9,56 @@ export interface AQIHeaderProps {
 }
 
 export const AQIHeader: React.FC<AQIHeaderProps> = ({
-  lat = 28.6472,
-  lon = 77.3058,
+  lat = 28.73,
+  lon = 77.12,
 }) => {
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    getAqi(lat, lon)
-      .then((data) => {
-        if (active) {
-          setAqiData(data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load AQI for header', err);
-        if (active) setLoading(false);
-      });
+
+    const fetchCurrentAqi = (targetLat: number, targetLon: number) => {
+      getAqi(targetLat, targetLon)
+        .then((data) => {
+          if (active) {
+            setAqiData(data);
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load AQI for header', err);
+          if (active) setLoading(false);
+        });
+    };
+
+    let activeLat = lat;
+    let activeLon = lon;
+
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          activeLat = pos.coords.latitude;
+          activeLon = pos.coords.longitude;
+          if (active) fetchCurrentAqi(activeLat, activeLon);
+        },
+        () => {
+          if (active) fetchCurrentAqi(activeLat, activeLon);
+        },
+        { timeout: 3000 }
+      );
+    } else {
+      fetchCurrentAqi(activeLat, activeLon);
+    }
+
+    // Continuously record/refresh every 2 minutes
+    const interval = setInterval(() => {
+      if (active) fetchCurrentAqi(activeLat, activeLon);
+    }, 120_000);
 
     return () => {
       active = false;
+      clearInterval(interval);
     };
   }, [lat, lon]);
 
