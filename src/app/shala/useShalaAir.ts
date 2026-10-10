@@ -77,13 +77,19 @@ export function checkStaleness(
 export function formatMeasurementTime(isoString?: string): string {
   if (!isoString) return '—';
   try {
-    const timeMatch = isoString.match(/T(\d{2}:\d{2})/);
-    if (timeMatch) {
-      return `${timeMatch[1]} IST`;
+    if (isoString.includes('+05:30')) {
+      const timeMatch = isoString.match(/T(\d{2}:\d{2})/);
+      if (timeMatch) {
+        return `${timeMatch[1]} IST`;
+      }
     }
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return isoString;
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} IST`;
+    const istMs = d.getTime() + 330 * 60_000;
+    const istDate = new Date(istMs);
+    const hh = String(istDate.getUTCHours()).padStart(2, '0');
+    const mm = String(istDate.getUTCMinutes()).padStart(2, '0');
+    return `${hh}:${mm} IST`;
   } catch {
     return isoString;
   }
@@ -378,6 +384,19 @@ export function useShalaAir(
 
   useEffect(() => {
     loadData(false);
+  }, [loadData]);
+
+  // Continuously record / refresh data every 60 seconds (1 minute) while tab is open
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (!document.hidden) {
+        loadData(true);
+      }
+    }, 60_000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, [loadData]);
 
   useEffect(() => {

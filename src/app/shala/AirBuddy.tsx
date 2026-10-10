@@ -63,9 +63,10 @@ export function AirBuddy({ category, language, aqi }: { category: Category; lang
   return (
     <section
       aria-label={WORDS.buddy[language]}
+      className="saans-air-buddy"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(6.5rem, 9rem) 1fr',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(7rem, 1fr))',
         gap: '1rem',
         alignItems: 'center',
         padding: '1rem',

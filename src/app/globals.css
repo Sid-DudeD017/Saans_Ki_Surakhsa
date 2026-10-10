@@ -1,0 +1,175 @@
+/* Saans Clean Air Intelligence - Responsive & Animation Stylesheet */
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 6px 20px rgba(234, 88, 12, 0.65);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtleFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Base resets & smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #0f172a;
+  background-color: #f8fafc;
+  overflow-x: hidden;
+}
+
+/* Floating FAB Animation */
+.saans-fab-button {
+  animation: pulseGlow 3s infinite ease-in-out;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease, box-shadow 0.2s ease !important;
+}
+
+.saans-fab-button:hover {
+  transform: scale(1.06) translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.6) !important;
+}
+
+.saans-fab-button:active {
+  transform: scale(0.96) !important;
+}
+
+/* Interactive Card & Tile Micro-interactions */
+.saans-interactive-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.saans-interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+}
+
+.saans-interactive-card:active {
+  transform: translateY(0);
+}
+
+/* Gas Card Hover Polish */
+.saans-gas-card {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.saans-gas-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.09);
+}
+
+/* Air Buddy Friendly Breathing Float */
+.saans-air-buddy {
+  animation: subtleFloat 4s infinite ease-in-out;
+  transform-origin: center bottom;
+}
+
+/* Hourly Forecast card interactive hover */
+.saans-forecast-cell {
+  transition: transform 0.18s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.saans-forecast-cell:hover {
+  transform: translateY(-2px);
+  background-color: #f8fafc;
+}
+
+/* Shimmer Loading Skeleton */
+.saans-skeleton {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.75s infinite ease-in-out;
+}
+
+/* Modal and Drawer Animations */
+.saans-modal-backdrop {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.saans-modal-sheet {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Clean Custom Scrollbar for horizontal strips */
+.saans-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.saans-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.saans-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.saans-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 640px) {
+  /* Smaller screens: tight comfortable padding */
+  .saans-compact-mobile {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  .saans-stack-mobile {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .saans-full-mobile {
+    width: 100% !important;
+  }
+}

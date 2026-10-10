@@ -51,9 +51,27 @@ function tone(value: string | boolean, goodWhen: 'outdoors' | 'true' | 'false' |
 
 function Tile({ label, value, colours }: { label: string; value: string; colours: typeof GOOD }) {
   return (
-    <div style={{ padding: '0.9rem 1rem', borderRadius: '0.75rem', background: colours.bg, borderLeft: `6px solid ${colours.edge}`, minWidth: 0 }}>
-      <div style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.03em', color: colours.ink, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: '1.45rem', fontWeight: 800, lineHeight: 1.25, color: colours.ink, marginTop: '0.2rem', overflowWrap: 'anywhere' }}>{value}</div>
+    <div
+      style={{
+        padding: '0.75rem 0.85rem',
+        borderRadius: '0.625rem',
+        background: colours.bg,
+        borderLeft: `5px solid ${colours.edge}`,
+        border: `1px solid ${colours.bg === '#fee2e2' ? '#fecaca' : colours.bg === '#dcfce7' ? '#bbf7d0' : '#fde68a'}`,
+        borderLeftWidth: '5px',
+        borderLeftColor: colours.edge,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
+      <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', color: colours.ink, textTransform: 'uppercase', opacity: 0.85 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.3, color: colours.ink, marginTop: '0.35rem', overflowWrap: 'anywhere' }}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -69,21 +87,33 @@ export function PrincipalBoard({ advisory, language }: { advisory: SchoolAdvisor
   const where = (v: string) => W[v as keyof typeof W]?.[language] ?? v;
   return (
     <section aria-labelledby="principal-board-title" style={{ display: 'grid', gap: '0.75rem' }}>
-      <h3 id="principal-board-title" style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>
+      <h3 id="principal-board-title" style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
         📋 {W.title[language]} · {advisory.school.name}
       </h3>
-      <div role="status" style={{ padding: '1rem 1.25rem', borderRadius: '0.75rem', background: banner.edge, color: '#ffffff', fontSize: '1.6rem', fontWeight: 900, lineHeight: 1.2 }}>
+      <div
+        role="status"
+        style={{
+          padding: '0.875rem 1.15rem',
+          borderRadius: '0.625rem',
+          background: banner.edge,
+          color: '#ffffff',
+          fontSize: '1.25rem',
+          fontWeight: 800,
+          lineHeight: 1.25,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+        }}
+      >
         {W[day.decision][language]}
-        <div style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '0.35rem', opacity: 0.95 }}>
+        <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginTop: '0.25rem', opacity: 0.95 }}>
           AQI {day.aqi} · {W.rule[language]} {day.band.from}–{day.band.to} · {W.until[language]} {clock(advisory.valid_until)}
         </div>
       </div>
       {day.heat_override && (
-        <div style={{ padding: '0.6rem 0.9rem', borderRadius: '0.5rem', background: '#fff7ed', color: '#9a3412', fontWeight: 700 }}>
+        <div style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: '#fff7ed', color: '#9a3412', fontSize: '0.8125rem', fontWeight: 600 }}>
           🌡️ {W.heat[language]} {day.heat_index_c?.toFixed(1)} °C: {W.heatIndoors[language]}
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 13rem), 1fr))', gap: '0.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.625rem' }}>
         <Tile label={W.assembly[language]} value={where(day.assembly)} colours={tone(day.assembly, 'outdoors')} />
         <Tile label={W.pe[language]} value={where(day.pe)} colours={tone(day.pe, 'outdoors')} />
         <Tile label={W.recess[language]} value={where(day.recess)} colours={tone(day.recess, 'outdoors')} />

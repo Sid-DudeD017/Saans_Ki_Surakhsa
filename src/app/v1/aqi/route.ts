@@ -28,6 +28,7 @@ export async function GET(request: Request) {
   const keys = {
     openaq: process.env.OPENAQ_API_KEY,
     cpcb: process.env.CPCB_API_KEY,
+    waqi: process.env.WAQI_TOKEN,
   };
 
   const { missingKeys, allFailed } = await updateDataForLocation(lat, lon, keys);

@@ -112,6 +112,40 @@ function getCommandBaseUrl(): string {
  * GET /v1/aqi?lat={lat}&lon={lon}
  */
 export async function getAqi(lat: number, lon: number): Promise<AqiData> {
+  if (typeof window !== 'undefined') {
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d && typeof d.aqi === 'number') {
+          const rawCat = (d.category || 'moderate').toLowerCase();
+          const categoryMap: Record<string, AqiData['category']> = {
+            good: 'Good',
+            satisfactory: 'Satisfactory',
+            moderate: 'Moderate',
+            poor: 'Poor',
+            very_poor: 'Very Poor',
+            severe: 'Severe',
+          };
+          const category = categoryMap[rawCat] || 'Moderate';
+          return {
+            aqi: d.aqi,
+            category,
+            dominant_pollutant: (d.dominant_pollutant || 'PM2.5').toUpperCase(),
+            pm25: d.sub_indices?.pm25?.concentration ?? d.aqi,
+            pm10: d.sub_indices?.pm10?.concentration ?? Math.round(d.aqi * 0.8),
+            timestamp: d.data_timestamp,
+            station_name: d.station_name || 'Ground Monitoring Station',
+            distance_km: d.distance_km ?? 0,
+          };
+        }
+      }
+    } catch {
+      // Fallback to mock or direct call
+    }
+  }
+
   if (isMockMode()) {
     return { ...DETERMINISTIC_EVENT.aqiReading };
   }

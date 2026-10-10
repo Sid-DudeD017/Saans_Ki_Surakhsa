@@ -19,6 +19,7 @@ import {
 } from './airQuality';
 import type { SchoolAdvisory } from './advisory';
 import { FilterFrenzy } from './FilterFrenzy';
+import { StudentQuiz } from './StudentQuiz';
 import { GasCards } from './GasCards';
 import { PrincipalBoard } from './PrincipalBoard';
 import { RedZoneMap } from './RedZoneMap';
@@ -47,13 +48,13 @@ function CampusOverviewSkeleton({ language }: { language: 'pa' | 'hi' | 'en' }) 
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ width: '120px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px', marginBottom: '0.5rem' }} />
-            <div style={{ width: '260px', height: '24px', backgroundColor: '#cbd5e1', borderRadius: '4px', marginBottom: '0.5rem' }} />
-            <div style={{ width: '180px', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+            <div className="saans-skeleton" style={{ width: '120px', height: '14px', borderRadius: '4px', marginBottom: '0.5rem' }} />
+            <div className="saans-skeleton" style={{ width: '260px', height: '24px', borderRadius: '4px', marginBottom: '0.5rem' }} />
+            <div className="saans-skeleton" style={{ width: '180px', height: '14px', borderRadius: '4px' }} />
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ width: '80px', height: '48px', backgroundColor: '#cbd5e1', borderRadius: '6px', marginLeft: 'auto', marginBottom: '0.5rem' }} />
-            <div style={{ width: '100px', height: '20px', backgroundColor: '#e2e8f0', borderRadius: '9999px', marginLeft: 'auto' }} />
+            <div className="saans-skeleton" style={{ width: '80px', height: '48px', borderRadius: '6px', marginLeft: 'auto', marginBottom: '0.5rem' }} />
+            <div className="saans-skeleton" style={{ width: '100px', height: '20px', borderRadius: '9999px', marginLeft: 'auto' }} />
           </div>
         </div>
 
@@ -227,6 +228,7 @@ function ForecastStrip({
         <div
           role="region"
           aria-label={WORDS.nextHours[language]}
+          className="saans-scrollbar"
           style={{
             display: 'flex',
             gap: '0.75rem',
@@ -246,6 +248,7 @@ function ForecastStrip({
                 key={i}
                 role="group"
                 aria-label={srText}
+                className="saans-forecast-cell"
                 style={{
                   minWidth: '85px',
                   flex: '0 0 auto',
@@ -621,6 +624,8 @@ export default function ShalaPage() {
   const [aroundYouOpen, setAroundYouOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [gameOpen, setGameOpen] = useState(false);
+  const [activityTab, setActivityTab] = useState<'quiz' | 'game'>('quiz');
 
   // Shared privacy-first location hook
   const {
@@ -712,7 +717,7 @@ export default function ShalaPage() {
 
 
   return (
-    <Container maxWidth="md" style={{ paddingTop: '1rem', paddingBottom: '4rem' }}>
+    <Container maxWidth="md" className="saans-compact-mobile" style={{ paddingTop: '1rem', paddingBottom: '4rem' }}>
       {/* Clean minimal page title */}
       <div style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', fontWeight: 800 }}>
@@ -800,6 +805,7 @@ export default function ShalaPage() {
         {status === 'ok' && air && (
           <Card
             padding="md"
+            className="saans-interactive-card"
             style={{ backgroundColor: '#ffffff' }}
             role="region"
             aria-label={`Air quality ${air.aqi}, ${CATEGORY_NAMES[air.category].en.toLowerCase()}`}
@@ -817,9 +823,13 @@ export default function ShalaPage() {
                         ±{place.accuracyM} m
                       </Badge>
                     )}
-                    {isStale && (
+                    {isStale ? (
                       <Badge variant="warning" size="sm">
                         ⏱️ {WORDS.staleReading[language]} ({WORDS.measuredAgo[language].replace('{hours}', String(staleHours))})
+                      </Badge>
+                    ) : (
+                      <Badge variant="success" size="sm">
+                        {WORDS.liveRecording[language]}
                       </Badge>
                     )}
                   </div>
@@ -1146,16 +1156,113 @@ export default function ShalaPage() {
           </details>
         )}
 
-        {/* Section G: Play */}
+        {/* Section G: Play - Activities & Play (Interactive Quiz & Filter Frenzy Game) */}
         {status === 'ok' && air && (
-          <Card padding="lg">
-            <div style={{ marginBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', fontWeight: 700 }}>
-                🎮 {WORDS.playGame[language]}
-              </h3>
+          <details
+            open={gameOpen}
+            onToggle={(e) => setGameOpen(e.currentTarget.open)}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '0.75rem',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            <summary
+              style={{
+                padding: '0.875rem 1rem',
+                cursor: 'pointer',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: '#0f172a',
+                userSelect: 'none',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🎯 {WORDS.activitiesAndPlay[language]}</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                  ({WORDS.studentQuiz[language]} • {WORDS.filterFrenzy[language]})
+                </span>
+              </div>
+              <span style={{ fontSize: '0.8125rem', color: '#0284c7', fontWeight: 600 }}>
+                {gameOpen ? '▲ Close' : '▶ Explore'}
+              </span>
+            </summary>
+            <div style={{ padding: '0 1rem 1rem 1rem' }}>
+              {gameOpen && (
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {/* Segmented Tab Switcher */}
+                  <div
+                    role="tablist"
+                    aria-label={WORDS.activitiesAndPlay[language]}
+                    style={{
+                      display: 'flex',
+                      gap: '0.35rem',
+                      backgroundColor: '#f1f5f9',
+                      padding: '0.25rem',
+                      borderRadius: '0.5rem',
+                      width: 'fit-content',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activityTab === 'quiz'}
+                      onClick={() => setActivityTab('quiz')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        backgroundColor: activityTab === 'quiz' ? '#ffffff' : 'transparent',
+                        color: activityTab === 'quiz' ? '#0284c7' : '#64748b',
+                        boxShadow: activityTab === 'quiz' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease',
+                        minHeight: '36px',
+                      }}
+                    >
+                      📝 {WORDS.studentQuiz[language]}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activityTab === 'game'}
+                      onClick={() => setActivityTab('game')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        backgroundColor: activityTab === 'game' ? '#ffffff' : 'transparent',
+                        color: activityTab === 'game' ? '#0284c7' : '#64748b',
+                        boxShadow: activityTab === 'game' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease',
+                        minHeight: '36px',
+                      }}
+                    >
+                      🎮 {WORDS.filterFrenzy[language]}
+                    </button>
+                  </div>
+
+                  {activityTab === 'quiz' ? (
+                    <StudentQuiz language={language} />
+                  ) : (
+                    <FilterFrenzy category={air.category} language={language} />
+                  )}
+                </div>
+              )}
             </div>
-            <FilterFrenzy category={air.category} language={language} />
-          </Card>
+          </details>
         )}
 
         {/* Section H: Report - 4-step report sheet with status tracking */}
