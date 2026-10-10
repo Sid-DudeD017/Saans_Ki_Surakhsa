@@ -450,6 +450,21 @@ export const WORDS = {
     hi: 'खेलें: फ़िल्टर फ़्रेंज़ी', // needs native-speaker review
     en: 'Play: Filter Frenzy',
   },
+  activitiesAndPlay: {
+    pa: 'ਸਿੱਖੋ ਅਤੇ ਖੇਡੋ: ਗਤੀਵਿਧੀਆਂ',
+    hi: 'सीखें और खेलें: गतिविधियाँ',
+    en: 'Activities & Play',
+  },
+  studentQuiz: {
+    pa: 'ਵਿਦਿਆਰਥੀ ਕਵਿਜ਼',
+    hi: 'विद्यार्थी क्विज़',
+    en: 'Student Quiz',
+  },
+  filterFrenzy: {
+    pa: 'ਫਿਲਟਰ ਫ਼ਰੈਂਜ਼ੀ ਗੇਮ',
+    hi: 'फ़िल्टर फ़्रेंज़ी खेल',
+    en: 'Filter Frenzy Game',
+  },
   details: {
     pa: 'ਵੇਰਵੇ', // needs native-speaker review
     hi: 'विवरण', // needs native-speaker review

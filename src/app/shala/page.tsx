@@ -19,6 +19,7 @@ import {
 } from './airQuality';
 import type { SchoolAdvisory } from './advisory';
 import { FilterFrenzy } from './FilterFrenzy';
+import { StudentQuiz } from './StudentQuiz';
 import { GasCards } from './GasCards';
 import { PrincipalBoard } from './PrincipalBoard';
 import { RedZoneMap } from './RedZoneMap';
@@ -624,6 +625,7 @@ export default function ShalaPage() {
   const [learnOpen, setLearnOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
+  const [activityTab, setActivityTab] = useState<'quiz' | 'game'>('quiz');
 
   // Shared privacy-first location hook
   const {
@@ -1150,7 +1152,7 @@ export default function ShalaPage() {
           </details>
         )}
 
-        {/* Section G: Play - Collapsed behind Play button (Procedure 10 & Option A) */}
+        {/* Section G: Play - Activities & Play (Interactive Quiz & Filter Frenzy Game) */}
         {status === 'ok' && air && (
           <details
             open={gameOpen}
@@ -1179,19 +1181,80 @@ export default function ShalaPage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>🎮 {WORDS.playGame[language]}</span>
+                <span>🎯 {WORDS.activitiesAndPlay[language]}</span>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
-                  (Filter Frenzy • {CATEGORY_NAMES[air.category][language]})
+                  ({WORDS.studentQuiz[language]} • {WORDS.filterFrenzy[language]})
                 </span>
               </div>
               <span style={{ fontSize: '0.8125rem', color: '#0284c7', fontWeight: 600 }}>
-                {gameOpen ? '▲ Close' : '▶ Play'}
+                {gameOpen ? '▲ Close' : '▶ Explore'}
               </span>
             </summary>
             <div style={{ padding: '0 1rem 1rem 1rem' }}>
               {gameOpen && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  <FilterFrenzy category={air.category} language={language} />
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {/* Segmented Tab Switcher */}
+                  <div
+                    role="tablist"
+                    aria-label={WORDS.activitiesAndPlay[language]}
+                    style={{
+                      display: 'flex',
+                      gap: '0.35rem',
+                      backgroundColor: '#f1f5f9',
+                      padding: '0.25rem',
+                      borderRadius: '0.5rem',
+                      width: 'fit-content',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activityTab === 'quiz'}
+                      onClick={() => setActivityTab('quiz')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        backgroundColor: activityTab === 'quiz' ? '#ffffff' : 'transparent',
+                        color: activityTab === 'quiz' ? '#0284c7' : '#64748b',
+                        boxShadow: activityTab === 'quiz' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease',
+                        minHeight: '36px',
+                      }}
+                    >
+                      📝 {WORDS.studentQuiz[language]}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activityTab === 'game'}
+                      onClick={() => setActivityTab('game')}
+                      style={{
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        backgroundColor: activityTab === 'game' ? '#ffffff' : 'transparent',
+                        color: activityTab === 'game' ? '#0284c7' : '#64748b',
+                        boxShadow: activityTab === 'game' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        transition: 'all 0.15s ease',
+                        minHeight: '36px',
+                      }}
+                    >
+                      🎮 {WORDS.filterFrenzy[language]}
+                    </button>
+                  </div>
+
+                  {activityTab === 'quiz' ? (
+                    <StudentQuiz language={language} />
+                  ) : (
+                    <FilterFrenzy category={air.category} language={language} />
+                  )}
                 </div>
               )}
             </div>
