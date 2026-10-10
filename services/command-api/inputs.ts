@@ -5,6 +5,7 @@ import { z } from "zod";
 export const MEDIA_TYPES = ["image/jpeg", "image/png", "image/heic", "audio/mp4", "audio/ogg", "audio/wav"] as const;
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const CITIZEN_TYPES = ["farm_fire", "garbage", "vehicle", "firecrackers", "dust", "industrial"] as const;
+export const GRIEVANCE_SUBTYPES = ["chc_no_show", "chc_overcharge", "machine_broken", "subsidy_delay", "officer_conduct", "other"] as const;
 
 export const GeoPoint = z.strictObject({
   lat: z.number().min(-90).max(90),
@@ -63,13 +64,23 @@ export const FarmerSupportComplaint = z.object({
 });
 export type FarmerSupportComplaint = z.infer<typeof FarmerSupportComplaint>;
 
-export type Complaint = ComplaintInput | FarmerSupportComplaint;
+/** A farmer's complaint about the help they were promised (Kisan Saathi, P1). Never a penalty, never merged. */
+export const KisanGrievance = z.object({
+  type: z.literal("kisan_grievance"),
+  location: GeoPoint,
+  subtype: z.enum(GRIEVANCE_SUBTYPES),
+  description: z.string().max(1000).optional(),
+  chc_name: z.string().max(120).optional(),
+  evidence: z.array(EvidenceMetadata).max(10).default([]),
+});
+export type KisanGrievance = z.infer<typeof KisanGrievance>;
 
-/** The contract's oneOf: farmer_support (type may be left out, it defaults) or a citizen report. */
+export type Complaint = ComplaintInput | FarmerSupportComplaint | KisanGrievance;
+
+/** The contract's oneOf: farmer_support (type may be left out, it defaults), a farmer's grievance, or a citizen report. */
 export function parseComplaint(body: unknown) {
-  const isSupport =
-    !!body && typeof body === "object" &&
-    ((body as { type?: unknown }).type === "farmer_support" ||
-      ((body as { type?: unknown }).type === undefined && "support_request" in body));
+  const type = body && typeof body === "object" ? (body as { type?: unknown }).type : undefined;
+  if (type === "kisan_grievance") return KisanGrievance.safeParse(body);
+  const isSupport = type === "farmer_support" || (type === undefined && !!body && typeof body === "object" && "support_request" in body);
   return isSupport ? FarmerSupportComplaint.safeParse(body) : ComplaintInput.safeParse(body);
 }

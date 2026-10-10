@@ -143,12 +143,16 @@ export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<
   }
 
   // Check if an associated case exists
+  // Its own case, or the case it was merged into.
   const { rows: cases } = await deps.db.query<{
     id: string;
     status: string;
     updated_at: Date;
   }>(
-    "SELECT id, status, updated_at FROM cases WHERE complaint_id = $1",
+    `SELECT id, status, updated_at FROM cases WHERE complaint_id = $1
+     UNION ALL
+     SELECT c.id, 'MERGED', c.updated_at FROM case_reports r JOIN cases c ON c.id = r.case_id WHERE r.complaint_id = $1
+     LIMIT 1`,
     [id],
   );
   const cCase = cases[0];

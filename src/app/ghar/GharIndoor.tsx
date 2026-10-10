@@ -212,6 +212,21 @@ export function GharIndoor() {
             <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Primary Cause: <strong style={{ color: '#334155' }}>Indoor Hazards Active</strong></span>
             <span style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, cursor: 'pointer' }}>Review rooms →</span>
           </div>
+
+          <details style={{ marginTop: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#475569' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600, outline: 'none', color: indoorColor !== '#94a3b8' ? indoorColor : '#0f766e' }}>How is this calculated?</summary>
+            <div style={{ marginTop: '0.75rem', lineHeight: 1.5 }}>
+              <p style={{ margin: '0 0 0.5rem' }}>This is the volume-weighted average of PM2.5 across all configured rooms, based on a physical mass balance model:</p>
+              <code style={{ display: 'block', background: '#e2e8f0', padding: '0.5rem', borderRadius: '0.375rem', marginBottom: '0.5rem', fontWeight: 600, color: '#0f172a' }}>
+                dC/dt = P·a·C_out + (E/V) - (a + k + r)·C_in
+              </code>
+              <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#334155' }}>
+                <li style={{ marginBottom: '0.25rem' }}><strong>Infiltration:</strong> Outdoor air leaking in through gaps (penetration factor <em>P</em>, air changes <em>a</em>).</li>
+                <li style={{ marginBottom: '0.25rem' }}><strong>Emissions:</strong> Indoor sources like cooking or incense (emission rate <em>E</em> / volume <em>V</em>).</li>
+                <li><strong>Removal:</strong> Particles settling (<em>k</em>) or removed by purifiers (<em>r</em>) and exiting via ventilation (<em>a</em>).</li>
+              </ul>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -300,6 +315,21 @@ function OutdoorDisplay({ aqiResult, t, estimates }: { aqiResult: any; t: any; e
         <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Air Exchange in this area — <strong style={{ color: '#334155' }}>~36% penetration</strong></span>
         <span style={{ fontSize: '0.85rem', color: '#d97706', fontWeight: 600 }}>↗ Spiking at 9:00 PM</span>
       </div>
+
+      <details style={{ marginTop: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#475569' }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, outline: 'none', color: '#0f766e' }}>How is this calculated?</summary>
+        <div style={{ marginTop: '0.75rem', lineHeight: 1.5 }}>
+          <p style={{ margin: '0 0 0.5rem' }}>This highly accurate value is powered by our real-time prediction model for a specific 1x1 km grid cell:</p>
+          <code style={{ display: 'block', background: '#e2e8f0', padding: '0.5rem', borderRadius: '0.375rem', marginBottom: '0.5rem', fontWeight: 600, color: '#0f172a' }}>
+            AQI = Base Forecast + Station Bias + Smoke Plumes
+          </code>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#334155' }}>
+            <li style={{ marginBottom: '0.25rem' }}><strong>Base Forecast:</strong> Regional meteorological data (Open-Meteo).</li>
+            <li style={{ marginBottom: '0.25rem' }}><strong>Station Bias:</strong> Corrected using real-time local sensors (CPCB & OpenAQ) decaying over 6 hours.</li>
+            <li><strong>Smoke Plume:</strong> Real-time fire satellite data (NASA FIRMS) dispersed downwind.</li>
+          </ul>
+        </div>
+      </details>
     </>
   );
 }

@@ -66,21 +66,6 @@ const STRINGS = {
   tabShop: { pa: 'ਦੁਕਾਨ', hi: 'दुकान', en: 'Shop' },
   tabHelp: { pa: 'ਮਦਦ', hi: 'मदद', en: 'Help' },
   comingSoon: { pa: 'ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ', hi: 'जल्द आ रहा है', en: 'Coming soon' },
-  shopSoon: {
-    pa: 'ਕਿਰਾਏ ਜਾਂ ਖਰੀਦਣ ਲਈ ਮਸ਼ੀਨਾਂ ਅਤੇ ਡੀਕੰਪੋਜ਼ਰ ਇੱਥੇ ਆਉਣਗੇ।',
-    hi: 'किराए या खरीद के लिए मशीनें और डीकंपोज़र यहाँ आएँगे।',
-    en: 'Machines and decomposer to rent or buy will appear here.',
-  },
-  helpSoon: {
-    pa: 'ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰਨਾ ਅਤੇ ਫ਼ੋਨ ਕਰਨ ਲਈ ਨੰਬਰ ਇੱਥੇ ਆਉਣਗੇ।',
-    hi: 'शिकायत दर्ज करना और फ़ोन करने के लिए नंबर यहाँ आएँगे।',
-    en: 'Complaints and numbers to call will appear here.',
-  },
-  emergency: {
-    pa: 'ਅੱਗ ਫੈਲ ਰਹੀ ਹੋਵੇ ਜਾਂ ਖ਼ਤਰਾ ਹੋਵੇ: 112 ਤੇ ਫ਼ੋਨ ਕਰੋ',
-    hi: 'आग फैल रही हो या ख़तरा हो: 112 पर फ़ोन करें',
-    en: 'Fire spreading or danger: call 112',
-  },
 
   // Farm location (K3)
   locationNotSet: { pa: 'ਖੇਤ ਦੀ ਥਾਂ ਹਾਲੇ ਨਹੀਂ ਦੱਸੀ', hi: 'खेत की जगह अभी नहीं बताई', en: 'Farm location not set' },
@@ -165,7 +150,7 @@ const STRINGS = {
     en: "In the photo we keep, faces are blurred and the photo's location data is removed.",
   },
   forDays: { pa: 'ਕਿੰਨੇ ਦਿਨਾਂ ਲਈ?', hi: 'कितने दिनों के लिए?', en: 'For how many days?' },
-  nDays: { pa: '{n} ਦਿਨ', hi: '{n} दिन', en: '{n} days' },
+  nDays: { pa: '{n} ਦਿਨ', hi: '{n} दिन', en: '{n} {dayWord}' },
   wholeSeason: { pa: 'ਪੂਰਾ ਸੀਜ਼ਨ', hi: 'पूरा सीज़न', en: 'whole season' },
   otherNotCounted: {
     pa: '"ਹੋਰ ਮਸ਼ੀਨ" ਹਿਸਾਬ ਵਿੱਚ ਨਹੀਂ ਗਿਣੀ ਜਾਂਦੀ।',
@@ -214,7 +199,7 @@ const STRINGS = {
   moreDays: {
     pa: 'ਲਗਭਗ {days} ਦਿਨ ਹੋਰ {machine} ਨਾਲ ਪੂਰਾ ਹੋ ਜਾਵੇਗਾ',
     hi: 'लगभग {days} दिन और {machine} से पूरा हो जाएगा',
-    en: 'About {days} more days of a {machine} would clear it',
+    en: 'About {days} more {dayWord} of a {machine} would clear it',
   },
   assumedDry: {
     pa: 'ਇਹ ਮੰਨ ਕੇ ਕਿ ਸਾਰੇ ਦਿਨ ਸੁੱਕੇ ਰਹਿਣਗੇ। CHC ਯੋਜਨਾ ਮੀਂਹ ਦੀ ਭਵਿੱਖਬਾਣੀ ਵੀ ਵੇਖਦੀ ਹੈ।',
@@ -247,12 +232,190 @@ const STRINGS = {
     en: "Nothing is booked yet. Ask for it in the Plan conversation and your request goes to the department.",
   },
   askInChat: { pa: 'ਗੱਲਬਾਤ ਵਿੱਚ ਮੰਗੋ', hi: 'बातचीत में माँगें', en: 'Ask in the conversation' },
+
+  // Shop (K14–K17)
+  shopTitle: { pa: 'ਕਿਰਾਏ ਤੇ ਲਓ ਜਾਂ ਖਰੀਦੋ', hi: 'किराए पर लें या खरीदें', en: 'Rent or buy' },
+  shopIntro: {
+    pa: 'ਪਰਾਲੀ ਸਾੜਨ ਤੋਂ ਬਚਾਉਣ ਵਾਲੀਆਂ ਮਸ਼ੀਨਾਂ। ਪਹਿਲਾਂ CHC ਤੋਂ ਕਿਰਾਏ ਤੇ ਲੈਣਾ ਸਸਤਾ ਪੈਂਦਾ ਹੈ।',
+    hi: 'पराली जलाने से बचाने वाली मशीनें। पहले CHC से किराए पर लेना सस्ता पड़ता है।',
+    en: 'What lets you clear stubble without burning it. Renting from a CHC is usually the cheaper first step.',
+  },
+  filterFits: { pa: 'ਤੁਹਾਡੇ ਖੇਤ ਲਈ', hi: 'आपके खेत के लिए', en: 'For your farm' },
+  filterMachines: { pa: 'ਮਸ਼ੀਨਾਂ', hi: 'मशीनें', en: 'Machines' },
+  filterDecomposer: { pa: 'ਡੀਕੰਪੋਜ਼ਰ', hi: 'डीकंपोज़र', en: 'Decomposer' },
+  fitsBadge: { pa: 'ਤੁਹਾਡੇ ਖੇਤ ਲਈ ਠੀਕ', hi: 'आपके खेत के लिए ठीक', en: 'Fits your farm' },
+  fitsNeedFarm: {
+    pa: 'ਮਸ਼ੀਨਾਂ ਵਾਲੇ ਹਿੱਸੇ ਵਿੱਚ ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ ਭਰੋ ਤਾਂ ਜੋ ਦੱਸ ਸਕੀਏ ਕਿ ਕੀ ਠੀਕ ਰਹੇਗਾ।',
+    hi: 'मशीनें वाले हिस्से में खेत की जानकारी भरें ताकि बता सकें कि क्या ठीक रहेगा।',
+    en: 'Fill in your farm on the Machines tab and we can say what fits.',
+  },
+  noGap: {
+    pa: 'ਤੁਹਾਡੀਆਂ ਮਸ਼ੀਨਾਂ ਨਾਲ ਪੂਰਾ ਖੇਤ ਸਾਫ਼ ਹੋ ਜਾਂਦਾ ਹੈ। ਹੋਰ ਕੁਝ ਨਹੀਂ ਚਾਹੀਦਾ।',
+    hi: 'आपकी मशीनों से पूरा खेत साफ़ हो जाता है। और कुछ नहीं चाहिए।',
+    en: 'Your machines already clear the whole field. You need nothing more.',
+  },
+  clearsGap: {
+    pa: 'ਤੁਹਾਡੇ ਬਾਕੀ {gap} ਕਿੱਲੇ ਲਗਭਗ {inDays} ਸਾਫ਼ ਕਰਦਾ ਹੈ',
+    hi: 'आपके बाकी {gap} किल्ले करीब {inDays} साफ़ करता है',
+    en: 'Clears your {gap} acres left in about {inDays}',
+  },
+  clearsPart: {
+    pa: 'ਬਾਕੀ {gap} ਵਿੱਚੋਂ {acres} ਕਿੱਲੇ ਸਾਫ਼ ਕਰਦਾ ਹੈ',
+    hi: 'बाकी {gap} में से {acres} किल्ले साफ़ करता है',
+    en: 'Clears {acres} of your {gap} acres left',
+  },
+  needsTractor: {
+    pa: 'ਇਸ ਲਈ ਖਾਲੀ ਟਰੈਕਟਰ ਚਾਹੀਦਾ ਹੈ।',
+    hi: 'इसके लिए खाली ट्रैक्टर चाहिए।',
+    en: 'This needs a free tractor.',
+  },
+  acresPerDay: { pa: 'ਇੱਕ ਦਿਨ ਵਿੱਚ ਲਗਭਗ {n} ਕਿੱਲੇ', hi: 'एक दिन में करीब {n} किल्ले', en: 'About {n} acres a day' },
+  notInCheck: {
+    pa: 'ਇਹ ਮਸ਼ੀਨ ਹਾਲੇ ਹਿਸਾਬ ਵਿੱਚ ਨਹੀਂ।',
+    hi: 'यह मशीन अभी हिसाब में नहीं है।',
+    en: "Not in the 'is it enough?' check yet.",
+  },
+  priceAsk: {
+    pa: 'ਕੀਮਤ: CHC ਜਾਂ ਡੀਲਰ ਤੋਂ ਪੁੱਛੋ',
+    hi: 'कीमत: CHC या डीलर से पूछें',
+    en: 'Price: ask the CHC or dealer',
+  },
+  priceAbout: { pa: 'ਕੀਮਤ: ਲਗਭਗ ₹{amount}, {per}', hi: 'कीमत: करीब ₹{amount}, {per}', en: 'Price: about ₹{amount}, {per}' },
+  subsidyFarmer: {
+    pa: 'ਖ਼ੁਦ ਖਰੀਦੋ ਤਾਂ ਸਬਸਿਡੀ: {pct}%, ਵੱਧ ਤੋਂ ਵੱਧ {max}',
+    hi: 'खुद खरीदें तो सब्सिडी: {pct}%, ज़्यादा से ज़्यादा {max}',
+    en: 'Subsidy if you buy: {pct}%, up to {max}',
+  },
+  subsidyChc: {
+    pa: 'CHC ਜਾਂ ਸਹਿਕਾਰੀ ਸਭਾ ਲਈ: {pct}%, ਵੱਧ ਤੋਂ ਵੱਧ {max}',
+    hi: 'CHC या सहकारी समिति के लिए: {pct}%, ज़्यादा से ज़्यादा {max}',
+    en: 'For a CHC or co-operative: {pct}%, up to {max}',
+  },
+  rentFromChc: { pa: 'CHC ਤੋਂ ਕਿਰਾਏ ਤੇ ਲਓ', hi: 'CHC से किराए पर लें', en: 'Rent from a CHC' },
+  applySubsidy: { pa: 'ਸਬਸਿਡੀ ਲਈ ਅਰਜ਼ੀ ↗', hi: 'सब्सिडी के लिए आवेदन ↗', en: 'Apply for subsidy ↗' },
+  findingChcs: { pa: 'CHC ਲੱਭ ਰਿਹਾ ਹਾਂ…', hi: 'CHC ढूँढ रहा हूँ…', en: 'Looking for CHCs…' },
+  noChcHas: {
+    pa: '{km} ਕਿਲੋਮੀਟਰ ਦੇ ਅੰਦਰ ਕਿਸੇ CHC ਕੋਲ ਇਹ ਮਸ਼ੀਨ ਨਹੀਂ।',
+    hi: '{km} किलोमीटर के अंदर किसी CHC के पास यह मशीन नहीं।',
+    en: 'No CHC within {km} km has this machine.',
+  },
+  chcUntracked: {
+    pa: 'ਸਾਡੀ CHC ਸੂਚੀ ਵਿੱਚ ਇਹ ਮਸ਼ੀਨ ਹਾਲੇ ਨਹੀਂ। ਨੇੜੇ ਦੇ CHC ਤੋਂ ਸਿੱਧਾ ਪੁੱਛੋ।',
+    hi: 'हमारी CHC सूची में यह मशीन अभी नहीं है। पास के CHC से सीधे पूछें।',
+    en: "Our CHC list doesn't track this machine yet. Ask your nearest CHC directly.",
+  },
+  chcRate: { pa: '₹{rate} ਪ੍ਰਤੀ ਕਿੱਲਾ', hi: '₹{rate} प्रति किल्ला', en: '₹{rate} an acre' },
+  chcAway: { pa: '{km} ਕਿਲੋਮੀਟਰ ਦੂਰ', hi: '{km} किलोमीटर दूर', en: '{km} km away' },
+  tooLate: {
+    pa: 'ਇਸ ਸੀਜ਼ਨ ਲਈ ਦੇਰ ਹੋ ਗਈ: ਇਸਨੂੰ ਲਗਭਗ {need} ਦਿਨ ਚਾਹੀਦੇ ਹਨ, ਤੁਹਾਡੇ ਕੋਲ {have} ਹਨ।',
+    hi: 'इस सीज़न के लिए देर हो गई: इसे करीब {need} दिन चाहिए, आपके पास {have} हैं।',
+    en: 'Too late this season: it needs about {need} days and you have {have}.',
+  },
+  inTime: {
+    pa: 'ਸਮਾਂ ਹੈ: ਇਸਨੂੰ ਲਗਭਗ {need} ਦਿਨ ਚਾਹੀਦੇ ਹਨ, ਤੁਹਾਡੇ ਕੋਲ {have} ਹਨ।',
+    hi: 'समय है: इसे करीब {need} दिन चाहिए, आपके पास {have} हैं।',
+    en: 'In time: it needs about {need} days and you have {have}.',
+  },
+  askKvk: {
+    pa: 'ਆਪਣੇ KVK ਜਾਂ ਖੇਤੀਬਾੜੀ ਦਫ਼ਤਰ ਤੋਂ ਪੁੱਛੋ।',
+    hi: 'अपने KVK या कृषि कार्यालय से पूछें।',
+    en: 'Ask your KVK or agriculture office for it.',
+  },
+  shopDisclaimer: {
+    pa: 'ਕੀਮਤਾਂ ਅਤੇ ਸਬਸਿਡੀ ਬਦਲਦੀਆਂ ਰਹਿੰਦੀਆਂ ਹਨ; ਖਰੀਦਣ ਤੋਂ ਪਹਿਲਾਂ ਵੇਚਣ ਵਾਲੇ ਜਾਂ ਖੇਤੀਬਾੜੀ ਦਫ਼ਤਰ ਨਾਲ ਪੱਕਾ ਕਰੋ। ਸਾਂਸ ਕੋਈ ਕਮਿਸ਼ਨ ਨਹੀਂ ਲੈਂਦਾ।',
+    hi: 'कीमतें और सब्सिडी बदलती रहती हैं; खरीदने से पहले विक्रेता या कृषि कार्यालय से पक्का करें। सांस कोई कमीशन नहीं लेता।',
+    en: 'Prices and subsidies change; check with the seller or agriculture office before you buy. Saans takes no commission.',
+  },
+  shopSources: { pa: 'ਸਰੋਤ', hi: 'स्रोत', en: 'Sources' },
+
+  // Help: numbers to call (K23), complaints (K20) and tickets (K21)
+  callTitle: { pa: 'ਫ਼ੋਨ ਕਰਨ ਲਈ ਨੰਬਰ', hi: 'फ़ोन करने के लिए नंबर', en: 'Numbers to call' },
+  call: { pa: 'ਫ਼ੋਨ ਕਰੋ', hi: 'फ़ोन करें', en: 'Call' },
+  copy: { pa: 'ਕਾਪੀ', hi: 'कॉपी', en: 'Copy' },
+  copied: { pa: 'ਕਾਪੀ ਹੋ ਗਿਆ', hi: 'कॉपी हो गया', en: 'Copied' },
+  setLocationForNumbers: {
+    pa: 'ਆਪਣੇ ਜ਼ਿਲ੍ਹੇ ਦੇ ਦਫ਼ਤਰਾਂ ਦੇ ਨੰਬਰ ਵੇਖਣ ਲਈ ਉੱਪਰ ਖੇਤ ਦੀ ਥਾਂ ਦੱਸੋ।',
+    hi: 'अपने ज़िले के दफ़्तरों के नंबर देखने के लिए ऊपर खेत की जगह बताएँ।',
+    en: "Set your farm location above to see your district's offices.",
+  },
+  onlyChecked: {
+    pa: 'ਅਸੀਂ ਸਿਰਫ਼ ਉਹੀ ਨੰਬਰ ਦਿੰਦੇ ਹਾਂ ਜੋ ਸਰਕਾਰੀ ਵੈੱਬਸਾਈਟਾਂ ਤੇ ਮਿਲੇ।',
+    hi: 'हम सिर्फ़ वही नंबर देते हैं जो सरकारी वेबसाइटों पर मिले।',
+    en: 'We only list numbers we found on official websites.',
+  },
+  checkedOn: { pa: '{date} ਨੂੰ ਵੇਖਿਆ', hi: '{date} को देखा', en: 'checked {date}' },
+  complainTitle: { pa: 'ਸ਼ਿਕਾਇਤ ਕਰੋ', hi: 'शिकायत करें', en: 'Make a complaint' },
+  complainIntro: {
+    pa: 'ਜੋ ਮਦਦ ਮਿਲਣੀ ਸੀ ਉਸ ਬਾਰੇ: CHC, ਮਸ਼ੀਨ, ਸਬਸਿਡੀ ਜਾਂ ਅਫ਼ਸਰ। ਸ਼ਿਕਾਇਤ ਜ਼ਿਲ੍ਹਾ ਖੇਤੀਬਾੜੀ ਅਫ਼ਸਰ ਕੋਲ ਜਾਂਦੀ ਹੈ।',
+    hi: 'जो मदद मिलनी थी उसके बारे में: CHC, मशीन, सब्सिडी या अधिकारी। शिकायत ज़िला कृषि अधिकारी के पास जाती है।',
+    en: 'About help you were promised: a CHC, a machine, a subsidy or an officer. It goes to the district agriculture officer.',
+  },
+  startComplaint: { pa: 'ਸ਼ਿਕਾਇਤ ਸ਼ੁਰੂ ਕਰੋ', hi: 'शिकायत शुरू करें', en: 'Start a complaint' },
+  whatHappened: { pa: 'ਕੀ ਹੋਇਆ?', hi: 'क्या हुआ?', en: 'What happened?' },
+  g_chc_no_show: { pa: 'ਬੁੱਕ ਕੀਤੀ CHC ਮਸ਼ੀਨ ਨਹੀਂ ਆਈ', hi: 'बुक की गई CHC मशीन नहीं आई', en: "The CHC machine didn't come" },
+  g_chc_overcharge: { pa: 'CHC ਨੇ ਵੱਧ ਪੈਸੇ ਲਏ', hi: 'CHC ने ज़्यादा पैसे लिए', en: 'The CHC charged too much' },
+  g_machine_broken: { pa: 'ਮਸ਼ੀਨ ਖ਼ਰਾਬ ਹੋ ਗਈ', hi: 'मशीन ख़राब हो गई', en: 'The machine broke down' },
+  g_subsidy_delay: { pa: 'ਸਬਸਿਡੀ ਨਹੀਂ ਮਿਲੀ', hi: 'सब्सिडी नहीं मिली', en: "My subsidy hasn't come" },
+  g_officer_conduct: { pa: 'ਕਿਸੇ ਅਫ਼ਸਰ ਦਾ ਵਤੀਰਾ', hi: 'किसी अधिकारी का बर्ताव', en: "An officer's behaviour" },
+  g_other: { pa: 'ਕੁਝ ਹੋਰ', hi: 'कुछ और', en: 'Something else' },
+  next: { pa: 'ਅੱਗੇ', hi: 'आगे', en: 'Next' },
+  goBack: { pa: 'ਪਿੱਛੇ', hi: 'पीछे', en: 'Back' },
+  tellMore: { pa: 'ਹੋਰ ਦੱਸੋ', hi: 'और बताइए', en: 'Tell us more' },
+  tellMoreHint: { pa: 'ਕਦੋਂ, ਕੀ ਵਾਅਦਾ ਸੀ, ਕੀ ਹੋਇਆ', hi: 'कब, क्या वादा था, क्या हुआ', en: 'When, what was promised, what happened' },
+  whichChc: { pa: 'ਕਿਹੜਾ CHC?', hi: 'कौन सा CHC?', en: 'Which CHC?' },
+  addPhoto: { pa: 'ਫ਼ੋਟੋ ਜੋੜੋ (ਜੇ ਚਾਹੋ)', hi: 'फ़ोटो जोड़ें (चाहें तो)', en: 'Add a photo (optional)' },
+  checkAndSend: { pa: 'ਵੇਖੋ ਅਤੇ ਭੇਜੋ', hi: 'देखें और भेजें', en: 'Check and send' },
+  sendComplaint: { pa: 'ਸ਼ਿਕਾਇਤ ਭੇਜੋ', hi: 'शिकायत भेजें', en: 'Send complaint' },
+  sendingComplaint: { pa: 'ਭੇਜ ਰਿਹਾ ਹਾਂ…', hi: 'भेज रहा हूँ…', en: 'Sending…' },
+  complaintNeedsLocation: {
+    pa: 'ਪਹਿਲਾਂ ਉੱਪਰ ਖੇਤ ਦੀ ਥਾਂ ਦੱਸੋ; ਸ਼ਿਕਾਇਤ ਉਸੇ ਜ਼ਿਲ੍ਹੇ ਨੂੰ ਜਾਂਦੀ ਹੈ।',
+    hi: 'पहले ऊपर खेत की जगह बताएँ; शिकायत उसी ज़िले को जाती है।',
+    en: 'Set your farm location above first; the complaint goes to that district.',
+  },
+  complaintFailed: { pa: 'ਸ਼ਿਕਾਇਤ ਨਹੀਂ ਗਈ: {why}', hi: 'शिकायत नहीं गई: {why}', en: "The complaint didn't send: {why}" },
+  sentTitle: { pa: 'ਸ਼ਿਕਾਇਤ ਭੇਜ ਦਿੱਤੀ', hi: 'शिकायत भेज दी', en: 'Complaint sent' },
+  yourTicket: { pa: 'ਤੁਹਾਡਾ ਟਿਕਟ ਨੰਬਰ', hi: 'आपका टिकट नंबर', en: 'Your ticket number' },
+  keepTicket: {
+    pa: "ਇਹ ਨੰਬਰ ਸੰਭਾਲ ਕੇ ਰੱਖੋ। ਇਹ 'ਮੇਰੀਆਂ ਸ਼ਿਕਾਇਤਾਂ' ਵਿੱਚ ਵੀ ਹੈ।",
+    hi: "यह नंबर सँभालकर रखें। यह 'मेरी शिकायतें' में भी है।",
+    en: "Keep this number. It's also saved under My complaints.",
+  },
+  done: { pa: 'ਠੀਕ ਹੈ', hi: 'ठीक है', en: 'Done' },
+  myTickets: { pa: 'ਮੇਰੀਆਂ ਸ਼ਿਕਾਇਤਾਂ', hi: 'मेरी शिकायतें', en: 'My complaints' },
+  noTickets: { pa: 'ਹਾਲੇ ਕੋਈ ਸ਼ਿਕਾਇਤ ਨਹੀਂ।', hi: 'अभी कोई शिकायत नहीं।', en: 'No complaints yet.' },
+  refresh: { pa: 'ਤਾਜ਼ਾ ਕਰੋ', hi: 'ताज़ा करें', en: 'Refresh' },
+  sentOn: { pa: 'ਭੇਜੀ: {date}', hi: 'भेजी: {date}', en: 'Sent {date}' },
+  t_received: { pa: 'ਮਿਲ ਗਈ', hi: 'मिल गई', en: 'Received' },
+  t_sent_to_officer: { pa: 'ਅਫ਼ਸਰ ਨੂੰ ਭੇਜੀ', hi: 'अधिकारी को भेजी', en: 'Sent to the officer' },
+  t_case_opened: { pa: 'ਅਫ਼ਸਰ ਕੋਲ ਹੈ', hi: 'अधिकारी के पास है', en: 'The officer has it' },
+  t_merged: { pa: 'ਪਹਿਲੀ ਸ਼ਿਕਾਇਤ ਨਾਲ ਜੋੜੀ', hi: 'पहली शिकायत से जोड़ी', en: 'Joined an earlier complaint' },
+  t_acted_on: { pa: 'ਕਾਰਵਾਈ ਹੋਈ', hi: 'कार्रवाई हुई', en: 'Action taken' },
+  t_closed: { pa: 'ਬੰਦ', hi: 'बंद', en: 'Closed' },
+  statusUnknown: { pa: 'ਹਾਲੇ ਪਤਾ ਨਹੀਂ ਲੱਗਿਆ', hi: 'अभी पता नहीं चला', en: "Couldn't check right now" },
+  notHappy: {
+    pa: 'ਜਵਾਬ ਤੋਂ ਖ਼ੁਸ਼ ਨਹੀਂ? ਉੱਪਰ ਦਿੱਤੇ ਨੰਬਰਾਂ ਤੇ ਫ਼ੋਨ ਕਰੋ ਅਤੇ ਆਪਣਾ ਟਿਕਟ ਨੰਬਰ ਦੱਸੋ।',
+    hi: 'जवाब से ख़ुश नहीं? ऊपर दिए नंबरों पर फ़ोन करें और अपना टिकट नंबर बताएँ।',
+    en: 'Not happy with the answer? Call the numbers above and give your ticket number.',
+  },
 } satisfies Record<string, Record<Language, string>>;
 
 export type StringKey = keyof typeof STRINGS;
 
 export function say(key: StringKey, language: Language): string {
   return STRINGS[key][language];
+}
+
+/** English's "day" or "days" for a count; Punjabi and Hindi strings don't use it. */
+export function dayWord(n: number): string {
+  return n === 1 ? 'day' : 'days';
+}
+
+/** "in 1 day" / "in 2 days" as each language says it after "about": ਦਿਨ/ਦਿਨਾਂ ਵਿੱਚ, दिन/दिनों में. */
+export function inDays(n: number, language: Language): string {
+  const one = n === 1;
+  if (language === 'pa') return `${n} ${one ? 'ਦਿਨ' : 'ਦਿਨਾਂ'} ਵਿੱਚ`;
+  if (language === 'hi') return `${n} ${one ? 'दिन' : 'दिनों'} में`;
+  return `${n} ${one ? 'day' : 'days'}`;
 }
 
 /** say() with {name} placeholders filled in. */

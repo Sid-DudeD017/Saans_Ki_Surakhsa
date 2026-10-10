@@ -53,7 +53,7 @@ test("Gurpreet's rented Super Seeder isn't enough; a CHC booking gets him to 92%
 
 test('the tab is in the URL and the back button returns to it', async ({ page }) => {
   await page.goto('/kisan?tab=help');
-  await expect(page.locator('#kisan-panel-help')).toContainText('call 112');
+  await expect(page.locator('#kisan-panel-help')).toContainText('Emergency (police, fire, ambulance)');
   await page.getByRole('tab', { name: 'Shop' }).click();
   await expect(page).toHaveURL(/tab=shop/);
   await page.goBack();

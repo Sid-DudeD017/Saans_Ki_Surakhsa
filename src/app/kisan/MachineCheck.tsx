@@ -10,7 +10,7 @@ import { Alert, Badge, Button, Card } from '../../components/ui';
 import { coverageInput, daysToClear, farmStore, planInput, verdictOf, type MachineType, type Verdict } from './farmProfile';
 import { KisanError, getCoverage, getPlan, type CoverageResponse, type Language, type PlanResponse } from './kisanApi';
 import type { Tab } from './KisanTabs';
-import { cardLabel, dayMonth, machineLabel, say, sayWith } from './strings';
+import { cardLabel, dayMonth, dayWord, machineLabel, say, sayWith } from './strings';
 
 const COLOURS: Record<Verdict, { ink: string; wash: string }> = {
   enough: { ink: '#15803d', wash: '#f0fdf4' },
@@ -164,7 +164,7 @@ function VerdictPanel({ coverage, wheatBy, helper, language }: { coverage: Cover
           </p>
           <p style={{ margin: 0, color: '#334155' }}>{sayWith('smokeIfBurnt', language, { kg: Math.round(coverage.pm25_kg) })}</p>
           {more > 0 && (
-            <p style={{ margin: 0, color: '#334155' }}>{sayWith('moreDays', language, { days: fmt(more), machine: machineLabel(helper, language) })}</p>
+            <p style={{ margin: 0, color: '#334155' }}>{sayWith('moreDays', language, { days: fmt(more), dayWord: dayWord(more), machine: machineLabel(helper, language) })}</p>
           )}
         </>
       )}

@@ -271,7 +271,7 @@ export interface paths {
         put?: never;
         /**
          * Submit a report or a farmer's request for help
-         * @description A citizen's report (ComplaintInput) or Kisan Saathi's farmer_support request (FarmerSupportComplaint, P1). Repeating a request with the same Idempotency-Key and body returns the first response without creating a second record.
+         * @description A citizen's report (ComplaintInput), Kisan Saathi's farmer_support request (FarmerSupportComplaint, P1) or a farmer's complaint about that help (KisanGrievance, P1). Repeating a request with the same Idempotency-Key and body returns the first response without creating a second record.
          */
         post: operations["submitComplaint"];
         delete?: never;
@@ -794,7 +794,13 @@ export interface components {
             recommendedMachine?: components["schemas"]["MachineAsset"];
             decisions: components["schemas"]["OfficerDecision"][];
             /** @enum {string} */
-            type?: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "farmer_support";
+            type?: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "farmer_support" | "dust" | "industrial" | "kisan_grievance";
+            /** @description For kisan_grievance cases, what the farmer is complaining about */
+            grievance?: {
+                /** @enum {string} */
+                subtype: "chc_no_show" | "chc_overcharge" | "machine_broken" | "subsidy_delay" | "officer_conduct" | "other";
+                chcName?: string;
+            };
             penalty?: boolean;
             authorities?: string[];
             deadline?: components["schemas"]["IndiaTimestamp"];
@@ -817,7 +823,7 @@ export interface components {
         CaseSummary: {
             case: components["schemas"]["CommandCase"];
             /** @enum {string} */
-            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "farmer_support" | "dust" | "industrial";
+            type: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "farmer_support" | "dust" | "industrial" | "kisan_grievance";
             district: string;
             location: components["schemas"]["GeoPoint"];
             deadline: components["schemas"]["IndiaTimestamp"];
@@ -948,6 +954,8 @@ export interface components {
             /** @enum {string} */
             type: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "dust" | "industrial";
             location: components["schemas"]["GeoPoint"];
+            description?: string;
+            evidence: components["schemas"]["EvidenceMetadata"][];
         };
         ComplaintResponse: {
             id: string;
@@ -961,7 +969,7 @@ export interface components {
             stage_label: string;
             explanation: string;
             /** @enum {string} */
-            type?: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "dust" | "industrial" | "farmer_support";
+            type?: "farm_fire" | "garbage" | "vehicle" | "firecrackers" | "dust" | "industrial" | "farmer_support" | "kisan_grievance";
             received_at: components["schemas"]["IndiaTimestamp"];
             updated_at?: components["schemas"]["IndiaTimestamp"];
             description?: string;
@@ -1516,6 +1524,19 @@ export interface components {
             kind: "windows" | "purifier" | "source" | "mask";
             /** @description One piece of advice, in plain English */
             text: string;
+        };
+        /** @description A farmer's complaint from Kisan Saathi (P1) about the help they were promised: a CHC that didn't come or overcharged, a machine that broke, a late subsidy, an officer. It goes to the District Agriculture Officer; it is never a penalty and never merges with other reports. */
+        KisanGrievance: {
+            /** @enum {string} */
+            type: "kisan_grievance";
+            location: components["schemas"]["GeoPoint"];
+            /** @enum {string} */
+            subtype: "chc_no_show" | "chc_overcharge" | "machine_broken" | "subsidy_delay" | "officer_conduct" | "other";
+            description?: string;
+            /** @description The CHC the complaint is about, when there is one */
+            chc_name?: string;
+            /** @default [] */
+            evidence: components["schemas"]["EvidenceMetadata"][];
         };
         /**
          * KisanHelpRequest
@@ -3805,7 +3826,7 @@ export interface operations {
                  *       ]
                  *     }
                  */
-                "application/json": components["schemas"]["ComplaintInput"] | components["schemas"]["FarmerSupportComplaint"];
+                "application/json": components["schemas"]["ComplaintInput"] | components["schemas"]["FarmerSupportComplaint"] | components["schemas"]["KisanGrievance"];
             };
         };
         responses: {

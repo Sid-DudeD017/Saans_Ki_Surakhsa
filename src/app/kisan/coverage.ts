@@ -1,6 +1,6 @@
-// The coverage engine (services/agent-kisan/src/agent_kisan/coverage.py), copied for demo mode only so
-// the "is it enough?" verdict answers to the farmer's own numbers without the agent running. The real
-// app calls POST /v1/farm/coverage. src/__tests__/kisan-coverage.test.ts runs the Python tests' 14
+// The coverage engine (services/agent-kisan/src/agent_kisan/coverage.py), copied so demo mode's "is it
+// enough?" verdict answers to the farmer's own numbers without the agent running (the real app calls
+// POST /v1/farm/coverage), and so the Shop can rank what fits the farm without a call per item. src/__tests__/kisan-coverage.test.ts runs the Python tests' 14
 // worked cases against this copy, so the two can't quietly drift.
 import type { components } from '../../../packages/contracts/types';
 

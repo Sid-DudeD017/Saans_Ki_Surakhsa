@@ -268,7 +268,8 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
       return { ...input, caseId: merged.rows[0].case_id, duplicateOf: merged.rows[0].case_id };
     }
 
-    if (complaint.type !== "farmer_support") {
+    // Help requests and farmers' complaints are each their own case; only citizen reports of the same thing merge.
+    if (complaint.type !== "farmer_support" && complaint.type !== "kisan_grievance") {
       const dup = await sameIncident(deps, input.complaintId);
       if (dup) {
         await deps.db.query(
