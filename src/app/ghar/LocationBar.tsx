@@ -59,17 +59,28 @@ export function LocationBar({ location, onSave }: { location: LocationState, onS
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: '#f8fafc', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-      <div>
-        {location.isExample ? (
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>Showing an example home in {location.name}</p>
-        ) : (
-          <p style={{ margin: 0, fontWeight: 500 }}>{tLocal('location.home')}: {location.name}</p>
-        )}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.25rem', background: '#f8fafc', borderRadius: '2rem', border: '1px solid #e2e8f0', minWidth: '300px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', background: '#e0f2fe', color: '#0ea5e9' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        </div>
+        <div>
+          <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 600, color: '#64748b', letterSpacing: '0.05em' }}>
+            ASSIGNED HOME
+          </p>
+          <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#0f172a' }}>
+            {location.isExample ? `Example: ${location.name}` : location.name}
+          </p>
+        </div>
       </div>
-      <Button variant="secondary" onClick={() => setMode('edit')}>
-        {location.isExample ? 'Set my home' : tLocal('location.change')}
-      </Button>
+      <button 
+        onClick={() => setMode('edit')}
+        style={{ background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '1rem', padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: 500, color: '#334155', cursor: 'pointer', transition: 'all 0.2s' }}
+        onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+      >
+        {tLocal('location.change')}
+      </button>
     </div>
   );
 }

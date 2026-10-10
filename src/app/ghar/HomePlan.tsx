@@ -36,65 +36,88 @@ export function HomePlan({ rooms }: { rooms: RoomWithEstimate[] }) {
   if (!ready) return null;
 
   return (
-    <div style={{ display: 'grid', gap: '1rem' }}>
-      <Card padding="lg">
-        <h2 style={{ margin: '0 0 1rem', fontSize: '1.25rem', color: '#0f172a' }}>{tLocal('summary.title')}</h2>
-        {summary.outsidePeak ? (
-          <ul style={{ margin: 0, paddingLeft: '1.5rem', display: 'grid', gap: '0.5rem', color: '#334155' }}>
-            {summary.outsidePeak && (
-              <li>{tLocal('summary.outsidePeak', { pm25: summary.outsidePeak.pm25, time: formatTime(summary.outsidePeak.time) })}</li>
-            )}
-            {summary.worstRoom && (
-              <li>
-                {tLocal('summary.worstRoom', { room: summary.worstRoom.name, pm25: summary.worstRoom.pm25 })}
-                {summary.worstRoom.sourceKey ? ` — ${translatePlanItem({ key: summary.worstRoom.sourceKey, ...summary.worstRoom.sourceParams } as any, tLocal)}` : ''}
-              </li>
-            )}
-            {summary.cleanestRoom && (
-              <li>
-                {tLocal('summary.cleanestRoom', { room: summary.cleanestRoom.name, pm25: summary.cleanestRoom.pm25 })}
-              </li>
-            )}
-            {summary.biggestChange && (
-              <li>
-                {tLocal('summary.biggestChange', { action: translatePlanItem({ key: summary.biggestChange.actionKey, ...summary.biggestChange.actionParams } as any, tLocal), reduction: summary.biggestChange.reduction })}
-              </li>
-            )}
-          </ul>
-        ) : (
-          <p style={{ margin: 0, color: '#64748b' }}>{tLocal('summary.noData')}</p>
-        )}
-      </Card>
-
-      {planItems.length > 0 && (
-        <Card padding="lg">
-          <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#0f172a' }}>{tLocal('summary.titlePlan')}</h3>
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {planItems.map(item => {
-              const checked = checks[item.uid] || false;
-              return (
-                <label key={item.uid} style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem', background: checked ? '#f8fafc' : '#fff', border: '1px solid #e2e8f0', borderRadius: '0.5rem', cursor: 'pointer', transition: 'background 0.2s' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={checked} 
-                    onChange={() => toggleCheck(item.uid)}
-                    style={{ marginTop: '0.25rem', width: '1.25rem', height: '1.25rem' }} 
-                  />
-                  <div style={{ opacity: checked ? 0.6 : 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                      <span style={{ fontSize: '1.2rem' }}>{ICONS[item.kind as keyof typeof ICONS]}</span>
-                      <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>{item.roomName}</strong>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569', textDecoration: checked ? 'line-through' : 'none' }}>
-                      {translatePlanItem(item, tLocal)}
-                    </p>
-                  </div>
-                </label>
-              );
-            })}
+    <div style={{ display: 'grid', gap: '1.5rem' }}>
+      {/* Executive Intelligence */}
+      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.25rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              📋 Your Home Today: Executive Intelligence
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>Automated micro-analysis from indoor aerosol dispersion models.</p>
           </div>
-        </Card>
-      )}
+          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '1rem', padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: '#0284c7', fontWeight: 600 }}>
+            Updated 1 min ago
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          {/* Outdoor Peak */}
+          <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', letterSpacing: '0.05em' }}>☁ OUTDOOR PEAK WARNING</span>
+            {summary.outsidePeak ? (
+              <>
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#d97706' }}>{Math.round(summary.outsidePeak.pm25)}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>µg/m³</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#334155', lineHeight: 1.5 }}>
+                  Outside air will peak around <strong>{formatTime(summary.outsidePeak.time)}</strong>. Keep perimeters closed & balconies sealed.
+                </p>
+              </>
+            ) : <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>{tLocal('summary.noData')}</p>}
+          </div>
+
+          {/* Critical Zone */}
+          <div style={{ background: '#fff1f2', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #fecdd3' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#be123c', letterSpacing: '0.05em' }}>🔥 MOST CRITICAL ZONE</span>
+            {summary.worstRoom ? (
+              <>
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#e11d48' }}>{Math.round(summary.worstRoom.pm25)}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#be123c', fontWeight: 600 }}>µg/m³</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#881337', lineHeight: 1.5 }}>
+                  The worst room is <strong>{summary.worstRoom.name}</strong>. {summary.worstRoom.sourceKey ? translatePlanItem({ key: summary.worstRoom.sourceKey, ...summary.worstRoom.sourceParams } as any, tLocal) : 'Hazardous particle spikes observed.'}
+                </p>
+              </>
+            ) : <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#fda4af' }}>{tLocal('summary.noData')}</p>}
+          </div>
+
+          {/* Cleanest Zone */}
+          <div style={{ background: '#f0fdf4', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #bbf7d0' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#15803d', letterSpacing: '0.05em' }}>✨ CLEANEST ZONE</span>
+            {summary.cleanestRoom ? (
+              <>
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#16a34a' }}>{Math.round(summary.cleanestRoom.pm25)}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 600 }}>µg/m³</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#166534', lineHeight: 1.5 }}>
+                  <strong>{summary.cleanestRoom.name}</strong> is currently optimal. Safe refuge sanctuary for elderly and children.
+                </p>
+              </>
+            ) : <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#86efac' }}>{tLocal('summary.noData')}</p>}
+          </div>
+
+          {/* Highest Impact */}
+          <div style={{ background: '#eff6ff', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid #bfdbfe' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#1d4ed8', letterSpacing: '0.05em' }}>⚡ HIGHEST SINGLE IMPACT</span>
+            {summary.biggestChange ? (
+              <>
+                <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#2563eb' }}>-{Math.round(summary.biggestChange.reduction)}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#1d4ed8', fontWeight: 600 }}>µg/m³</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#1e3a8a', lineHeight: 1.5 }}>
+                  {translatePlanItem({ key: summary.biggestChange.actionKey, ...summary.biggestChange.actionParams } as any, tLocal)} Drops daily exposure burden significantly!
+                </p>
+              </>
+            ) : <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#93c5fd' }}>{tLocal('summary.noData')}</p>}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

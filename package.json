@@ -16,9 +16,9 @@
     "stack": "docker compose -f infra/compose.yaml up -d --wait",
     "stack:down": "docker compose -f infra/compose.yaml down",
     "smoke": "bash scripts/smoke.sh",
-    "smoke:intake": "bash scripts/smoke-intake.sh"
-    ,"cedar:sync": "node scripts/sync-cedar.mjs"
-    ,"cedar:check": "node scripts/sync-cedar.mjs --check"
+    "smoke:intake": "bash scripts/smoke-intake.sh",
+    "cedar:sync": "node scripts/sync-cedar.mjs",
+    "cedar:check": "node scripts/sync-cedar.mjs --check"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +35,7 @@
     "@aws-sdk/s3-request-presigner": "3.1147.0",
     "@cedar-policy/cedar-wasm": "4.13.0",
     "aws-jwt-verify": "^5.2.1",
+    "lucide-react": "^1.54.0",
     "next": "16.4.0",
     "pg": "8.23.1",
     "react": "19.3.0",
