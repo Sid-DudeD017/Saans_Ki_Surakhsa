@@ -14,6 +14,16 @@ const TYPE_NAMES: Record<string, string> = {
   vehicle: 'Smoky vehicle',
   firecrackers: 'Firecrackers',
   farmer_support: 'Farmer asks for a machine',
+  kisan_grievance: "Farmer's complaint",
+};
+// What a farmer's complaint (Kisan Saathi) is about.
+const GRIEVANCE_NAMES: Record<string, string> = {
+  chc_no_show: "The CHC machine didn't come",
+  chc_overcharge: 'The CHC charged too much',
+  machine_broken: 'The machine broke down',
+  subsidy_delay: 'The subsidy is late',
+  officer_conduct: "An officer's behaviour",
+  other: 'Something else',
 };
 const STATUS_NAMES: Record<string, string> = { OPEN: 'Open', ACTION_APPROVED: 'Help approved', ACTION_CHANGED: 'Changed', CLOSED: 'Closed' };
 const ACTION_NAMES: Record<CaseAction, string> = {
@@ -137,7 +147,15 @@ export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDe
       )}
 
       <Card padding="lg">
-        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>{detail.type === 'farmer_support' ? 'The request' : 'The report'}</h3>
+        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>
+          {detail.type === 'farmer_support' ? 'The request' : detail.type === 'kisan_grievance' ? "The farmer's complaint" : 'The report'}
+        </h3>
+        {detail.grievance && (
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', fontWeight: 600, color: '#0f172a' }}>
+            {GRIEVANCE_NAMES[detail.grievance.subtype] ?? detail.grievance.subtype}
+            {detail.grievance.chcName ? ` · ${detail.grievance.chcName}` : ''}
+          </p>
+        )}
         {detail.report.description && <p style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', color: '#1e293b' }}>“{detail.report.description}”</p>}
         <div style={{ display: 'grid', gap: '0.35rem' }}>
           <div style={row}><span>Evidence</span><span>{c.evidenceSummary}</span></div>
@@ -145,7 +163,7 @@ export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDe
             <div style={row}><span>Satellite</span><span>FIRMS fire {distanceText(detail.observation.distanceFromReportMeters ?? 0)} away, {when(detail.observation.observedAt)}</span></div>
           )}
           <div style={row}><span>Sent to</span><span>{(detail.authorities ?? []).join(', ')}</span></div>
-          <div style={row}><span>Penalty</span><span>{detail.penalty ? (help?.status === 'OPEN' ? 'Possible, but offer the machine first' : 'Possible') : 'Never: this is a request for help'}</span></div>
+          <div style={row}><span>Penalty</span><span>{detail.penalty ? (help?.status === 'OPEN' ? 'Possible, but offer the machine first' : 'Possible') : detail.type === 'kisan_grievance' ? "Never: this is the farmer's complaint" : 'Never: this is a request for help'}</span></div>
         </div>
         <div style={{ marginTop: '0.75rem' }}>
           <CaseMap points={points} title="The report, the farm, the CHC and any satellite fire" />
