@@ -47,7 +47,10 @@ export default function CitizenSubmitPage() {
       if (!res.ok) throw new Error(data.error?.message || 'Failed to submit report');
       
       localStorage.setItem('saans_citizen_auth', form.name + ' (' + form.contact + ')');
-      router.push(`/command/citizen/${data.ticket.id}`);
+      
+      const ticketId = data.id;
+      if (!ticketId) throw new Error('Invalid response from server: no ticket ID');
+      router.push(`/command/citizen/${ticketId}`);
     } catch (err: any) {
       setError(err.message);
       setLoading(false);

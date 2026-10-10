@@ -20,7 +20,15 @@ export default function CitizenTicketPage({ params }: { params: Promise<{ id: st
         headers: { 'x-user-id': auth }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || 'Failed to load ticket');
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Please sign in (Development Mode: No valid citizen identity provided)');
+        }
+        throw new Error(data.error?.message || 'Failed to load ticket');
+      }
+      if (!data || !data.ticket || !data.ticket.id) {
+        throw new Error('Invalid response from server: missing ticket or ticket ID');
+      }
       setTicket(data.ticket);
       
       const resHist = await fetch(`/v1/tickets/${id}/history`, {
