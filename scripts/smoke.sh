@@ -16,8 +16,16 @@ WORK="$(mktemp -d)"
 DEV_PID=""
 
 cleanup() {
+  local exit_code=$?
   [ -n "$DEV_PID" ] && kill "$DEV_PID" 2>/dev/null || true
-  rm -rf "$WORK"
+  if [ $exit_code -ne 0 ]; then
+    echo "--- next.log ---"
+    cat "$WORK/next.log" 2>/dev/null || true
+    echo "----------------"
+    echo "Kept work directory: $WORK"
+  else
+    rm -rf "$WORK"
+  fi
 }
 trap cleanup EXIT
 
@@ -34,13 +42,15 @@ fi
 # Ensure app is running
 if ! curl -s -o /dev/null "$URL" 2>/dev/null; then
   say "starting app on port $PORT"
-  npx next dev -p "$PORT" >"$WORK/next.log" 2>&1 &
+  npx next dev -p "$PORT" -H 127.0.0.1 >"$WORK/next.log" 2>&1 &
   DEV_PID=$!
   for _ in $(seq 1 60); do
-    curl -s -o /dev/null "$URL" 2>/dev/null && break
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+    [ "$STATUS" = "200" ] && break
     sleep 1
   done
-  curl -s -o /dev/null "$URL" 2>/dev/null || { cat "$WORK/next.log" 2>/dev/null || true; fail "the app did not start"; }
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+  [ "$STATUS" = "200" ] || { cat "$WORK/next.log" 2>/dev/null || true; fail "the app did not start after 60s timeout on $URL (status: $STATUS)"; }
 fi
 
 say "1. App Shell (GET /)"
