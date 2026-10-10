@@ -11,7 +11,7 @@ import { FORECAST_FIXTURES, getDynamicForecastFixture, isForecastCovered } from 
 export type FirePoint = components['schemas']['FirePoint'];
 export type ForecastResponse = components['schemas']['ForecastResponse'];
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
-const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+const BASE = '';
 
 export class ShalaApiError extends Error {
   status?: number;

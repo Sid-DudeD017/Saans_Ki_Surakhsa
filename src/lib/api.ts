@@ -8,7 +8,7 @@ import {
  * Saans Platform Unified API Client (P2-owned)
  *
  * Configuration:
- * - NEXT_PUBLIC_API_BASE_URL: Backend service root URL (e.g. AWS API Gateway)
+ * - NEXT_PUBLIC_COMMAND_API_BASE_URL: Saans Command API on AWS (API Gateway) for uploads, complaints and cases
  * - NEXT_PUBLIC_USE_MOCKS: 'true' to use local deterministic mocks, 'false' for live HTTP
  */
 
@@ -96,8 +96,17 @@ export interface ComplaintResponse {
 // In-memory mock notification store
 let notificationsStore: MockNotification[] = [...INITIAL_MOCK_NOTIFICATIONS];
 
-function getBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
+// Two places serve /v1/*: this Next.js site (air quality, fires, Shala, Ghar, the Kisan agent
+// forwarder) and Saans Command's API on AWS (uploads, complaints, cases), at
+// NEXT_PUBLIC_COMMAND_API_BASE_URL.
+function getSiteBaseUrl(): string {
+  return '';
+}
+
+function getCommandBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || ''
+  ).replace(/\/+$/, '');
 }
 
 /**
@@ -106,7 +115,7 @@ function getBaseUrl(): string {
 export async function getAqi(lat: number, lon: number): Promise<AqiData> {
   if (typeof window !== 'undefined') {
     try {
-      const base = getBaseUrl();
+      const base = getSiteBaseUrl();
       const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
       if (res.ok) {
         const d = await res.json();
@@ -142,7 +151,7 @@ export async function getAqi(lat: number, lon: number): Promise<AqiData> {
     return { ...DETERMINISTIC_EVENT.aqiReading };
   }
 
-  const base = getBaseUrl();
+  const base = getSiteBaseUrl();
   const res = await fetch(`${base}/v1/aqi?lat=${lat}&lon=${lon}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch AQI: ${res.statusText}`);
@@ -164,7 +173,7 @@ export async function getFires(
     };
   }
 
-  const base = getBaseUrl();
+  const base = getSiteBaseUrl();
   const res = await fetch(
     `${base}/v1/fires?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`
   );
@@ -194,7 +203,7 @@ export async function getSchoolAdvisory(
     };
   }
 
-  const base = getBaseUrl();
+  const base = getSiteBaseUrl();
   const url = `${base}/v1/schools/${encodeURIComponent(schoolId)}/advisory${role ? `?role=${encodeURIComponent(role)}` : ''}`;
   const res = await fetch(url);
   if (!res.ok) {
@@ -221,7 +230,7 @@ export async function getNotifications(): Promise<MockNotification[]> {
   }
 
   try {
-    const base = getBaseUrl();
+    const base = getSiteBaseUrl();
     const res = await fetch(`${base}/v1/notifications`);
     if (!res.ok) {
       return [...notificationsStore];
@@ -360,7 +369,7 @@ export async function submitComplaint(
     );
   }
 
-  const base = getBaseUrl();
+  const base = getCommandBaseUrl();
   const lat = Number(payload.lat ?? payload.latitude ?? 30.245);
   const lon = Number(payload.lon ?? payload.longitude ?? 75.842);
   const idempotencyKey = generateIdempotencyKey(payload);
@@ -484,7 +493,7 @@ export async function uploadEvidencePhoto(
     };
   }
 
-  const base = getBaseUrl();
+  const base = getCommandBaseUrl();
   const initRes = await fetch(`${base}/v1/uploads`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -540,7 +549,7 @@ export async function getComplaintStatus(id: string): Promise<ComplaintStatusDat
     };
   }
 
-  const base = getBaseUrl();
+  const base = getCommandBaseUrl();
   const res = await fetch(`${base}/v1/complaints/${encodeURIComponent(id)}`);
   if (!res.ok) {
     const errBody = await res.json().catch(() => null);

@@ -3,6 +3,7 @@
 // handlers as the Next.js routes; on AWS the case rules are Verified Permissions (avpAuthz.ts).
 import { avpCaseAuthz } from "./avpAuthz";
 import { actOnCase, getCase, listCases } from "./cases";
+import { getComplaintStatus } from "./complaints";
 import type { Officer } from "./caseAuthz";
 import { commandConfig } from "./config";
 import { newId, pool, s3Client, type IntakeDeps } from "./deps";
@@ -112,6 +113,11 @@ export async function uploads(event: HttpApiEvent) {
 
 export async function complaints(event: HttpApiEvent) {
   return toResult(await handleComplaints(toRequest(event), awsDeps()));
+}
+
+/** GET /v1/complaints/{id}: where a report or a farmer's complaint has got to. No sign-in; no names. */
+export async function complaintStatus(event: HttpApiEvent) {
+  return toResult(await getComplaintStatus(awsDeps(), event.pathParameters?.id ?? ""));
 }
 
 export async function casesList(event: HttpApiEvent) {
