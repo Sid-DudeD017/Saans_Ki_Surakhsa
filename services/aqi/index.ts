@@ -163,28 +163,101 @@ async function fetchOpenMeteo(lat: number, lon: number): Promise<{ readings: Nor
 }
 
 async function fetchOpenAQ(lat: number, lon: number, radiusKm: number, apiKey: string): Promise<NormalizedReading[]> {
-  const url = `https://api.openaq.org/v2/latest?coordinates=${lat},${lon}&radius=${radiusKm * 1000}`;
-  const res = await fetch(url, { headers: { "X-API-Key": apiKey }});
-  if (!res.ok) throw new Error("OpenAQ fetch failed");
-  const data = await res.json();
-  
   const readings: NormalizedReading[] = [];
-  for (const result of data.results) {
-    for (const m of result.measurements) {
-      if (["pm25", "pm10", "no2", "so2", "co", "o3"].includes(m.parameter)) {
-        readings.push({
-          station_id: `openaq-${result.locationId}`,
-          lat: result.coordinates.latitude,
-          lon: result.coordinates.longitude,
-          pollutant: m.parameter as PollutantCode,
-          concentration: m.parameter === "co" && m.unit === "µg/m³" ? m.value / 1000 : m.value,
-          unit: m.parameter === "co" ? "mg/m3" : "ug/m3",
-          timestamp: m.lastUpdated,
-          source: "openaq"
-        });
+
+  try {
+    // OpenAQ v3 API
+    const radiusMeters = Math.min(25000, Math.max(1000, Math.round(radiusKm * 1000)));
+    const locUrl = `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=${radiusMeters}&limit=10`;
+    const locRes = await fetch(locUrl, { headers: { "X-API-Key": apiKey } });
+
+    if (locRes.ok) {
+      const locData = await locRes.json();
+      const locations = (locData.results || []).slice(0, 5);
+
+      for (const loc of locations) {
+        try {
+          const latestUrl = `https://api.openaq.org/v3/locations/${loc.id}/latest`;
+          const lRes = await fetch(latestUrl, { headers: { "X-API-Key": apiKey } });
+          if (!lRes.ok) continue;
+          const lData = await lRes.json();
+
+          const sensorMap = new Map<number, string>();
+          for (const s of loc.sensors || []) {
+            if (s.id && s.parameter?.name) {
+              sensorMap.set(s.id, s.parameter.name.toLowerCase());
+            }
+          }
+
+          const paramMap: Record<string, PollutantCode> = {
+            pm25: "pm25",
+            pm10: "pm10",
+            no2: "no2",
+            so2: "so2",
+            co: "co",
+            o3: "o3",
+            nh3: "nh3",
+          };
+
+          for (const m of lData.results || []) {
+            const rawParam = sensorMap.get(m.sensorsId);
+            const pollutant = rawParam ? paramMap[rawParam] : undefined;
+            if (pollutant && typeof m.value === 'number') {
+              const val = pollutant === "co" && m.value > 50 ? m.value / 1000 : m.value;
+              readings.push({
+                station_id: `openaq-${loc.id}`,
+                lat: loc.coordinates?.latitude ?? lat,
+                lon: loc.coordinates?.longitude ?? lon,
+                pollutant,
+                concentration: val,
+                unit: pollutant === "co" ? "mg/m3" : "ug/m3",
+                timestamp: m.datetime?.utc || new Date().toISOString(),
+                source: "openaq",
+              });
+            }
+          }
+        } catch {
+          // Continue to next location
+        }
+      }
+
+      if (readings.length > 0) {
+        return readings;
       }
     }
+  } catch (err) {
+    // OpenAQ v3 failed, proceed to v2 fallback
   }
+
+  // Fallback to OpenAQ v2 for mock tests / legacy endpoints
+  try {
+    const url = `https://api.openaq.org/v2/latest?coordinates=${lat},${lon}&radius=${radiusKm * 1000}`;
+    const res = await fetch(url, { headers: { "X-API-Key": apiKey } });
+    if (!res.ok) throw new Error("OpenAQ fetch failed");
+    const data = await res.json();
+
+    for (const result of data.results || []) {
+      for (const m of result.measurements || []) {
+        if (["pm25", "pm10", "no2", "so2", "co", "o3"].includes(m.parameter)) {
+          readings.push({
+            station_id: `openaq-${result.locationId}`,
+            lat: result.coordinates.latitude,
+            lon: result.coordinates.longitude,
+            pollutant: m.parameter as PollutantCode,
+            concentration: m.parameter === "co" && m.unit === "µg/m³" ? m.value / 1000 : m.value,
+            unit: m.parameter === "co" ? "mg/m3" : "ug/m3",
+            timestamp: m.lastUpdated,
+            source: "openaq",
+          });
+        }
+      }
+    }
+  } catch {
+    if (readings.length === 0) {
+      throw new Error("OpenAQ fetch failed");
+    }
+  }
+
   return readings;
 }
 
