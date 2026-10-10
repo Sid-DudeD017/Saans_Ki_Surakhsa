@@ -8,7 +8,8 @@ import { GetObjectCommand, NoSuchKey } from "@aws-sdk/client-s3";
 import { routeFor } from "../command-api/config";
 import type { FireObservation, IntakeDeps } from "../command-api/deps";
 import { metres } from "../command-api/firms";
-import { parseComplaint, type Complaint, type EvidenceMetadata } from "../command-api/inputs";
+import { parseComplaint, type Complaint, type EvidenceMetadata, type ComplaintInput } from "../command-api/inputs";
+import { assessThreat } from "../command-api/threat";
 
 /** An error Step Functions (and the local runner) retries: the database or S3 didn't answer. */
 export class Transient extends Error {
@@ -307,16 +308,35 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
 
     // Tampered or missing evidence needs a person first; otherwise the satellite's answer, if it gave one.
     const verification = needsReview ? "NEEDS_REVIEW" : observation ? "SATELLITE_CORROBORATED" : t.firms?.result === "none" ? "NO_MATCH" : "UNVERIFIED";
+    
+    // Threat Assessment (Stage 4)
+    let threat: ReturnType<typeof assessThreat> | null = null;
+    if (complaint.type !== "farmer_support") {
+      const citizen = complaint as ComplaintInput;
+      const evQuality = needsReview ? "low" : (evidence.matched > 0 ? "high" : "none");
+      threat = assessThreat({
+        urgency: citizen.urgency,
+        violence: citizen.violence,
+        weapons: citizen.weapons,
+        vulnerablePeople: citizen.vulnerable_people,
+        immediacy: citizen.immediacy,
+        locationSensitive: citizen.location_sensitive,
+        evidenceQuality: evQuality
+      });
+    }
+
     const deadlineMs = deps.config.deadlineMinutes ? deps.config.deadlineMinutes * 60_000 : t.deadlineHours * 3600_000;
     const deadline = new Date(received_at.getTime() + deadlineMs);
     await deps.db.query(
       `INSERT INTO cases (id, complaint_id, type, district, location, authorities, penalty, deadline,
-                          verification_status, help_request_id, help_link, observation, evidence_summary, created_at, updated_at)
-       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12
+                          verification_status, help_request_id, help_link, observation, evidence_summary, 
+                          threat_level, threat_score, threat_reasons, automated_label, created_at, updated_at)
+       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $13, $14, $15, $16, $12, $12
          FROM complaints c WHERE c.id = $2
        ON CONFLICT (complaint_id) DO NOTHING`,
       [deps.newId("case"), input.complaintId, t.district ?? helpLink?.district ?? null, t.authorities, t.penalty, deadline,
-       verification, helpRequestId, helpLink && JSON.stringify(helpLink), observation && JSON.stringify(observation), summary(evidence), deps.now()],
+       verification, helpRequestId, helpLink && JSON.stringify(helpLink), observation && JSON.stringify(observation), summary(evidence), deps.now(),
+       threat?.level ?? null, threat?.score ?? null, threat?.reasons ?? null, threat?.automated_label ?? null],
     );
     const { rows } = await deps.db.query<{ id: string; district: string | null }>("SELECT id, district FROM cases WHERE complaint_id = $1", [input.complaintId]);
     await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
