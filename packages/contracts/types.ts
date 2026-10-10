@@ -780,7 +780,7 @@ export interface components {
         };
         CaseActionInput: {
             /** @enum {string} */
-            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE";
+            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "OVERRIDE_THREAT";
             /** @description Needed for CHANGE */
             selectedMachineId?: string;
             reason: string;
@@ -1759,7 +1759,7 @@ export interface components {
              * @description ESCALATE is written by Saans itself (officerId saans-escalation) when a deadline passes
              * @enum {string}
              */
-            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "ESCALATE";
+            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "ESCALATE" | "OVERRIDE_THREAT";
             selectedMachineId?: string;
             reason: string;
             createdAt: components["schemas"]["IndiaTimestamp"];

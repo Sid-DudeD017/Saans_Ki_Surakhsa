@@ -740,7 +740,7 @@ components:
         action:
           type: string
           description: ESCALATE is written by Saans itself (officerId saans-escalation) when a deadline passes
-          enum: [APPROVE, CHANGE, REJECT, MARK_IN_FIELD, RECORD_ACTION_TAKEN, CLOSE, ESCALATE]
+          enum: [APPROVE, CHANGE, REJECT, MARK_IN_FIELD, RECORD_ACTION_TAKEN, CLOSE, ESCALATE, OVERRIDE_THREAT]
         selectedMachineId:
           type: string
         reason:
@@ -855,7 +855,7 @@ components:
       properties:
         action:
           type: string
-          enum: [APPROVE, CHANGE, REJECT, MARK_IN_FIELD, RECORD_ACTION_TAKEN, CLOSE]
+          enum: [APPROVE, CHANGE, REJECT, MARK_IN_FIELD, RECORD_ACTION_TAKEN, CLOSE, OVERRIDE_THREAT]
         selectedMachineId:
           type: string
           description: Needed for CHANGE

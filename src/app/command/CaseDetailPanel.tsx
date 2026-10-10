@@ -23,6 +23,7 @@ const ACTION_NAMES: Record<CaseAction, string> = {
   MARK_IN_FIELD: 'Officer in the field',
   RECORD_ACTION_TAKEN: 'Record action taken',
   CLOSE: 'Close the case',
+  OVERRIDE_THREAT: 'Override threat',
 };
 const SYSTEM_ACTIONS: Record<string, string> = { ESCALATE: 'Escalated' };
 const VERIFICATION: Record<string, string> = {
