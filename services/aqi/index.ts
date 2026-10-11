@@ -2,6 +2,7 @@ import { overallAqi, PollutantCode, AqiCategoryCode, getCategoryCode } from "../
 
 export interface NormalizedReading {
   station_id: string;
+  station_name?: string;
   lat: number;
   lon: number;
   pollutant: PollutantCode;
@@ -179,6 +180,7 @@ async function fetchOpenMeteo(lat: number, lon: number): Promise<{ readings: Nor
       }
       readings.push({
         station_id: "open-meteo-model",
+        station_name: "Atmospheric Dispersion Model (Open-Meteo)",
         lat, lon,
         pollutant: map[key],
         concentration, unit, timestamp,
@@ -244,6 +246,7 @@ async function fetchOpenAQ(lat: number, lon: number, radiusKm: number, apiKey: s
               const val = pollutant === "co" && m.value > 50 ? m.value / 1000 : m.value;
               readings.push({
                 station_id: `openaq-${loc.id}`,
+                station_name: loc.name || `OpenAQ Station ${loc.id}`,
                 lat: loc.coordinates?.latitude ?? lat,
                 lon: loc.coordinates?.longitude ?? lon,
                 pollutant,
@@ -279,6 +282,7 @@ async function fetchOpenAQ(lat: number, lon: number, radiusKm: number, apiKey: s
         if (["pm25", "pm10", "no2", "so2", "co", "o3"].includes(m.parameter)) {
           readings.push({
             station_id: `openaq-${result.locationId}`,
+            station_name: result.location || `OpenAQ Station ${result.locationId}`,
             lat: result.coordinates.latitude,
             lon: result.coordinates.longitude,
             pollutant: m.parameter as PollutantCode,
@@ -323,6 +327,7 @@ async function fetchCPCB(lat: number, lon: number, apiKey: string): Promise<Norm
           if (!isNaN(val)) {
              readings.push({
                station_id: `cpcb-${record.station}`,
+               station_name: record.station || `CPCB Station`,
                lat: pLat,
                lon: pLon,
                pollutant: map[record.pollutant_id],
@@ -579,6 +584,7 @@ export async function getAqiForLocation(lat: number, lon: number) {
   // Fallback + IDW
   const finalReadings: { pollutant: PollutantCode, concentration: number }[] = [];
   const activeStations = new Set<string>();
+  const stationMap = new Map<string, { id: string; name: string; distance_km: number; source: string }>();
   let newestTime = 0;
 
   for (const [pol, arr] of Object.entries(byPollutant)) {
@@ -594,10 +600,18 @@ export async function getAqiForLocation(lat: number, lon: number) {
     let den = 0;
     for (const r of filtered) {
       activeStations.add(r.station_id);
+      const d = getDistanceFromLatLonInKm(lat, lon, r.lat, r.lon);
+      if (!stationMap.has(r.station_id)) {
+        stationMap.set(r.station_id, {
+          id: r.station_id,
+          name: r.station_name || r.station_id,
+          distance_km: Math.round(d * 10) / 10,
+          source: r.source,
+        });
+      }
       const t = new Date(r.timestamp).getTime();
       if (t > newestTime) newestTime = t;
 
-      const d = getDistanceFromLatLonInKm(lat, lon, r.lat, r.lon);
       if (d < 0.1) {
         num = r.concentration;
         den = 1;
@@ -619,6 +633,9 @@ export async function getAqiForLocation(lat: number, lon: number) {
     const stale = newestTime > 0 ? (Date.now() - newestTime) > 3 * 60 * 60 * 1000 : false;
     const iso = toIstIsoString(newestTime || Date.now());
 
+    const stationList = Array.from(stationMap.values()).sort((a, b) => a.distance_km - b.distance_km);
+    const closestStation = stationList[0];
+
     return {
       aqi: aqiResult.aqi,
       category: aqiResult.category,
@@ -626,6 +643,9 @@ export async function getAqiForLocation(lat: number, lon: number) {
       sub_indices: aqiResult.sub_indices,
       grap_stage: getGrapStage(aqiResult.aqi),
       station_count: activeStations.size,
+      station_name: closestStation?.name || "Ground Monitoring Station",
+      distance_km: closestStation?.distance_km ?? 0,
+      stations: stationList.map((s) => ({ name: s.name, distance_km: s.distance_km, source: s.source })),
       data_timestamp: iso,
       stale,
       wind: {

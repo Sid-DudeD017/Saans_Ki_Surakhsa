@@ -217,8 +217,17 @@ function AirPill({ air, language }: { air: AqiData | null; language: ReturnType<
             <strong style={{ fontSize: '1.05rem', color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>AQI {Math.round(air.aqi)}</strong>
             <span style={{ fontSize: '0.9rem', fontWeight: 800, color: colour }}>{CATEGORY_NAMES[CATEGORY_CODE[air.category]]?.[language] ?? air.category}</span>
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div
+            title={
+              air.stations && air.stations.length > 1
+                ? `Contributing Stations:\n${air.stations.map((s) => `• ${s.name} (${s.distance_km} km)`).join('\n')}`
+                : `${air.station_name}${air.distance_km ? ` (${air.distance_km} km away)` : ''}`
+            }
+            style={{ fontSize: '0.78rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'help' }}
+          >
             📍 {air.station_name}
+            {air.distance_km ? ` (${air.distance_km} km)` : ''}
+            {air.stations && air.stations.length > 1 ? ` +${air.stations.length - 1} more` : ''}
             {air.dominant_pollutant ? ` · ${air.dominant_pollutant.toUpperCase()}` : ''}
           </div>
         </div>

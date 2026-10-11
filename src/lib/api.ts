@@ -24,6 +24,7 @@ export interface AqiData {
   timestamp: string;
   station_name: string;
   distance_km: number;
+  stations?: { name: string; distance_km: number; source?: string }[];
 }
 
 export interface FireData {
@@ -135,6 +136,7 @@ export async function getAqi(lat: number, lon: number): Promise<AqiData> {
             timestamp: d.data_timestamp,
             station_name: d.station_name || 'Ground Monitoring Station',
             distance_km: d.distance_km ?? 0,
+            stations: d.stations || [],
           };
         }
       }
