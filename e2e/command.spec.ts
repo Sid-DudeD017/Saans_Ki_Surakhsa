@@ -1,46 +1,28 @@
-// Saans Command as its own part of the app: the case list, a map you can move and zoom, and one case.
+// Saans Command as its own part of the app (P4's console on the shared tab bar), and Ghar ki Hawa's home figure.
 import { devices, expect, test } from '@playwright/test';
 
 test.use({ ...devices['Pixel 7'] });
 
-test('an officer finds a case on the list and on the map, and opens it', async ({ page }) => {
+test("Command is P4's console on the app's tab bar", async ({ page }) => {
   await page.goto('/command');
   await expect(page.getByRole('heading', { level: 1, name: 'Saans Command' })).toBeVisible();
   const bar = page.getByRole('navigation', { name: 'Command sections' });
   await expect(bar.getByRole('tab')).toHaveText(['📋Cases', '🗺️Map', '📁Case']);
-  // Officers act on reports; the shell's Report button isn't here.
+  // Officers act on reports; the shell's Report button isn't here, and nor is a demo banner.
   await expect(page.getByRole('button', { name: /Report Smoke/ })).toHaveCount(0);
+  await expect(page.getByText('Example cases')).toHaveCount(0);
 
-  // The list: tap a case and it opens on the Case tab.
-  const first = page.locator('#command-panel-cases [data-case]').first();
-  const id = await first.getAttribute('data-case');
-  await first.click();
-  await expect(page).toHaveURL(/tab=case/);
-  await expect(page.locator('#command-panel-case')).toContainText(id!);
-  await page.getByRole('button', { name: '← All cases' }).click();
+  // The queue is the first tab; the map and the open case are a tab each, in the URL.
   await expect(page.locator('#command-panel-cases')).toBeVisible();
-
-  // The map: zoom with the buttons, drag it, and tap a pin to see that case.
   await page.getByRole('tab', { name: /Map/ }).click();
-  const map = page.locator('#command-panel-map [role=application]');
-  await expect(map).toHaveAttribute('data-zoom', /\d+/);
-  const zoom = Number(await map.getAttribute('data-zoom'));
-  await page.locator('#command-panel-map').getByRole('button', { name: 'Zoom out' }).click();
-  await expect(map).toHaveAttribute('data-zoom', String(zoom - 1));
-  const before = await map.getAttribute('data-centre');
-  const box = (await map.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 60, { steps: 6 });
-  await page.mouse.up();
-  await expect(map).not.toHaveAttribute('data-centre', before!);
-  await page.locator('#command-panel-map').getByRole('button', { name: 'Show every pin' }).click();
-  await expect(map).toHaveAttribute('data-zoom', String(zoom));
-
-  await map.locator('[data-pin]').first().click();
-  await page.locator('#command-panel-map').getByRole('button', { name: /Open case →/ }).click();
+  await expect(page).toHaveURL(/tab=map/);
+  await expect(page.locator('#command-panel-map')).toBeVisible();
+  await expect(page.locator('#command-panel-cases')).toBeHidden();
+  await page.getByRole('tab', { name: /Case$/ }).click();
   await expect(page).toHaveURL(/tab=case/);
-  await expect(page.locator('#command-panel-case [role=application]')).toBeVisible();
+  await expect(page.locator('#command-panel-case')).toContainText('Pick a case');
+  await page.goBack();
+  await expect(page.getByRole('tab', { name: /Map/ })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('the Switch sheet opens Command, and Command marks itself there', async ({ page }) => {
