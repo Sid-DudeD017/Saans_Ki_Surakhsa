@@ -84,17 +84,26 @@ function parseReportDetails(descriptionText: string) {
     }
   }
 
+  // Direct match for explicit Note: / Notes: section
+  const noteMatch = (descriptionText || '').match(/(?:^|\n|\r)\s*notes?:\s*([\s\S]+)$/i);
+  if (noteMatch && noteMatch[1].trim()) {
+    return {
+      matchedChips: matched,
+      customNote: noteMatch[1].trim(),
+    };
+  }
+
   // Filter out chip labels from the description to extract the custom note
   let remainingNote = descriptionText || '';
   for (const cat of REPORT_CHIP_CATEGORIES) {
     for (const chip of cat.chips) {
       for (const alias of chip.aliases) {
-        const regex = new RegExp(`(^|,\\s*|\\s*)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,\\s*|\\s*|$)`, 'gi');
+        const regex = new RegExp(`(^|,|\\n|·|\\s*)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,|\\n|·|\\s*|$)`, 'gi');
         remainingNote = remainingNote.replace(regex, ' ');
       }
     }
   }
-  const cleanNote = remainingNote.trim().replace(/^,\s*|,\s*$/g, '').trim();
+  const cleanNote = remainingNote.trim().replace(/^notes?:\s*/i, '').replace(/^,\s*|,\s*$/g, '').trim();
 
   return {
     matchedChips: matched,

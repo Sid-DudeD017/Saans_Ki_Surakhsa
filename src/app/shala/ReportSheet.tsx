@@ -517,7 +517,7 @@ export function ReportSheet({
   });
 
   // Step 3: Details
-  const [selectedChips, setSelectedChips] = useState<Set<string>>(new Set());
+  const [selectedCategoryOptions, setSelectedCategoryOptions] = useState<Record<number, string>>({});
   const [description, setDescription] = useState(''); // Note starts empty!
   const [isRecording, setIsRecording] = useState(false);
   const [dictateLanguage, setDictateLanguage] = useState<'en' | 'hi' | 'pa'>('en');
@@ -714,29 +714,22 @@ export function ReportSheet({
     setPhotoError(null);
   };
 
-  // Toggle Chip insertion into Description
-  const handleChipToggle = (chipId: string, phrase: string) => {
-    const nextSet = new Set(selectedChips);
-    let newDesc = description.trim();
-
-    if (nextSet.has(chipId)) {
-      nextSet.delete(chipId);
-      const pattern = new RegExp(`(^|,\\s*|\\s*)${phrase}(,\\s*|\\s*|$)`, 'i');
-      newDesc = newDesc.replace(pattern, ' ').replace(/\s{2,}/g, ' ').trim();
-    } else {
-      nextSet.add(chipId);
-      if (newDesc.length > 0) {
-        newDesc = `${newDesc}, ${phrase}`;
-      } else {
-        newDesc = phrase;
+  // Select an option for a specific category (does NOT touch description notes!)
+  const handleSelectCategoryOption = (catIdx: number, chipId: string) => {
+    setSelectedCategoryOptions((prev) => {
+      if (prev[catIdx] === chipId) {
+        const next = { ...prev };
+        delete next[catIdx];
+        return next;
       }
-    }
-
-    if (newDesc.length <= 1000) {
-      setSelectedChips(nextSet);
-      setDescription(newDesc);
-    }
+      return { ...prev, [catIdx]: chipId };
+    });
   };
+
+  const allCategoriesSelected =
+    Boolean(selectedCategoryOptions[0]) &&
+    Boolean(selectedCategoryOptions[1]) &&
+    Boolean(selectedCategoryOptions[2]);
 
   // Voice note via SpeechRecognition
   const handleVoiceNote = () => {
@@ -917,9 +910,30 @@ export function ReportSheet({
 
       // 2. Submit complaint with the pin's coordinates, not the school's!
       const tile = TILES.find((t) => t.type === selectedType);
+
+      const selectedChipIds = [
+        selectedCategoryOptions[0],
+        selectedCategoryOptions[1],
+        selectedCategoryOptions[2],
+      ].filter(Boolean);
+
+      const chipLabels = selectedChipIds.map((id) => {
+        for (const cat of CHIP_CATEGORIES) {
+          const found = cat.chips.find((c) => c.id === id);
+          if (found) return found.label.en;
+        }
+        return id;
+      });
+
+      const userNote = description.trim();
+      const combinedDescription = [
+        chipLabels.join(', '),
+        userNote ? `Note: ${userNote}` : '',
+      ].filter(Boolean).join('\n\n');
+
       const res = await submitComplaint({
         category: selectedType,
-        description: description.trim(),
+        description: combinedDescription,
         lat: pin.lat,
         lon: pin.lon,
         latitude: pin.lat,
@@ -938,7 +952,7 @@ export function ReportSheet({
         typeName: tile ? tile.label[language] : selectedType,
         lat: pin.lat,
         lon: pin.lon,
-        description: description.trim(),
+        description: userNote || chipLabels.join(', '),
         hasPhoto: !!photoFile,
         createdAt: res.created_at || new Date().toISOString(),
         isMock,
@@ -1230,7 +1244,7 @@ export function ReportSheet({
                   setStep(1);
                   setSelectedType(null);
                   setDescription('');
-                  setSelectedChips(new Set());
+                  setSelectedCategoryOptions({});
                   removePhoto();
                 }}
                 style={{ minHeight: '44px', minWidth: '44px' }}
@@ -1683,45 +1697,68 @@ export function ReportSheet({
                   </h4>
                 </div>
 
-                {/* Quick Chips Groups */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {CHIP_CATEGORIES.map((cat, idx) => (
-                    <div key={idx}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-                        {cat.title[language]}:
+                {/* Quick Chips Groups (Single selection per category required) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  {CHIP_CATEGORIES.map((cat, idx) => {
+                    const isAnswered = Boolean(selectedCategoryOptions[idx]);
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '0.65rem 0.85rem',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '0.5rem',
+                          border: isAnswered ? '1px solid #cbd5e1' : '1.5px solid #f87171',
+                          transition: 'border-color 0.2s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {cat.title[language]}:
+                          </span>
+                          {isAnswered ? (
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#16a34a' }}>
+                              ✓ Selected
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>
+                              * {language === 'pa' ? 'ਇੱਕ ਚੁਣੋ (ਜ਼ਰੂਰੀ)' : language === 'hi' ? 'एक चुनें (अनिवार्य)' : 'Select one (required)'}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {cat.chips.map((chip) => {
+                            const isSelected = selectedCategoryOptions[idx] === chip.id;
+                            return (
+                              <button
+                                key={chip.id}
+                                type="button"
+                                onClick={() => handleSelectCategoryOption(idx, chip.id)}
+                                style={{
+                                  padding: '0.45rem 0.85rem',
+                                  borderRadius: '9999px',
+                                  border: `1.5px solid ${isSelected ? '#0284c7' : '#cbd5e1'}`,
+                                  backgroundColor: isSelected ? '#e0f2fe' : '#ffffff',
+                                  color: isSelected ? '#0369a1' : '#334155',
+                                  fontWeight: isSelected ? 700 : 500,
+                                  fontSize: '0.8125rem',
+                                  cursor: 'pointer',
+                                  minHeight: '40px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                {isSelected ? '✓ ' : '+ '}
+                                {chip.label[language]}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        {cat.chips.map((chip) => {
-                          const isSelected = selectedChips.has(chip.id);
-                          return (
-                            <button
-                              key={chip.id}
-                              type="button"
-                              onClick={() => handleChipToggle(chip.id, chip.label[language])}
-                              style={{
-                                padding: '0.5rem 0.875rem',
-                                borderRadius: '9999px',
-                                border: `1.5px solid ${isSelected ? '#0284c7' : '#cbd5e1'}`,
-                                backgroundColor: isSelected ? '#e0f2fe' : '#ffffff',
-                                color: isSelected ? '#0369a1' : '#334155',
-                                fontWeight: 600,
-                                fontSize: '0.8125rem',
-                                cursor: 'pointer',
-                                minHeight: '44px',
-                                minWidth: '44px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.25rem',
-                              }}
-                            >
-                              {isSelected ? '✓ ' : '+ '}
-                              {chip.label[language]}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Editable Text Area (Starts EMPTY, max 1000 characters) */}
@@ -1886,11 +1923,57 @@ export function ReportSheet({
                   >
                     {REPORT_I18N.backBtn[language]}
                   </Button>
+                </div>
+
+                {!allCategoriesSelected && (
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.8rem',
+                      color: '#b91c1c',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <span>⚠️</span>
+                    <span>
+                      {language === 'pa'
+                        ? 'ਕਿਰਪਾ ਕਰਕੇ ਅੱਗੇ ਵਧਣ ਲਈ ਉੱਪਰਲੇ ਸਾਰੇ 3 ਭਾਗਾਂ ਵਿੱਚੋਂ ਇੱਕ-ਇੱਕ ਵਿਕਲਪ ਚੁਣੋ।'
+                        : language === 'hi'
+                        ? 'कृपया आगे बढ़ने के लिए ऊपर दिए गए तीनों वर्गों में से एक-एक विकल्प चुनें।'
+                        : 'Please select one option from all 3 sections above to proceed.'}
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem' }}>
+                  <Button
+                    size="md"
+                    variant="secondary"
+                    onClick={() => setStep(2)}
+                    style={{ minHeight: '44px', minWidth: '44px' }}
+                  >
+                    {REPORT_I18N.backBtn[language]}
+                  </Button>
                   <Button
                     size="md"
                     variant="primary"
-                    onClick={() => setStep(4)}
-                    style={{ minHeight: '44px', minWidth: '44px' }}
+                    disabled={!allCategoriesSelected}
+                    onClick={() => {
+                      if (allCategoriesSelected) setStep(4);
+                    }}
+                    style={{
+                      minHeight: '44px',
+                      minWidth: '44px',
+                      opacity: allCategoriesSelected ? 1 : 0.5,
+                      cursor: allCategoriesSelected ? 'pointer' : 'not-allowed',
+                    }}
                   >
                     {REPORT_I18N.nextCheckBtn[language]}
                   </Button>
@@ -1928,9 +2011,39 @@ export function ReportSheet({
                       <code>{pin.lat.toFixed(4)}°N, {pin.lon.toFixed(4)}°E</code>
                     </div>
 
+                    <div style={{ color: '#64748b', fontWeight: 600 }}>{language === 'pa' ? 'ਚੁਣੇ ਹੋਏ ਵੇਰਵੇ' : language === 'hi' ? 'चुने गए विकल्प' : 'Selected options'}</div>
+                    <div style={{ color: '#0f172a', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                      {[0, 1, 2].map((idx) => {
+                        const chipId = selectedCategoryOptions[idx];
+                        const chip = CHIP_CATEGORIES[idx]?.chips.find((c) => c.id === chipId);
+                        if (!chip) return null;
+                        return (
+                          <span
+                            key={idx}
+                            style={{
+                              backgroundColor: '#e0f2fe',
+                              color: '#0369a1',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: '9999px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            ✓ {chip.label[language]}
+                          </span>
+                        );
+                      })}
+                    </div>
+
                     <div style={{ color: '#64748b', fontWeight: 600 }}>{REPORT_I18N.noteSummaryLabel[language]}</div>
                     <div style={{ color: '#0f172a' }}>
-                      {description || <em style={{ color: '#94a3b8' }}>{REPORT_I18N.noneAdded[language]}</em>}
+                      {description.trim() ? (
+                        <div style={{ padding: '0.4rem 0.6rem', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '0.375rem', fontWeight: 600 }}>
+                          {description.trim()}
+                        </div>
+                      ) : (
+                        <em style={{ color: '#94a3b8' }}>{REPORT_I18N.noneAdded[language]}</em>
+                      )}
                     </div>
 
                     <div style={{ color: '#64748b', fontWeight: 600 }}>{REPORT_I18N.photoSummaryLabel[language]}</div>
