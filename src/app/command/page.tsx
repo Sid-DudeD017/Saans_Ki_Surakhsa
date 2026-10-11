@@ -5,7 +5,9 @@
 // /v1/cases from the local stack, signed in as one of the demo officers, so Cedar shows their district only.
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { BottomTabs, TabPanel, useUrlTab } from '../../components/BottomTabs';
 import { Alert, Badge, Card, Container } from '../../components/ui';
+import { SPACES } from '../../lib/space';
 import { useLanguage } from '../../lib/i18n';
 import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
@@ -27,9 +29,23 @@ const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑�
 
 const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', minHeight: '44px' };
 
+const COMMAND_TABS = ['cases', 'map', 'case'] as const;
+const TAB_WORDS: Record<(typeof COMMAND_TABS)[number], { icon: string; label: Record<Lang, string> }> = {
+  cases: { icon: '📋', label: { en: 'Cases', hi: 'मामले', pa: 'ਮਾਮਲੇ' } },
+  map: { icon: '🗺️', label: { en: 'Map', hi: 'नक्शा', pa: 'ਨਕਸ਼ਾ' } },
+  case: { icon: '📁', label: { en: 'Case', hi: 'मामला', pa: 'ਮਾਮਲਾ' } },
+};
+const BAR_NAME: Record<Lang, string> = { en: 'Command sections', hi: 'कमांड के हिस्से', pa: 'ਕਮਾਂਡ ਦੇ ਹਿੱਸੇ' };
+
 export default function CommandPage() {
   const { language } = useLanguage();
   const lang: Lang = (language as Lang) || 'en';
+  // The app's bottom bar: the queue, the map, and the open case (src/components/BottomTabs.tsx).
+  const [tab, go] = useUrlTab(COMMAND_TABS);
+  const openCase = (id: string) => {
+    setSelected(id);
+    go('case');
+  };
   const [status, setStatus] = useState<string>('');
   const [category, setCategory] = useState('');
   const [queue, setQueue] = useState<{ tickets?: any[]; total?: number; error?: string }>({});
@@ -201,26 +217,11 @@ export default function CommandPage() {
   ];
 
   return (
-    <Container maxWidth="lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            <Badge variant="danger" size="md">P4 MODULE</Badge>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Saans Command · case console</span>
-          </div>
-          <h1 style={{ margin: '0.25rem 0', fontSize: '1.75rem', color: '#0f172a' }}>🛡️ {t.queue}</h1>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569' }}>{t.desc}</p>
-        </div>
-      </div>
+    <Container maxWidth="lg" style={{ paddingTop: '0.25rem', paddingBottom: '2rem' }}>
+      {/* The app header (src/components/AppHeader.tsx) names the page; demo banners are gone app-wide. */}
+      <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>{t.desc}</p>
 
-      {USE_MOCKS && (
-        <div style={{ marginBottom: '1rem' }}>
-          <Alert variant="info" title="Example cases">{t.mock}</Alert>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))', gap: '1rem', alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
+      <TabPanel id="cases" current={tab} prefix="command">
           <Card padding="md">
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
               {!USE_MOCKS && (
@@ -317,7 +318,7 @@ export default function CommandPage() {
                 <li key={s.id}>
                   <button
                     type="button"
-                    onClick={() => setSelected(s.id)}
+                    onClick={() => openCase(s.id)}
                     aria-current={selected === s.id}
                     style={{
                       width: '100%', textAlign: 'left', display: 'grid', gap: '0.2rem', padding: '0.6rem 0.75rem', borderRadius: '0.6rem', cursor: 'pointer',
@@ -354,21 +355,36 @@ export default function CommandPage() {
               </div>
             )}
           </Card>
+      </TabPanel>
+
+      <TabPanel id="map" current={tab} prefix="command">
+          {tickets.length === 0 && <Card padding="lg"><p style={{ margin: 0, color: '#475569' }}>{t.pick_case}</p></Card>}
           {tickets.length > 0 && (
             <CaseMap
               title="Tickets on the map"
-              onPick={setSelected}
+              onPick={openCase}
               points={tickets.filter(t => t.location).map((s) => ({ id: s.id, label: `${s.type} · ${s.district}`, kind: s.status === 'closed' ? 'closed' : s.help_request ? 'help' : 'report', selected: s.id === selected, ...s.location }))}
             />
           )}
-        </div>
+      </TabPanel>
 
+      <TabPanel id="case" current={tab} prefix="command">
         <div style={{ minWidth: 0 }}>
           {!selected && <Card padding="lg"><p style={{ margin: 0, color: '#475569' }}>{t.pick_case}</p></Card>}
           {selected && detail.error && <Alert variant="danger" title="Couldn't open the case">{detail.error}</Alert>}
           {shown && <CaseDetailPanel key={`${shown.ticket.id}-${shown.ticket.status}`} detail={shown} officer={officer} lang={lang} onChanged={reload} />}
         </div>
-      </div>
+      </TabPanel>
+
+      <BottomTabs
+        tabs={COMMAND_TABS.map((id) => ({ id, icon: TAB_WORDS[id].icon, label: TAB_WORDS[id].label[lang] ?? TAB_WORDS[id].label.en }))}
+        current={tab}
+        onChange={go}
+        prefix="command"
+        label={BAR_NAME[lang] ?? BAR_NAME.en}
+        accent={SPACES.command.accent}
+        space="command"
+      />
 
       {/* Officer ID Verification Popup Modal */}
       {showOfficerModal && (
