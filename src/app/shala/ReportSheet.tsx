@@ -1657,8 +1657,6 @@ export function ReportSheet({
                       padding: '0.25rem 0.65rem',
                       borderRadius: '9999px',
                       pointerEvents: 'none',
-                      backdropFilter: 'blur(4px)',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                       whiteSpace: 'nowrap',
                       zIndex: 11,
                       display: 'flex',

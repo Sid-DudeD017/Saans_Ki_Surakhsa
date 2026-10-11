@@ -38,23 +38,22 @@ export default function CommandPage() {
   const [detail, setDetail] = useState<any>({});
   const [reloads, setReloads] = useState(0);
 
-  // Authentication & Officer ID verification
-  const [officer, setOfficer] = useState<string>('local-citizen-1');
-  const [verifiedOfficerId, setVerifiedOfficerId] = useState<string | null>(null);
+  // Authentication & Officer ID verification (lazy initialized from session storage to avoid cascading renders)
+  const [verifiedOfficerId, setVerifiedOfficerId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = sessionStorage.getItem('saans_officer_id');
+    return saved && ALLOWED_OFFICER_IDS.has(saved) ? saved : null;
+  });
+
+  const [officer, setOfficer] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'local-citizen-1';
+    const saved = sessionStorage.getItem('saans_officer_id');
+    return saved && ALLOWED_OFFICER_IDS.has(saved) ? 'local-state-command' : 'local-citizen-1';
+  });
+
   const [showOfficerModal, setShowOfficerModal] = useState<boolean>(false);
   const [officerInputId, setOfficerInputId] = useState<string>('');
   const [officerAuthError, setOfficerAuthError] = useState<string | null>(null);
-
-  // Restore existing session verification on mount if available
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('saans_officer_id');
-      if (saved && ALLOWED_OFFICER_IDS.has(saved)) {
-        setVerifiedOfficerId(saved);
-        setOfficer('local-state-command');
-      }
-    }
-  }, []);
 
   const handleRoleChange = (newToken: string) => {
     if (newToken === 'local-state-command') {
