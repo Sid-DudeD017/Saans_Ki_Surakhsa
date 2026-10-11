@@ -5,7 +5,6 @@ import {
   getAqi,
   getFires,
   getSchoolAdvisory,
-  getNotifications,
   submitComplaint,
 } from '../lib/api';
 
@@ -31,12 +30,6 @@ describe('P2 API Client & Mock Backbone', () => {
     expect(advisory.school_name).toContain('Government Senior Secondary School');
     expect(advisory.aqi).toBe(287);
     expect(advisory.outdoor_activities_permitted).toBe(false);
-  });
-
-  it('retrieves notifications feed', async () => {
-    const notifs = await getNotifications();
-    expect(Array.isArray(notifs)).toBe(true);
-    expect(notifs.length).toBeGreaterThanOrEqual(3);
   });
 
   it('submits complaint and logs confirmation ticket', async () => {

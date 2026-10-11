@@ -10,6 +10,7 @@ import { useLanguage } from '../lib/i18n';
 import { PERSONA_WORDS, SPACES, session, word, type SpaceId } from '../lib/space';
 import { useHomeLocation } from '../app/ghar/useLocation';
 import { CATEGORY_NAMES } from '../app/shala/airQuality';
+import { notifications } from '../lib/notifications';
 import { NotificationCenter } from './NotificationCenter';
 import { SpaceSheet } from './SpaceSwitch';
 
@@ -72,6 +73,37 @@ function useAirNow(place?: { lat: number; lon: number }) {
   return air;
 }
 
+const ALERT: Partial<Record<AqiData['category'], { severity: 'warning' | 'urgent'; en: string; hi: string; pa: string }>> = {
+  Poor: { severity: 'warning', en: 'The air near you is Poor', hi: 'आपके पास की हवा ख़राब है', pa: 'ਤੁਹਾਡੇ ਨੇੜੇ ਦੀ ਹਵਾ ਖ਼ਰਾਬ ਹੈ' },
+  'Very Poor': { severity: 'urgent', en: 'The air near you is Very Poor', hi: 'आपके पास की हवा बहुत ख़राब है', pa: 'ਤੁਹਾਡੇ ਨੇੜੇ ਦੀ ਹਵਾ ਬਹੁਤ ਖ਼ਰਾਬ ਹੈ' },
+  Severe: { severity: 'urgent', en: 'The air near you is Severe', hi: 'आपके पास की हवा गंभीर है', pa: 'ਤੁਹਾਡੇ ਨੇੜੇ ਦੀ ਹਵਾ ਗੰਭੀਰ ਹੈ' },
+};
+
+/**
+ * Tells the bell when the air turns Poor or worse: once per level per day, so a bad day isn't a stream of
+ * alerts. It points to the part of the app the person is using, where the advice for it is.
+ */
+function useAirAlert(air: AqiData | null, space: { href: string }, spaceId: SpaceId) {
+  const category = air?.category;
+  const aqi = air ? Math.round(air.aqi) : null;
+  useEffect(() => {
+    const alert = category ? ALERT[category] : undefined;
+    if (!alert || aqi === null) return;
+    const day = new Date().toLocaleDateString('en-CA');
+    notifications.notify({
+      id: `air-${day}-${category}`,
+      title: { en: alert.en, hi: alert.hi, pa: alert.pa },
+      message: {
+        en: `AQI ${aqi}. Keep windows shut, avoid hard work outdoors, and wear an N95 if you go out.`,
+        hi: `AQI ${aqi}। खिड़कियाँ बंद रखें, बाहर भारी काम न करें, और बाहर जाएँ तो N95 पहनें।`,
+        pa: `AQI ${aqi}। ਖਿੜਕੀਆਂ ਬੰਦ ਰੱਖੋ, ਬਾਹਰ ਭਾਰੀ ਕੰਮ ਨਾ ਕਰੋ, ਅਤੇ ਬਾਹਰ ਜਾਓ ਤਾਂ N95 ਪਾਓ।`,
+      },
+      severity: alert.severity,
+      href: spaceId === 'command' ? '/' : space.href,
+    });
+  }, [category, aqi, space.href, spaceId]);
+}
+
 const ROUND: React.CSSProperties = {
   width: '2.75rem',
   height: '2.75rem',
@@ -95,7 +127,9 @@ export function AppHeader({ space }: { space: SpaceId }) {
   const { location: home, isReady: homeReady } = useHomeLocation();
   const air = useAirNow(space === 'ghar' && homeReady ? home : undefined);
   const [bell, setBell] = useState(false);
-  const [unread, setUnread] = useState(0);
+  const closeBell = useCallback(() => setBell(false), []);
+  const unread = notifications.useUnread();
+  useAirAlert(air, s, space);
   const [sheet, setSheet] = useState(false);
   const closeSheet = useCallback(() => setSheet(false), []);
 
@@ -150,7 +184,7 @@ export function AppHeader({ space }: { space: SpaceId }) {
         </div>
       </header>
 
-      <NotificationCenter isOpen={bell} onClose={() => setBell(false)} onCountChange={setUnread} />
+      <NotificationCenter isOpen={bell} onClose={closeBell} />
       {sheet && <SpaceSheet current={space} onClose={closeSheet} />}
     </>
   );

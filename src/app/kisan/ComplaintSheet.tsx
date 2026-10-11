@@ -9,6 +9,7 @@ import React, { useRef, useState } from 'react';
 
 import { Alert, Button, Card } from '../../components/ui';
 import { uploadEvidencePhoto } from '../../lib/api';
+import { notifications } from '../../lib/notifications';
 import { farmStore } from './farmProfile';
 import { ABOUT_A_CHC, GRIEVANCE_SUBTYPES, addTicket, farmPoint, mobileNumber, type GrievanceSubtype } from './help';
 import { KisanError, submitGrievance, textTicket, type KisanGrievance, type Language } from './kisanApi';
@@ -101,6 +102,17 @@ export function ComplaintSheet({ language }: { language: Language }) {
       };
       const res = await submitGrievance(body, draft.current.key);
       addTicket({ id: res.id, subtype, sentAt: new Date().toISOString() });
+      notifications.notify({
+        id: `report-${res.id}-received`,
+        title: { en: 'Complaint received', hi: 'शिकायत मिल गई', pa: 'ਸ਼ਿਕਾਇਤ ਮਿਲ ਗਈ' },
+        message: {
+          en: `Ticket ${res.id.replace(/^complaint-/, '').slice(0, 8).toUpperCase()} is with the district office. We'll tell you when it moves.`,
+          hi: `टिकट ${res.id.replace(/^complaint-/, '').slice(0, 8).toUpperCase()} ज़िला दफ़्तर के पास है। आगे बढ़ते ही हम बताएँगे।`,
+          pa: `ਟਿਕਟ ${res.id.replace(/^complaint-/, '').slice(0, 8).toUpperCase()} ਜ਼ਿਲ੍ਹਾ ਦਫ਼ਤਰ ਕੋਲ ਹੈ। ਅੱਗੇ ਵਧਦੇ ਹੀ ਅਸੀਂ ਦੱਸਾਂਗੇ।`,
+        },
+        severity: 'info',
+        href: '/kisan?tab=help',
+      });
       setTicket(res.id);
       setStep('sent');
       if (mobile) {

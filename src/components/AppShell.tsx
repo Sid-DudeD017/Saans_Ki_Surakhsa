@@ -10,10 +10,21 @@ import { spaceOf } from '../lib/space';
 import { AppHeader } from './AppHeader';
 import { AQIHeader } from './AQIHeader';
 import { Header } from './Header';
+import { NotificationWatcher } from './NotificationWatcher';
 import { ReportButton } from './ReportButton';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? '/';
+  return (
+    <>
+      {/* Follows the reports sent from this phone and tells the bell when they move on. */}
+      <NotificationWatcher />
+      <Chrome path={path}>{children}</Chrome>
+    </>
+  );
+}
+
+function Chrome({ path, children }: { path: string; children: React.ReactNode }) {
   if (path === '/' || path === '/welcome') return <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>{children}</main>;
 
   const space = spaceOf(path);

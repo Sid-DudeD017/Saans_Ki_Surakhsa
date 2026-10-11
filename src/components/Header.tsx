@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useLanguage } from '../lib/i18n';
 import { getAqi, AqiData } from '../lib/api';
 import { LanguageSwitcher, RolePicker } from './ui';
+import { notifications } from '../lib/notifications';
 import { NotificationCenter } from './NotificationCenter';
 
 export const Header: React.FC = () => {
@@ -13,7 +14,7 @@ export const Header: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const unreadCount = notifications.useUnread();
 
   useEffect(() => {
     let mounted = true;
@@ -246,7 +247,6 @@ export const Header: React.FC = () => {
       <NotificationCenter
         isOpen={isNotifOpen}
         onClose={() => setIsNotifOpen(false)}
-        onCountChange={setUnreadCount}
       />
     </>
   );
