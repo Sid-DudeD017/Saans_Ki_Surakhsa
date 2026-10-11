@@ -126,14 +126,26 @@ export const AQIHeader: React.FC<AQIHeaderProps> = ({
         }}
       >
         {/* Left: Location & Station */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div
+          title={
+            aqiData.stations && aqiData.stations.length > 1
+              ? `Contributing Stations:\n${aqiData.stations.map((s) => `• ${s.name} (${s.distance_km} km)`).join('\n')}`
+              : undefined
+          }
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: aqiData.stations?.length ? 'help' : 'default' }}
+        >
           <span style={{ color: '#0369a1', fontWeight: 700 }}>📍 Regional Air</span>
           <span style={{ color: '#475569' }}>
-            {aqiData.station_name || 'Anand Vihar / Sangrur Corridor'}
+            {aqiData.station_name || 'Ground Monitoring Station'}
           </span>
-          {aqiData.distance_km && (
+          {aqiData.distance_km ? (
             <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>
               ({aqiData.distance_km} km away)
+            </span>
+          ) : null}
+          {aqiData.stations && aqiData.stations.length > 1 && (
+            <span style={{ color: '#64748b', fontSize: '0.7rem', background: '#f1f5f9', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+              +{aqiData.stations.length - 1} more
             </span>
           )}
         </div>

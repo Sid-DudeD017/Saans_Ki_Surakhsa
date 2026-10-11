@@ -1,8 +1,5 @@
-import {
-  DETERMINISTIC_EVENT,
-  INITIAL_MOCK_NOTIFICATIONS,
-  MockNotification,
-} from './mockData';
+import { DETERMINISTIC_EVENT } from './mockData';
+import { notifications } from './notifications';
 
 /**
  * Saans Platform Unified API Client (P2-owned)
@@ -27,6 +24,7 @@ export interface AqiData {
   timestamp: string;
   station_name: string;
   distance_km: number;
+  stations?: { name: string; distance_km: number; source?: string }[];
 }
 
 export interface FireData {
@@ -95,9 +93,6 @@ export interface ComplaintResponse {
   message: string;
 }
 
-// In-memory mock notification store
-let notificationsStore: MockNotification[] = [...INITIAL_MOCK_NOTIFICATIONS];
-
 // Two places serve /v1/*: this Next.js site (air quality, fires, Shala, Ghar, the Kisan agent
 // forwarder) and Saans Command's API on AWS (uploads, complaints, cases), at
 // NEXT_PUBLIC_COMMAND_API_BASE_URL.
@@ -141,6 +136,7 @@ export async function getAqi(lat: number, lon: number): Promise<AqiData> {
             timestamp: d.data_timestamp,
             station_name: d.station_name || 'Ground Monitoring Station',
             distance_km: d.distance_km ?? 0,
+            stations: d.stations || [],
           };
         }
       }
@@ -223,24 +219,20 @@ export async function getSchoolAdvisory(
   };
 }
 
-/**
- * GET /v1/notifications
- */
-export async function getNotifications(): Promise<MockNotification[]> {
-  if (isMockMode()) {
-    return [...notificationsStore];
-  }
-
-  try {
-    const base = getSiteBaseUrl();
-    const res = await fetch(`${base}/v1/notifications`);
-    if (!res.ok) {
-      return [...notificationsStore];
-    }
-    return res.json();
-  } catch {
-    return [...notificationsStore];
-  }
+/** Tells the bell a report went in (lib/notifications.ts); the watcher follows it from there. */
+function announceReport(id: string) {
+  const short = id.replace(/^complaint-/, '').slice(0, 8).toUpperCase();
+  notifications.notify({
+    id: `report-${id}-received`,
+    title: { en: 'Report received', hi: 'शिकायत मिल गई', pa: 'ਸ਼ਿਕਾਇਤ ਮਿਲ ਗਈ' },
+    message: {
+      en: `Report ${short} is with the response desk. We'll tell you when an officer acts on it.`,
+      hi: `शिकायत ${short} जवाबी डेस्क के पास है। अधिकारी के कार्रवाई करते ही हम बताएँगे।`,
+      pa: `ਸ਼ਿਕਾਇਤ ${short} ਜਵਾਬੀ ਡੈਸਕ ਕੋਲ ਹੈ। ਅਧਿਕਾਰੀ ਦੇ ਕਾਰਵਾਈ ਕਰਦੇ ਹੀ ਅਸੀਂ ਦੱਸਾਂਗੇ।`,
+    },
+    severity: 'info',
+    href: '/shala?tab=report',
+  });
 }
 
 /**
@@ -344,16 +336,7 @@ export async function submitComplaint(
 
   if (isMockMode()) {
     const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newNotif: MockNotification = {
-      id: `notif_${Date.now()}`,
-      title: 'New Complaint Logged',
-      message: `Report filed for ${payload.category}: "${(payload.description || '').slice(0, 40)}..."`,
-      severity: 'info',
-      timestamp: 'Just now',
-      read: false,
-      sourceModule: 'shala',
-    };
-    notificationsStore = [newNotif, ...notificationsStore];
+    announceReport(ticketId);
 
     return {
       id: ticketId,
@@ -427,6 +410,8 @@ export async function submitComplaint(
       }
     } catch {}
   }
+
+  announceReport(data.id || ticketId);
 
   return {
     id: data.id || ticketId,
@@ -584,11 +569,3 @@ export async function getComplaintStatus(id: string): Promise<ComplaintStatusDat
   return res.json();
 }
 
-/**
- * Mark notification as read
- */
-export async function markNotificationRead(id: string): Promise<void> {
-  notificationsStore = notificationsStore.map((n) =>
-    n.id === id ? { ...n, read: true } : n
-  );
-}

@@ -4,7 +4,7 @@
 // (the default), the contract's own examples answer instead: Gurpreet's conversation, read back, filed.
 import type { components } from '../../../packages/contracts/types';
 import type { CoverageRequest, CoverageResponse } from './coverage';
-import { mockChcs, mockCoverage, mockGrievance, mockMessage, mockPhoto, mockPlan, mockStatus, mockTicketStatus, mockVoice } from './mock';
+import { mockChcs, mockCoverage, mockGrievance, mockMessage, mockPhoto, mockPlan, mockStatus, mockTicketSms, mockTicketStatus, mockVoice } from './mock';
 
 export type { CoverageRequest, CoverageResponse };
 
@@ -21,6 +21,7 @@ export type ChcsResponse = components['schemas']['ChcsResponse'];
 export type KisanGrievance = components['schemas']['KisanGrievance'];
 export type ComplaintResponse = components['schemas']['ComplaintResponse'];
 export type TicketStatus = components['schemas']['ComplaintStatus'];
+export type TicketSmsResponse = components['schemas']['TicketSmsResponse'];
 export type Language = 'pa' | 'hi' | 'en';
 
 /** One line of the read-back card (agent_kisan/readback.py). */
@@ -107,11 +108,19 @@ export function getCoverage(req: CoverageRequest): Promise<CoverageResponse> {
   return call('/v1/farm/coverage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
 }
 
-/** CHCs near the farm that have this machine, nearest first (K14's "Rent from a CHC"). */
-export function getChcs(where: { lat: number; lon: number } | { village: string }, machine: string, maxKm = 25): Promise<ChcsResponse> {
+/**
+ * CHCs near the farm that have this machine, nearest first (K14's "Rent from a CHC"). Given the farm's
+ * season, each machine also says how many days it's free in it and the first one.
+ */
+export function getChcs(
+  where: { lat: number; lon: number } | { village: string },
+  machine: string,
+  maxKm = 25,
+  season?: { harvest_date: string; wheat_deadline: string },
+): Promise<ChcsResponse> {
   if (USE_MOCKS) return mockChcs(machine);
   const q = new URLSearchParams({ machine, max_km: String(maxKm) });
-  for (const [k, v] of Object.entries(where)) q.set(k, String(v));
+  for (const [k, v] of Object.entries({ ...where, ...season })) q.set(k, String(v));
   return call(`/v1/chcs?${q}`);
 }
 
@@ -132,6 +141,19 @@ export function submitGrievance(body: KisanGrievance, idempotencyKey: string): P
 export function getTicketStatus(id: string): Promise<TicketStatus> {
   if (USE_MOCKS) return mockTicketStatus(id);
   return call(`/v1/complaints/${encodeURIComponent(id)}`, undefined, COMMAND_BASE);
+}
+
+/**
+ * The ticket number by SMS (K22). The agent texts it, so the farmer's number goes to Kisan and never to
+ * Command; it sends one SMS per ticket, for a farmer's complaint sent in the last half hour.
+ */
+export function textTicket(ticketId: string, phone: string, language: Language): Promise<TicketSmsResponse> {
+  if (USE_MOCKS) return mockTicketSms(ticketId, phone);
+  return call('/v1/agent/kisan/ticket-sms', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket_id: ticketId, phone, language }),
+  });
 }
 
 /** The zero-burn plan: CHC machines for the gap on dry days, and what's still short (K11). */

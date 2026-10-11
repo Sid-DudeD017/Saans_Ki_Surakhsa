@@ -39,7 +39,7 @@ export function Helplines({ district, language }: { district: string | null; lan
   );
 }
 
-function HelplineRow({ line, language }: { line: Helpline; language: Language }) {
+export function HelplineRow({ line, language }: { line: Helpline; language: Language }) {
   const [copied, setCopied] = useState(false);
   const red = '#b91c1c';
 

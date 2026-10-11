@@ -1,10 +1,12 @@
-// Saans Command's reads and writes for the console (P4), in p4-command.openapi.yaml's shapes. With
-// NEXT_PUBLIC_USE_MOCKS on (the default) they run on the example cases in mockCases.ts, through the same
-// rules the real API uses (but no sign-in: every example is shown); off, they call /v1/cases as the chosen
-// demo officer, and Cedar on the server decides what that officer sees.
+// Saans Command's reads and writes for the console (P4), in p4-command.openapi.yaml's shapes. Where Cognito
+// is set up (the AWS deployment), requests use a Cognito access token, and the API Gateway authorizer plus
+// Cedar decide what the signed-in officer may access. Without it (a developer's machine), or with
+// NEXT_PUBLIC_USE_MOCKS=true, the console runs locally with the demo sign-ins (citizen, or officer by PIN)
+// against the local stack.
 import officers from '../../../infra/config/officers.local.json';
 import type { components } from '../../../packages/contracts/types';
 import { nextStatus, type CaseAction } from '../../../services/command-api/caseRules';
+import { getCognitoAccessToken, isCognitoConfigured } from '../../lib/cognitoAuth';
 import { MOCK_CASES } from './mockCases';
 
 export type CaseSummary = components['schemas']['CaseSummary'];
@@ -13,8 +15,9 @@ export type CommandCase = components['schemas']['CommandCase'];
 export type CaseStatus = CommandCase['status'];
 export type { CaseAction };
 
-export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
-const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+/** The local console with demo sign-ins; false only where Cognito is configured and example mode is off. */
+export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === 'true' || !isCognitoConfigured();
+const BASE = (process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || '').replace(/\/$/, '');
 
 /** The console's role options: Officer and Citizen only */
 export const OFFICERS = [
@@ -24,7 +27,11 @@ export const OFFICERS = [
 export const DEFAULT_OFFICER = OFFICERS[0].token;
 
 export class ApiError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string) {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -40,18 +47,38 @@ export function getCitizenIdentity(): string {
 }
 
 async function call<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  if (!USE_MOCKS && !BASE) throw new ApiError(500, 'configuration_error', 'The Command API URL is not configured.');
+  const bearer = USE_MOCKS ? token : getCognitoAccessToken();
+  if (!bearer) throw new ApiError(401, 'authentication_required', 'Sign in with your officer account to continue.');
   const headers: Record<string, string> = {
     ...((init?.headers as Record<string, string>) || {}),
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${bearer}`,
   };
-  if (token === 'local-citizen-1') {
+  if (USE_MOCKS && token === 'local-citizen-1') {
     const customUser = typeof window !== 'undefined' ? sessionStorage.getItem('saans_view_citizen_id') : null;
     headers['x-user-id'] = customUser || getCitizenIdentity();
   }
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
   const body = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(res.status, body?.error?.code ?? 'error', body?.error?.message ?? res.statusText);
+  if (!res.ok) {
+    const code = body?.error?.code ?? (res.status === 401 ? 'authentication_required' : res.status === 403 ? 'forbidden' : 'error');
+    const message =
+      body?.error?.message ??
+      body?.message ??
+      (res.status === 401
+        ? 'Your officer session has expired. Sign in again.'
+        : res.status === 403
+          ? 'This account is not authorized for the Command console.'
+          : res.statusText);
+    throw new ApiError(res.status, code, message);
+  }
   return body as T;
+}
+
+export type OfficerIdentity = { subject: string; role: string; district: string };
+
+export function getOfficerIdentity(): Promise<OfficerIdentity> {
+  return call('/v1/officer/whoami', DEFAULT_OFFICER);
 }
 
 // ---- mock mode: a copy of the examples that actions change, as the database would ----
@@ -101,7 +128,7 @@ export async function listTickets(f: TicketFilters = {}, token = DEFAULT_OFFICER
   if (f.category) q.set('category', f.category);
   if (f.cursor) q.set('cursor', f.cursor);
   if (f.limit) q.set('limit', String(f.limit));
-  
+
   return call<{ tickets: any[]; next_cursor: string | null; total?: number }>(`/v1/tickets?${q}`, token);
 }
 

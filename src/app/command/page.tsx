@@ -5,12 +5,15 @@
 // /v1/cases from the local stack, signed in as one of the demo officers, so Cedar shows their district only.
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { BottomTabs, TabPanel, useUrlTab } from '../../components/BottomTabs';
 import { Alert, Badge, Card, Container } from '../../components/ui';
+import { SPACES } from '../../lib/space';
 import { useLanguage } from '../../lib/i18n';
 import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getTicket, listTickets, type CaseDetail, type CaseStatus } from './commandApi';
 import { translations, type Lang } from './i18n';
+import { LiveCommandPage } from './LiveCommandPage';
 
 const ALLOWED_OFFICER_IDS = new Set([
   '633870',
@@ -25,11 +28,25 @@ const STATUSES: [CaseStatus | '', string][] = [['OPEN', 'Open'], ['ACTION_APPROV
 const DISTRICTS = ['', 'Sangrur', 'Patiala', 'unassigned'];
 const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑️', vehicle: '🚚', firecrackers: '🎆', farmer_support: '🌾', kisan_grievance: '📣' };
 
-const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', minHeight: '44px' };
+const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', fontSize: '1rem', minHeight: '44px', fontFamily: 'inherit', background: '#ffffff' };
 
-export default function CommandPage() {
+const COMMAND_TABS = ['cases', 'map', 'case'] as const;
+const TAB_WORDS: Record<(typeof COMMAND_TABS)[number], { icon: string; label: Record<Lang, string> }> = {
+  cases: { icon: '📋', label: { en: 'Cases', hi: 'मामले', pa: 'ਮਾਮਲੇ' } },
+  map: { icon: '🗺️', label: { en: 'Map', hi: 'नक्शा', pa: 'ਨਕਸ਼ਾ' } },
+  case: { icon: '📁', label: { en: 'Case', hi: 'मामला', pa: 'ਮਾਮਲਾ' } },
+};
+const BAR_NAME: Record<Lang, string> = { en: 'Command sections', hi: 'कमांड के हिस्से', pa: 'ਕਮਾਂਡ ਦੇ ਹਿੱਸੇ' };
+
+function MockCommandPage() {
   const { language } = useLanguage();
   const lang: Lang = (language as Lang) || 'en';
+  // The app's bottom bar: the queue, the map, and the open case (src/components/BottomTabs.tsx).
+  const [tab, go] = useUrlTab(COMMAND_TABS);
+  const openCase = (id: string) => {
+    setSelected(id);
+    go('case');
+  };
   const [status, setStatus] = useState<string>('');
   const [category, setCategory] = useState('');
   const [queue, setQueue] = useState<{ tickets?: any[]; total?: number; error?: string }>({});
@@ -201,31 +218,17 @@ export default function CommandPage() {
   ];
 
   return (
-    <Container maxWidth="lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            <Badge variant="danger" size="md">P4 MODULE</Badge>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Saans Command · case console</span>
-          </div>
-          <h1 style={{ margin: '0.25rem 0', fontSize: '1.75rem', color: '#0f172a' }}>🛡️ {t.queue}</h1>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569' }}>{t.desc}</p>
-        </div>
-      </div>
+    <Container maxWidth="lg" style={{ paddingTop: '0.25rem', paddingBottom: '2rem' }}>
+      {/* The app header (src/components/AppHeader.tsx) names the page; demo banners are gone app-wide. */}
+      <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>{t.desc}</p>
 
-      {USE_MOCKS && (
-        <div style={{ marginBottom: '1rem' }}>
-          <Alert variant="info" title="Example cases">{t.mock}</Alert>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))', gap: '1rem', alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
+      <TabPanel id="cases" current={tab} prefix="command">
           <Card padding="md">
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-              {!USE_MOCKS && (
+              {/* The local console always offers the demo sign-ins: a citizen, or an officer with a PIN. Since #61
+                  it only shows in local mode, so the old "live only" condition hid them for good. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+                  <label style={{ fontSize: '0.95rem', color: '#334155' }}>
                     {t.signed_in}{' '}
                     <select
                       style={select}
@@ -252,7 +255,7 @@ export default function CommandPage() {
                         reload();
                       }}
                       style={{
-                        fontSize: '0.75rem',
+                        fontSize: '0.95rem',
                         padding: '0.2rem 0.5rem',
                         borderRadius: '0.375rem',
                         backgroundColor: (typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '#dbeafe' : '#f1f5f9',
@@ -272,7 +275,7 @@ export default function CommandPage() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.25rem',
-                        fontSize: '0.75rem',
+                        fontSize: '0.95rem',
                         padding: '0.25rem 0.5rem',
                         borderRadius: '0.375rem',
                         backgroundColor: '#e0f2fe',
@@ -285,20 +288,19 @@ export default function CommandPage() {
                     </span>
                   )}
                 </div>
-              )}
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+              <label style={{ fontSize: '0.95rem', color: '#334155' }}>
                 {t.status}{' '}
                 <select style={select} value={status} onChange={(e) => setStatus(e.target.value)}>
                   {STATUS_OPTS.map(([v, name]) => <option key={v} value={v}>{name}</option>)}
                 </select>
               </label>
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+              <label style={{ fontSize: '0.95rem', color: '#334155' }}>
                 {t.category}{' '}
                 <select style={select} value={category} onChange={(e) => setCategory(e.target.value)}>
                   {CAT_OPTS.map(([v, name]) => <option key={v} value={v}>{name}</option>)}
                 </select>
               </label>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{queue.tickets ? `${queue.total || tickets.length} ticket${tickets.length === 1 ? '' : 's'}` : t.loading}</span>
+              <span style={{ fontSize: '0.9rem', color: '#64748b' }}>{queue.tickets ? `${queue.total || tickets.length} ticket${tickets.length === 1 ? '' : 's'}` : t.loading}</span>
             </div>
             {queue.error && <Alert variant="danger" title="No queue">{queue.error}</Alert>}
             {queue.tickets && tickets.length === 0 && <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>{t.no_tickets}</p>}
@@ -317,7 +319,7 @@ export default function CommandPage() {
                 <li key={s.id}>
                   <button
                     type="button"
-                    onClick={() => setSelected(s.id)}
+                    onClick={() => openCase(s.id)}
                     aria-current={selected === s.id}
                     style={{
                       width: '100%', textAlign: 'left', display: 'grid', gap: '0.2rem', padding: '0.6rem 0.75rem', borderRadius: '0.6rem', cursor: 'pointer',
@@ -328,18 +330,18 @@ export default function CommandPage() {
                       <strong>{TYPE_ICONS[s.type] ?? '•'} {catName}{locText}</strong>
                       <span style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                         {s.total_reports > 1 && (
-                          <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
+                          <span style={{ fontSize: '0.9rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
                             👥 {s.total_reports} reports
                           </span>
                         )}
                         {s.threat_level && (
-                          <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
+                          <span style={{ fontSize: '0.95rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
                             {s.threat_level.toUpperCase()}
                           </span>
                         )}
                       </span>
                     </span>
-                    <span style={{ fontSize: '0.8rem', color: '#475569' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#475569' }}>
                       {s.help_request ? `🌾 ${t.help_request_badge} · ` : ''}
                       {statusName}
                       {' · '}{s.deadline ? `${t.sla} ${when(s.deadline)}` : `${t.created} ${new Date(s.created_at).toLocaleString()}`}
@@ -354,21 +356,36 @@ export default function CommandPage() {
               </div>
             )}
           </Card>
+      </TabPanel>
+
+      <TabPanel id="map" current={tab} prefix="command">
+          {tickets.length === 0 && <Card padding="lg"><p style={{ margin: 0, color: '#475569' }}>{t.pick_case}</p></Card>}
           {tickets.length > 0 && (
             <CaseMap
               title="Tickets on the map"
-              onPick={setSelected}
+              onPick={openCase}
               points={tickets.filter(t => t.location).map((s) => ({ id: s.id, label: `${s.type} · ${s.district}`, kind: s.status === 'closed' ? 'closed' : s.help_request ? 'help' : 'report', selected: s.id === selected, ...s.location }))}
             />
           )}
-        </div>
+      </TabPanel>
 
+      <TabPanel id="case" current={tab} prefix="command">
         <div style={{ minWidth: 0 }}>
           {!selected && <Card padding="lg"><p style={{ margin: 0, color: '#475569' }}>{t.pick_case}</p></Card>}
           {selected && detail.error && <Alert variant="danger" title="Couldn't open the case">{detail.error}</Alert>}
           {shown && <CaseDetailPanel key={`${shown.ticket.id}-${shown.ticket.status}`} detail={shown} officer={officer} lang={lang} onChanged={reload} />}
         </div>
-      </div>
+      </TabPanel>
+
+      <BottomTabs
+        tabs={COMMAND_TABS.map((id) => ({ id, icon: TAB_WORDS[id].icon, label: TAB_WORDS[id].label[lang] ?? TAB_WORDS[id].label.en }))}
+        current={tab}
+        onChange={go}
+        prefix="command"
+        label={BAR_NAME[lang] ?? BAR_NAME.en}
+        accent={SPACES.command.accent}
+        space="command"
+      />
 
       {/* Officer ID Verification Popup Modal */}
       {showOfficerModal && (
@@ -424,7 +441,7 @@ export default function CommandPage() {
               >
                 Officer Verification
               </h2>
-              <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.4 }}>
+              <p style={{ margin: '0 0 1rem', fontSize: '0.95rem', color: '#64748b', lineHeight: 1.4 }}>
                 Enter your authorized 6-digit Officer PIN to access the enforcement console.
               </p>
 
@@ -438,10 +455,10 @@ export default function CommandPage() {
                   textAlign: 'left',
                 }}
               >
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
                   Demo Prototype Access
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem' }}>
                   Use any of these authorized PIN values to log in:
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
@@ -478,7 +495,7 @@ export default function CommandPage() {
             <form onSubmit={handleVerifyOfficer}>
               <div style={{ marginBottom: '1rem' }}>
                 <label
-                  style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}
+                  style={{ display: 'block', fontSize: '0.95rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}
                 >
                   Officer PIN
                 </label>
@@ -558,4 +575,8 @@ export default function CommandPage() {
       )}
     </Container>
   );
+}
+
+export default function CommandPage() {
+  return USE_MOCKS ? <MockCommandPage /> : <LiveCommandPage />;
 }
