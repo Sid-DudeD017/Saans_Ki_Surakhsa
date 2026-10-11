@@ -5,7 +5,7 @@
 // complaints and their tickets. Every
 // tab shares the farm's location and profile, kept on the phone (farmProfile.ts). All tabs stay
 // mounted, so switching never loses a conversation or a photo half-way through.
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { Badge, Card, Container } from '../../components/ui';
 import { useLanguage } from '../../lib/i18n';
@@ -55,6 +55,15 @@ export default function KisanPage() {
   }, []);
   // A new conversation starts from what the farm card and machine photos already say (K9).
   const startFrom = useCallback(() => farmHint(farmStore.get()), []);
+  // "Ask Saathi to book it" on the Machines and Shop tabs: open the conversation and send the request there.
+  const [ask, setAsk] = useState<{ id: number; text: string } | null>(null);
+  const askSaathi = useCallback(
+    (text: string) => {
+      setAsk({ id: Date.now(), text });
+      go('plan');
+    },
+    [go],
+  );
 
   return (
     <Container maxWidth="md" style={{ paddingTop: '1.5rem', paddingBottom: '2rem', fontFamily: FONT }}>
@@ -73,19 +82,19 @@ export default function KisanPage() {
       <FarmLocationBar language={lang} />
 
       <Panel tab="plan" current={tab}>
-        <KisanChat onConfirmed={confirmed} farm={startFrom} />
+        <KisanChat onConfirmed={confirmed} farm={startFrom} ask={ask} />
       </Panel>
 
       <Panel tab="machines" current={tab}>
         <div style={{ display: 'grid', gap: '1rem' }}>
+          <MachineCheck language={lang} onGo={go} onAsk={askSaathi} />
           <FarmCard language={lang} />
           <MachinePhotos language={lang} />
-          <MachineCheck language={lang} onGo={go} />
         </div>
       </Panel>
 
       <Panel tab="shop" current={tab}>
-        <Shop language={lang} />
+        <Shop language={lang} onAsk={askSaathi} />
       </Panel>
 
       <Panel tab="help" current={tab}>

@@ -11,8 +11,8 @@ the deployed URL; only the cuts are edited.
 
 | Time | Picture | Sound | Subtitle (English) |
 |---|---|---|---|
-| +0–5 s | **Machines** tab. He photographs the Super Seeder; "Looks like a Super Seeder, 86% sure" with the chip already picked; he taps *Rented*, *2 days*, *Add*. "Work it out": the red **Not enough · 61%** card. | Shutter, then a soft tick | "His own machines clear 11 of 18 acres." |
-| +5–9 s | **Shop** tab. "Fits your farm" on the Happy Seeder card: "Clears your 7 acres left in about 1 day". Tap *Rent from a CHC*: Demo CHC A, 2 km. | — | "Rent before you burn." |
+| +0–5 s | **Machines** tab. He photographs the Super Seeder; "Looks like a Super Seeder, 86% sure" with the chip already picked; he taps *Rented*, *2 days*, *Add*. The red ring at the top fills to **61% · 7 acres not covered**, with "1.5 more days of the Super Seeder → 100%". | Shutter, then a soft tick | "His own machines clear 11 of 18 acres." |
+| +5–9 s | **Shop** tab (*Close the gap*). The **Best for you** card: *Rent a Super Seeder* from Demo CHC A, 2 km: 5.5 acres · ₹5,500 · 2 Nov. Tap *Ask Saathi to book it*: the request appears in the Plan conversation. | — | "Rent before you burn." |
 | +9–15 s | **Help** tab. "The CHC machine didn't come" → *Send complaint* → the green ticket card with its number. Cut to the officer console: a 📣 "Farmer's complaint" in Sangrur's queue. | Phone tap | "If help doesn't come, he has a ticket and a number to call." |
 
 ## Numbers on screen (all must match the live app)
@@ -21,7 +21,7 @@ the deployed URL; only the cuts are edited.
 |---|---|---|
 | Machine guess | Super Seeder, 86 % | Claude on Bedrock (`photo.py`); in demo mode the contract's example |
 | Coverage | 61 %, 11 of 18 acres, 7 left | coverage engine: Super Seeder 2 days × 5.5 acres/day |
-| Shop | Happy Seeder clears 7 acres in about 1 day | shop ranking on the same engine (7 acres/day) |
+| Shop | Best pick: Super Seeder from Demo CHC A, 5.5 acres for ₹5,500, free 2 Nov (the only free CHC day before 9 Nov) | CHC search with Gurpreet's season (`/v1/chcs`), rate after the CHC's subsidy; same booking as the Machines tab's plan |
 | Subsidy shown | up to ₹1,20,000 for a farmer buying a Super Seeder | CRM Operational Guidelines 2025, Annexure I |
 | Numbers to call | 112 · Chief Agriculture Officer Sangrur 01672-234220 · Kisan Call Centre 1800-180-1551 | `infra/config/helplines.json` (official sites, checked 10 Oct 2026) |
 
