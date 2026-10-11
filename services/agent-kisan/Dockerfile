@@ -19,6 +19,8 @@ RUN useradd --create-home --uid 10001 kisan
 WORKDIR /app
 COPY --from=build /app /app
 COPY data/seed /app/data/seed
+# The scripted stand-in, for an account where no language model is available (see deploy-ecs.sh KISAN_SCRIPTED).
+COPY services/agent-kisan/scripts/serve_scripted.py /app/scripts/serve_scripted.py
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     KISAN_CHC_SEED=/app/data/seed/chc_demo.json \

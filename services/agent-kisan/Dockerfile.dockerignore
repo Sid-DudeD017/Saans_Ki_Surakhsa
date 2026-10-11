@@ -4,5 +4,6 @@
 !services/agent-kisan/uv.lock
 !services/agent-kisan/src/**
 !data/seed/**
+!services/agent-kisan/scripts/serve_scripted.py
 **/__pycache__
 **/*.pyc

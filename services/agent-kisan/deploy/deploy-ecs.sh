@@ -13,6 +13,10 @@ SERVICE=saans-agent-kisan
 MODEL_ID=${KISAN_MODEL_ID:-in.anthropic.claude-opus-5}
 # Where the agent files complaints and looks up tickets (the SAM stack's ApiUrl).
 SAANS_API_URL=${SAANS_API_URL:-https://5qu2ontx1e.execute-api.ap-south-1.amazonaws.com/dev}
+# KISAN_SCRIPTED=1 runs scripts/serve_scripted.py instead of the agent: the same API with one scripted farmer
+# conversation in place of the language model, for a demo on an account where Bedrock serves no models.
+COMMAND=""
+[ "${KISAN_SCRIPTED:-}" = 1 ] && COMMAND=',"command":["python","scripts/serve_scripted.py","--host","0.0.0.0","--port","8080"]'
 # Whisper, the voices and the agent together need more than the default 1 vCPU / 2 GB.
 CPU=2048
 MEMORY=4096
@@ -55,7 +59,7 @@ docker push "$IMAGE"
 CONTAINER="{\"image\":\"$IMAGE\",\"containerPort\":8080,\"environment\":[
   {\"name\":\"KISAN_MODEL_ID\",\"value\":\"$MODEL_ID\"},
   {\"name\":\"KISAN_BEDROCK_REGION\",\"value\":\"$REGION\"},
-  {\"name\":\"SAANS_API_URL\",\"value\":\"$SAANS_API_URL\"}]}"
+  {\"name\":\"SAANS_API_URL\",\"value\":\"$SAANS_API_URL\"}]$COMMAND}"
 # Express Mode services live in the "default" cluster, which a fresh account doesn't have yet (creating it is
 # free, and does nothing when it exists).
 aws ecs create-cluster --region "$REGION" --cluster-name default >/dev/null
@@ -79,7 +83,12 @@ else
 fi
 echo "Service: $ARN"
 echo "Waiting for it to come up (a few minutes the first time)..."
-aws ecs monitor-express-gateway-service --region "$REGION" --service-arn "$ARN" || true
+# The monitor is an interactive screen (q to leave it); without a terminal, just wait for the rollout.
+if [ -t 1 ]; then
+  aws ecs monitor-express-gateway-service --region "$REGION" --service-arn "$ARN" || true
+else
+  aws ecs wait services-stable --region "$REGION" --cluster default --services "$SERVICE" || true
+fi
 
 URL=$(aws ecs describe-express-gateway-service --region "$REGION" --service-arn "$ARN" --output json |
   grep -oE '[A-Za-z0-9.-]+\.on\.aws' | head -1 || true)
