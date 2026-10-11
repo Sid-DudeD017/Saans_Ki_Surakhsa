@@ -102,24 +102,7 @@ export async function listTickets(f: TicketFilters = {}, token = DEFAULT_OFFICER
   if (f.cursor) q.set('cursor', f.cursor);
   if (f.limit) q.set('limit', String(f.limit));
   
-  try {
-    return await call<{ tickets: any[]; next_cursor: string | null; total?: number }>(`/v1/tickets?${q}`, token);
-  } catch (err: any) {
-    const mockTickets = mock.map((d) => ({
-      id: d.case.id,
-      type: d.type!,
-      district: d.report.district,
-      location: d.report.location,
-      status: d.case.status.toLowerCase(),
-      created_at: d.case.createdAt,
-      updated_at: d.case.updatedAt,
-      threat_level: 'medium',
-      reporters_count: d.reports,
-      description: d.case.recommendationReason,
-      evidence: [],
-    }));
-    return { tickets: mockTickets, next_cursor: null, total: mockTickets.length };
-  }
+  return call<{ tickets: any[]; next_cursor: string | null; total?: number }>(`/v1/tickets?${q}`, token);
 }
 
 export async function getCase(id: string, token = DEFAULT_OFFICER): Promise<CaseDetail> {
@@ -167,38 +150,13 @@ export async function actOnCase(id: string, input: ActionInput, token = DEFAULT_
 }
 
 export async function getTicket(id: string, token = DEFAULT_OFFICER): Promise<any> {
-  try {
-    const res = await call<{ ticket: any }>(`/v1/tickets/${encodeURIComponent(id)}`, token);
-    return res.ticket;
-  } catch (err: any) {
-    const found = mock.find((d) => d.case.id === id);
-    if (found) {
-      return {
-        id: found.case.id,
-        type: found.type!,
-        district: found.report.district,
-        location: found.report.location,
-        status: found.case.status.toLowerCase(),
-        created_at: found.case.createdAt,
-        updated_at: found.case.updatedAt,
-        threat_level: 'medium',
-        reporters_count: found.reports,
-        description: found.case.recommendationReason,
-        evidence: [],
-      };
-    }
-    throw err;
-  }
+  return call(`/v1/tickets/${encodeURIComponent(id)}`, token);
 }
 
 export async function actOnTicket(id: string, input: any, token = DEFAULT_OFFICER): Promise<any> {
-  try {
-    return await call(`/v1/tickets/${encodeURIComponent(id)}/actions`, token, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-  } catch (err: any) {
-    return { ok: true, status: input.action === 'resolve' ? 'resolved' : 'under_review' };
-  }
+  return call(`/v1/tickets/${encodeURIComponent(id)}/actions`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
 }
