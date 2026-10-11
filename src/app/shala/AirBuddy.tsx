@@ -72,7 +72,7 @@ export function AirBuddy({ category, language, aqi }: { category: Category; lang
         padding: '1rem',
         borderRadius: '1rem',
         background: colour.tint,
-        border: `1.5px solid ${colour.edge}`,
+        border: `2px solid ${colour.fill}`,
       }}
     >
       <svg viewBox="0 0 130 120" role="img" aria-label={label} style={{ width: '100%', height: 'auto', maxWidth: '9rem' }}>

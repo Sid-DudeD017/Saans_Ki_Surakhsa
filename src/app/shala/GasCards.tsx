@@ -18,7 +18,7 @@ function Card({ card, language }: { card: GasCard; language: Language }) {
         padding: '1rem',
         borderRadius: '0.75rem',
         background: '#ffffff',
-        border: card.dominant && colour ? `2px solid ${colour.edge}` : '1px solid #e2e8f0',
+        border: card.dominant && colour ? `2px solid ${colour.fill}` : '1px solid #e2e8f0',
         borderTop: `6px solid ${colour ? colour.fill : '#cbd5e1'}`,
       }}
     >

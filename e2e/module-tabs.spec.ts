@@ -42,10 +42,10 @@ test('Ghar ki Hawa: Air now, Rooms, What to do and Family', async ({ page }) => 
   await expect(page.locator('#ghar-panel-air')).toBeVisible();
   await expect(page.locator('#ghar-panel-rooms')).toBeHidden();
 
-  // "See every room →" on the home card goes to the Rooms tab.
-  await page.getByRole('button', { name: 'See every room →' }).click();
+  // "Review rooms →" on the indoor card goes to the Rooms tab.
+  await page.getByRole('button', { name: 'Review rooms →' }).click();
   await expect(page).toHaveURL(/tab=rooms/);
-  await expect(page.locator('#ghar-panel-rooms')).toContainText('Your rooms');
+  await expect(page.locator('#ghar-panel-rooms')).toContainText('Your Rooms');
   expect(await fitsTheScreen(page)).toBe(true);
 
   // Arrow keys move along the bar, as in any tab list.
