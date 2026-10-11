@@ -335,7 +335,11 @@ export async function submitComplaint(
 
   let citId = payload.reporter_identity;
   if (!citId && typeof window !== 'undefined') {
-    citId = localStorage.getItem('saans_citizen_auth') || 'citizen-1';
+    citId = localStorage.getItem('saans_citizen_auth') || undefined;
+    if (!citId) {
+      citId = 'citizen-' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('saans_citizen_auth', citId);
+    }
   }
 
   const body = {
@@ -368,6 +372,19 @@ export async function submitComplaint(
 
   const data = await res.json();
   const ticketId = data.ticket_id || data.id || `TKT-${Date.now()}`;
+
+  // Notify other tabs and windows immediately
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('saans_ticket_bump', String(Date.now()));
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('saans_channel');
+        bc.postMessage({ type: 'ticket_created', id: data.id || ticketId });
+        bc.close();
+      }
+    } catch {}
+  }
+
   return {
     id: data.id || ticketId,
     ticket_id: ticketId,

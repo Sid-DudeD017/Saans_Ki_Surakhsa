@@ -23,8 +23,11 @@ export function localDeps(): Promise<IntakeDeps> {
       now: () => new Date(),
       newId,
       startWorkflow: async (complaintId) => {
-        // Step Functions runs asynchronously too: the complaint is answered before its case exists.
-        void runIntake(deps, complaintId).catch((e) => console.error(`intake for ${complaintId} crashed`, e));
+        try {
+          await runIntake(deps, complaintId);
+        } catch (e) {
+          console.error(`intake for ${complaintId} crashed`, e);
+        }
       },
       fires: liveFires(),
       authz: localCedar,

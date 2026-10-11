@@ -165,33 +165,13 @@ async function checkFirms(deps: IntakeDeps, at: { lat: number; lon: number }, re
   return near ? { result: "match", observation: observationOf(near, at) } : { result: "none" };
 }
 
-/** The district whose outline (infra/config/districts.json, loaded by migrate) covers the report, or null. */
 async function districtOf(deps: IntakeDeps, complaintId: string): Promise<string | null> {
   const { rows } = await deps.db.query<{ name: string }>(
     `SELECT d.name FROM complaints c JOIN districts d ON ST_Covers(d.boundary, c.location)
       WHERE c.id = $1 ORDER BY d.name LIMIT 1`,
     [complaintId],
   );
-  if (rows[0]?.name) return rows[0].name;
-
-  try {
-    const locRes = await deps.db.query<{ lat: number; lon: number }>(
-      `SELECT ST_Y(location::geometry) as lat, ST_X(location::geometry) as lon FROM complaints WHERE id = $1`,
-      [complaintId]
-    );
-    if (locRes.rows[0]) {
-      const { lat, lon } = locRes.rows[0];
-      const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}`, { signal: AbortSignal.timeout(3000) });
-      if (r.ok) {
-        const data = await r.json();
-        return data.locality || data.city || data.principalSubdivision || null;
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
+  return rows[0]?.name ?? null;
 }
 
 export async function triage(deps: IntakeDeps, input: IntakeState): Promise<IntakeState> {

@@ -922,6 +922,17 @@ export function ReportSheet({
     }
   };
 
+  useEffect(() => {
+    if (!inspectingReport) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await getComplaintStatus(inspectingReport.id);
+        setLiveStatus(data);
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [inspectingReport]);
+
   const selectedTile = TILES.find((t) => t.type === selectedType);
   const placeLabel =
     currentLabel ||

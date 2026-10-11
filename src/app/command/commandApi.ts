@@ -29,8 +29,25 @@ export class ApiError extends Error {
   }
 }
 
+export function getCitizenIdentity(): string {
+  if (typeof window === 'undefined') return 'citizen-1';
+  let id = localStorage.getItem('saans_citizen_auth');
+  if (!id) {
+    id = 'citizen-' + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('saans_citizen_auth', id);
+  }
+  return id;
+}
+
 async function call<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` } });
+  const headers: Record<string, string> = {
+    ...((init?.headers as Record<string, string>) || {}),
+    Authorization: `Bearer ${token}`,
+  };
+  if (token === 'local-citizen-1') {
+    headers['x-user-id'] = getCitizenIdentity();
+  }
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, body?.error?.code ?? 'error', body?.error?.message ?? res.statusText);
   return body as T;

@@ -94,9 +94,11 @@ export default function CommandPage() {
     setOfficerInputId('');
   };
 
-  const fetchTickets = (cursor?: string) => {
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
+
+  const fetchTickets = useCallback((cursor?: string) => {
     return listTickets({ status: status || undefined, category: category || undefined, cursor }, officer);
-  };
+  }, [status, category, officer]);
 
   useEffect(() => {
     let on = true;
@@ -105,7 +107,55 @@ export default function CommandPage() {
       (e: Error) => { if (on) setQueue({ error: e.message }); }
     );
     return () => { on = false; };
-  }, [status, category, officer, reloads]);
+  }, [fetchTickets, reloads]);
+
+  // Real-time background polling every 2.5s so newly submitted reports show up immediately
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchTickets().then(
+        (res) => {
+          setQueue((prev) => {
+            const prevIds = (prev.tickets || []).map((t: any) => `${t.id}-${t.status}`).join(',');
+            const nextIds = (res.tickets || []).map((t: any) => `${t.id}-${t.status}`).join(',');
+            if (prevIds !== nextIds || prev.total !== res.total) {
+              return { tickets: res.tickets, total: res.total };
+            }
+            return prev;
+          });
+        },
+        () => {}
+      );
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [fetchTickets]);
+
+  // Instant cross-tab, cross-window, and focus synchronization
+  useEffect(() => {
+    const handleSync = () => reload();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reload();
+    });
+
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel('saans_channel');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'ticket_created' || event.data?.type === 'report_submitted') {
+            reload();
+          }
+        };
+      } catch {}
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+      if (bc) bc.close();
+    };
+  }, [reload]);
 
   const loadMore = useCallback(async () => {
     if (!nextCursor) return;
@@ -116,7 +166,7 @@ export default function CommandPage() {
     } catch (e: any) {
       alert(e.message);
     }
-  }, [nextCursor, status, category, officer]);
+  }, [nextCursor, fetchTickets]);
 
   useEffect(() => {
     if (!selected) return;
@@ -129,8 +179,6 @@ export default function CommandPage() {
       on = false;
     };
   }, [selected, officer, reloads]);
-
-  const reload = useCallback(() => setReloads((n) => n + 1), []);
   const tickets = queue.tickets ?? [];
   const shown = selected && detail.ticket?.id === selected ? detail : null;
   const t = translations[lang];
