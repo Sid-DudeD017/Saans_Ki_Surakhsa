@@ -145,6 +145,14 @@ Resources:
           - GET
           - POST
           - OPTIONS
+        # Without these the browser's preflight fails: a complaint sends Content-Type and Idempotency-Key, the
+        # console Authorization and (for a citizen) X-User-Id, and the app showed "Can't reach" for all of them.
+        AllowHeaders:
+          - content-type
+          - authorization
+          - idempotency-key
+          - x-user-id
+        MaxAge: 600
       Auth:
         Authorizers:
           CustomAuthorizer:

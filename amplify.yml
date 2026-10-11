@@ -6,7 +6,9 @@ frontend:
         - npm ci
     build:
       commands:
-        - env | grep -E '^(NASA_FIRMS_MAP_KEY|OPENAQ_API_KEY|CPCB_API_KEY|WAQI_TOKEN)=' >> .env.production || true
+        # Amplify gives server routes only what's written here: the database and the Kisan agent too, or
+        # /v1/tickets, /v1/complaints and /v1/agent/kisan fall back to localhost and fail.
+        - env | grep -E '^(NASA_FIRMS_MAP_KEY|OPENAQ_API_KEY|CPCB_API_KEY|WAQI_TOKEN|SAANS_DATABASE_URL|KISAN_AGENT_URL)=' >> .env.production || true
         - npm run build
   artifacts:
     baseDirectory: .next
