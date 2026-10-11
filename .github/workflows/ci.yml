@@ -16,6 +16,30 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: saans
+          POSTGRES_PASSWORD: saans
+          POSTGRES_DB: saans
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U saans -d saans"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      localstack:
+        # The last LocalStack release that runs without an account token; see infra/compose.yaml.
+        image: localstack/localstack:4.14.0
+        env:
+          SERVICES: s3
+          AWS_DEFAULT_REGION: ap-south-1
+          S3_SKIP_SIGNATURE_VALIDATION: "0"
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd "curl -sf http://127.0.0.1:4566/_localstack/health"
+          --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
