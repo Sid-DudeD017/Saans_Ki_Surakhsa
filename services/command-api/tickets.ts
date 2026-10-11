@@ -72,16 +72,23 @@ export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: s
   `, [id]);
   if (res.rows.length === 0) throw new TicketError("not_found", "Ticket not found");
   const raw = res.rows[0];
+
+  // Fetch all reports attached to this case (both primary complaint and merged complaints)
+  const allReportsRes = await db.query<{ id: string; body: any; received_at: string }>(`
+    SELECT comp.id, comp.body, comp.received_at
+    FROM complaints comp
+    WHERE comp.id = $2
+       OR comp.id IN (SELECT cr.complaint_id FROM case_reports cr WHERE cr.case_id = $1)
+    ORDER BY comp.received_at ASC
+  `, [id, raw.complaint_id]);
+
   if (!isOfficer && user && raw.reporter_identity !== user) {
-    const mergedCheck = await db.query(
-      `SELECT 1 FROM case_reports cr
-       JOIN complaints comp ON comp.id = cr.complaint_id
-       WHERE cr.case_id = $1 AND comp.body->>'reporter_identity' = $2 LIMIT 1`,
-      [id, user]
-    );
-    if (mergedCheck.rows.length === 0) {
+    const userReport = allReportsRes.rows.find((r) => r.body?.reporter_identity === user);
+    if (!userReport) {
       throw new TicketError("forbidden", "Access restricted");
     }
+    // Citizen sees their OWN report details
+    raw.complaint_body = userReport.body;
   }
   if (isOfficer && officerDistrict && officerDistrict !== "*" && raw.district && raw.district !== officerDistrict) {
     throw new TicketError("forbidden", "Access restricted to officer district");
@@ -89,6 +96,15 @@ export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: s
   const history = await getTicketHistory(db, id);
   const ticket = mapCaseToTicket(raw, isOfficer, user);
   ticket.status_history = history;
+  ticket.total_reports = allReportsRes.rows.length;
+  ticket.all_reports = allReportsRes.rows.map((r) => ({
+    id: r.id,
+    reporter_identity: isOfficer ? (r.body?.reporter_identity || 'anonymous') : (r.body?.reporter_identity === user ? user : 'Citizen report'),
+    description: r.body?.description || '',
+    evidence: r.body?.evidence || [],
+    received_at: r.received_at,
+    is_primary: r.id === raw.complaint_id,
+  }));
   return ticket;
 }
 
@@ -105,14 +121,31 @@ export async function listTickets(
     officerDistrict?: string;
   }
 ) {
-  let query = `
-    SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
-           comp.body as complaint_body
-    FROM cases c
-    LEFT JOIN complaints comp ON comp.id = c.complaint_id
-    WHERE 1=1
-  `;
   const params: any[] = [];
+  let query = "";
+  if (filters.citizenId) {
+    params.push(filters.citizenId);
+    query = `
+      SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
+             COALESCE(
+               (SELECT comp2.body FROM case_reports cr 
+                JOIN complaints comp2 ON comp2.id = cr.complaint_id 
+                WHERE cr.case_id = c.id AND comp2.body->>'reporter_identity' = $1 LIMIT 1),
+               comp.body
+             ) as complaint_body
+      FROM cases c
+      LEFT JOIN complaints comp ON comp.id = c.complaint_id
+      WHERE 1=1
+    `;
+  } else {
+    query = `
+      SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
+             comp.body as complaint_body
+      FROM cases c
+      LEFT JOIN complaints comp ON comp.id = c.complaint_id
+      WHERE 1=1
+    `;
+  }
   let countQuery = "SELECT COUNT(*) FROM cases c WHERE 1=1";
   const countParams: any[] = [];
 

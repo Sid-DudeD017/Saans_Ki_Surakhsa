@@ -237,7 +237,7 @@ async function sameIncident(deps: IntakeDeps, complaintId: string): Promise<{ ca
   const { rows } = await deps.db.query<{ case_id: string; distance_m: number }>(
     `SELECT c.id AS case_id, ST_Distance(c.location, me.location) AS distance_m
        FROM complaints me
-       JOIN cases c ON c.type = me.type AND c.status <> 'CLOSED' AND ST_DWithin(c.location, me.location, $2)
+       JOIN cases c ON c.type = me.type AND c.status NOT IN ('CLOSED', 'RESOLVED', 'closed', 'resolved') AND ST_DWithin(c.location, me.location, $2)
        JOIN complaints first ON first.id = c.complaint_id
       WHERE me.id = $1 AND first.id <> me.id
         AND first.received_at BETWEEN me.received_at - make_interval(secs => $3) AND me.received_at + make_interval(secs => $3)

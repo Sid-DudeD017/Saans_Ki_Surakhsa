@@ -543,6 +543,53 @@ export function CaseDetailPanel({
             </div>
           )}
         </div>
+
+        {/* Merged Incident Reports */}
+        {t.all_reports && t.all_reports.length > 1 && (
+          <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
+                👥 {!isCitizen ? `All Incident Reports (${t.all_reports.length})` : `Combined Area Incident (${t.all_reports.length} reports)`}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                Merged within 500m
+              </span>
+            </div>
+            {!isCitizen ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {t.all_reports.map((rep: any, idx: number) => {
+                  const { customNote: repNote } = parseReportDetails(rep.description);
+                  return (
+                    <div
+                      key={rep.id || idx}
+                      style={{
+                        padding: '0.6rem 0.8rem',
+                        borderRadius: '0.5rem',
+                        backgroundColor: rep.is_primary ? '#eff6ff' : '#f8fafc',
+                        border: rep.is_primary ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.75rem', color: '#64748b' }}>
+                        <span style={{ fontWeight: 600, color: rep.is_primary ? '#1d4ed8' : '#475569' }}>
+                          {rep.reporter_identity} {rep.is_primary ? '★ Primary report' : '↳ Additional report'}
+                        </span>
+                        <span>{when(rep.received_at, lang)}</span>
+                      </div>
+                      <div style={{ color: repNote ? '#0f172a' : '#94a3b8', fontStyle: repNote ? 'normal' : 'italic' }}>
+                        {repNote || 'No custom note attached'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8rem', color: '#475569', backgroundColor: '#f1f5f9', padding: '0.6rem 0.8rem', borderRadius: '0.375rem', lineHeight: 1.4 }}>
+                ℹ️ Multiple citizens in your area reported this incident. Your report was linked with {t.all_reports.length - 1} other report(s) so authorities can respond swiftly.
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* 3. Location Map Card */}
