@@ -11,7 +11,13 @@ const TEST_URL = DEV_URL.replace(/\/saans$/, `/${TEST_DB}`);
 export async function setup() {
   // Connect to the default DB to create the test DB
   const admin = new pg.Client({ connectionString: DEV_URL });
-  await admin.connect();
+  try {
+    await admin.connect();
+  } catch {
+    // If PostgreSQL is not running (e.g. CI build-and-test job), skip test DB setup
+    return;
+  }
+
   try {
     // Drop and recreate to start fresh
     await admin.query(`DROP DATABASE IF EXISTS "${TEST_DB}"`);
@@ -22,11 +28,13 @@ export async function setup() {
 
   // Enable PostGIS in the test DB
   const test = new pg.Client({ connectionString: TEST_URL });
-  await test.connect();
   try {
+    await test.connect();
     await test.query(`CREATE EXTENSION IF NOT EXISTS postgis`);
+  } catch {
+    // Skip if postgis extension cannot be created
   } finally {
-    await test.end();
+    await test.end().catch(() => {});
   }
 
   // Override for all test workers
@@ -36,7 +44,12 @@ export async function setup() {
 export async function teardown() {
   // Drop the test DB
   const admin = new pg.Client({ connectionString: DEV_URL });
-  await admin.connect();
+  try {
+    await admin.connect();
+  } catch {
+    return;
+  }
+
   try {
     // Force-terminate any lingering connections
     await admin.query(`
