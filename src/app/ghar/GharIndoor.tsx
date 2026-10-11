@@ -4,8 +4,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 
 import { type IndoorEstimate, type IndoorRequest, type PlanItem } from '../../../packages/aqi/indoor';
 import { INDOOR_DEFAULTS } from '../../../packages/aqi/indoorDefaults';
-import { Button, Card } from '../../components/ui';
-import { getIndoorEstimate } from './gharApi';
+import { Button, Card, Badge } from '../../components/ui';
+import { USE_MOCKS, getIndoorEstimate } from './gharApi';
 import { IndoorChart } from './IndoorChart';
 import { getAqi, type AqiData } from '../../lib/api';
 import { useLanguage } from '../../lib/i18n';
@@ -30,7 +30,7 @@ const GHAR_TABS = ['air', 'rooms', 'plan', 'family'] as const;
 type GharTab = (typeof GHAR_TABS)[number];
 const TEAL = '#0d9488';
 const GHAR_TAB_LABELS: Record<GharTab, { icon: string; label: Record<'pa' | 'hi' | 'en', string> }> = {
-  air: { icon: '🌤️', label: { pa: 'ਹੁਣ ਦੀ ਹਵਾ', hi: 'अभी की हवा', en: 'Air now' } },
+  air: { icon: '🌫️', label: { pa: 'ਹੁਣ ਦੀ ਹਵਾ', hi: 'अभी की हवा', en: 'Air now' } },
   rooms: { icon: '🚪', label: { pa: 'ਕਮਰੇ', hi: 'कमरे', en: 'Rooms' } },
   plan: { icon: '✅', label: { pa: 'ਕੀ ਕਰੀਏ', hi: 'क्या करें', en: 'What to do' } },
   family: { icon: '👨‍👩‍👧', label: { pa: 'ਪਰਿਵਾਰ', hi: 'परिवार', en: 'Family' } },
@@ -260,6 +260,12 @@ export function GharIndoor() {
         <FamilyDay rooms={home.rooms} estimates={estimates} />
       </TabPanel>
       
+      {USE_MOCKS && (
+        <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+          {t.ghar.exampleAir}
+        </p>
+      )}
+
       <BottomTabs tabs={tabItems} current={tab} onChange={go} prefix="ghar" label={GHAR_TABS_NAME[lang]} accent={TEAL} space="ghar" />
     </div>
   );
