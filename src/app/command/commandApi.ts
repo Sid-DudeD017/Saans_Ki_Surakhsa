@@ -16,8 +16,11 @@ export type { CaseAction };
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
 
-/** The local stack's demo officers (non-production; Cognito replaces them at G7). */
-export const OFFICERS = officers.officers.map(({ token, name, district }) => ({ token, name, district }));
+/** The console's role options: Officer and Citizen only */
+export const OFFICERS = [
+  { token: 'local-state-command', name: 'Officer', role: 'supervisor', district: '*' },
+  { token: 'local-citizen-1', name: 'Citizen', role: 'citizen', district: 'Sangrur' },
+];
 export const DEFAULT_OFFICER = OFFICERS[0].token;
 
 export class ApiError extends Error {

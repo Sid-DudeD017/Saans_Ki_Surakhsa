@@ -258,6 +258,21 @@ export const REPORT_I18N = {
     hi: 'स्कूल की लोकेशन चुनें',
     en: 'Use school location',
   },
+  useCurrentLocationBtn: {
+    pa: '🎯 ਮੇਰੀ ਮੌਜੂਦਾ ਲੋਕੇਸ਼ਨ ਵਰਤੋ',
+    hi: '🎯 मेरी लाइव लोकेशन इस्तेमाल करें',
+    en: '🎯 Use my current location',
+  },
+  locatingBtn: {
+    pa: '⏳ ਲੋਕੇਸ਼ਨ ਲੱਭ ਰਿਹਾ ਹੈ...',
+    hi: '⏳ लोकेशन खोजी जा रही है...',
+    en: '⏳ Locating you...',
+  },
+  locationDeniedAlert: {
+    pa: 'ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਲੋਕੇਸ਼ਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ।',
+    hi: 'कृपया अपने ब्राउज़र में लोकेशन की अनुमति दें।',
+    en: 'Please allow location access in your browser settings.',
+  },
   step3Title: {
     pa: 'ਵੇਰਵੇ',
     hi: 'विवरण',
@@ -528,12 +543,77 @@ export function ReportSheet({
   const [statusError, setStatusError] = useState<string | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [mapCenter, setMapCenter] = useState<LatLon>(initialLocation);
+  const [zoom, setZoom] = useState<number>(13);
+  const [accuracyM, setAccuracyM] = useState<number | undefined>(initialLocation.accuracyM);
+  const [isLocating, setIsLocating] = useState(false);
+  const [currentLabel, setCurrentLabel] = useState<string>(
+    initialLocation.label || (language === 'pa' ? 'ਸੰਗਰੂਰ' : language === 'hi' ? 'संगरूर' : 'Sangrur')
+  );
   const [prevLoc, setPrevLoc] = useState({ lat: initialLocation.lat, lon: initialLocation.lon });
   if (prevLoc.lat !== initialLocation.lat || prevLoc.lon !== initialLocation.lon) {
     setPrevLoc({ lat: initialLocation.lat, lon: initialLocation.lon });
+    setMapCenter(initialLocation);
     setPin({ lat: initialLocation.lat, lon: initialLocation.lon });
     setMapOffset({ x: 0, y: 0 });
+    setAccuracyM(initialLocation.accuracyM);
+    setCurrentLabel(initialLocation.label || (language === 'pa' ? 'ਸੰਗਰੂਰ' : language === 'hi' ? 'संगरूर' : 'Sangrur'));
   }
+
+  const handleUseCurrentLocation = React.useCallback(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert(
+        language === 'pa'
+          ? 'ਤੁਹਾਡਾ ਬ੍ਰਾਊਜ਼ਰ ਲੋਕੇਸ਼ਨ ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦਾ।'
+          : language === 'hi'
+          ? 'आपका ब्राउज़र लोकेशन का समर्थन नहीं करता।'
+          : 'Geolocation is not supported by your browser.'
+      );
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Math.round(pos.coords.latitude * 10000) / 10000;
+        const lon = Math.round(pos.coords.longitude * 10000) / 10000;
+        const acc = Math.round(pos.coords.accuracy);
+        setMapCenter({ lat, lon });
+        setPin({ lat, lon });
+        setMapOffset({ x: 0, y: 0 });
+        setAccuracyM(acc);
+        setCurrentLabel(
+          language === 'pa'
+            ? 'ਮੌਜੂਦਾ ਸਥਿਤੀ'
+            : language === 'hi'
+            ? 'वर्तमान स्थान'
+            : 'Current Location'
+        );
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn('Geolocation query failed or denied:', err);
+        setIsLocating(false);
+        alert(REPORT_I18N.locationDeniedAlert[language]);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }, [language]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return;
+    if (Math.abs(initialLocation.lat - 30.245) < 0.001 && Math.abs(initialLocation.lon - 75.842) < 0.001) {
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions
+          .query({ name: 'geolocation' })
+          .then((status) => {
+            if (status.state === 'granted') {
+              handleUseCurrentLocation();
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [initialLocation.lat, initialLocation.lon, handleUseCurrentLocation]);
 
   const fileInputId = useId();
 
@@ -707,8 +787,7 @@ export function ReportSheet({
   };
 
   // Map Dragging and Pin Drop
-  const ZOOM = 12;
-  const tiles = tilesAround(initialLocation, ZOOM, 2);
+  const tiles = tilesAround(mapCenter, zoom, 320);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(true);
@@ -726,11 +805,11 @@ export function ReportSheet({
     const dx = e.clientX - dragStartRef.current.clientX;
     const dy = e.clientY - dragStartRef.current.clientY;
 
-    const newX = Math.max(-140, Math.min(140, dragStartRef.current.startX + dx));
-    const newY = Math.max(-140, Math.min(140, dragStartRef.current.startY + dy));
+    const newX = Math.max(-200, Math.min(200, dragStartRef.current.startX + dx));
+    const newY = Math.max(-100, Math.min(100, dragStartRef.current.startY + dy));
 
     setMapOffset({ x: newX, y: newY });
-    const updated = unprojectOffset(initialLocation, newX, newY, ZOOM);
+    const updated = unprojectOffset(mapCenter, newX, newY, zoom);
     setPin(updated);
   };
 
@@ -749,11 +828,11 @@ export function ReportSheet({
     const clickX = e.clientX - rect.left - rect.width / 2;
     const clickY = e.clientY - rect.top - rect.height / 2;
 
-    const clampedX = Math.max(-140, Math.min(140, clickX));
-    const clampedY = Math.max(-140, Math.min(140, clickY));
+    const clampedX = Math.max(-200, Math.min(200, clickX));
+    const clampedY = Math.max(-100, Math.min(100, clickY));
     setMapOffset({ x: clampedX, y: clampedY });
 
-    const updated = unprojectOffset(initialLocation, clampedX, clampedY, ZOOM);
+    const updated = unprojectOffset(mapCenter, clampedX, clampedY, zoom);
     setPin(updated);
   };
 
@@ -845,6 +924,7 @@ export function ReportSheet({
 
   const selectedTile = TILES.find((t) => t.type === selectedType);
   const placeLabel =
+    currentLabel ||
     initialLocation.label ||
     (language === 'pa' ? 'ਸੰਗਰੂਰ' : language === 'hi' ? 'संगरूर' : 'Sangrur');
 
@@ -1259,27 +1339,42 @@ export function ReportSheet({
                   <div style={{ fontSize: '0.8125rem', color: '#334155', fontWeight: 600 }}>
                     {REPORT_I18N.pinLocationLabel[language]}: <code>{pin.lat.toFixed(4)}°N, {pin.lon.toFixed(4)}°E</code>
                   </div>
-                  {initialLocation.accuracyM && (
+                  {accuracyM && (
                     <Badge variant="neutral" size="sm">
-                      {REPORT_I18N.deviceAccuracyLabel[language]} ±{initialLocation.accuracyM} m
+                      {REPORT_I18N.deviceAccuracyLabel[language]} ±{accuracyM} m
                     </Badge>
                   )}
                 </div>
 
-                {/* Optional School Fallback button */}
-                {schoolLocation && (
+                {/* Location Selection Controls */}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <Button
                     size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setPin({ lat: schoolLocation.lat, lon: schoolLocation.lon });
-                      setMapOffset({ x: 0, y: 0 });
-                    }}
-                    style={{ minHeight: '44px', width: '100%' }}
+                    variant="primary"
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLocating}
+                    style={{ minHeight: '44px', flex: '1 1 180px' }}
                   >
-                    🏫 {REPORT_I18N.useSchoolLocationBtn[language]}: {schoolLocation.label}
+                    {isLocating
+                      ? REPORT_I18N.locatingBtn[language]
+                      : REPORT_I18N.useCurrentLocationBtn[language]}
                   </Button>
-                )}
+                  {schoolLocation && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setMapCenter({ lat: schoolLocation.lat, lon: schoolLocation.lon });
+                        setPin({ lat: schoolLocation.lat, lon: schoolLocation.lon });
+                        setMapOffset({ x: 0, y: 0 });
+                        setCurrentLabel(schoolLocation.label);
+                      }}
+                      style={{ minHeight: '44px', flex: '1 1 180px' }}
+                    >
+                      🏫 {REPORT_I18N.useSchoolLocationBtn[language]}: {schoolLocation.label}
+                    </Button>
+                  )}
+                </div>
 
                 {/* Interactive Draggable Pin Map Viewport */}
                 <div
@@ -1302,65 +1397,172 @@ export function ReportSheet({
                   role="region"
                   aria-label="Map to select smoke location"
                 >
-                  {/* Background raster tile grid */}
+                  {/* Background raster tile grid using CartoDB Voyager (OSM-based, free, no 403 block) */}
                   <div
                     style={{
                       position: 'absolute',
                       top: '50%',
                       left: '50%',
-                      transform: `translate(-50%, -50%) translate(${mapOffset.x}px, ${mapOffset.y}px)`,
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(5, 64px)',
-                      gridTemplateRows: 'repeat(5, 64px)',
-                      opacity: 0.85,
+                      width: 0,
+                      height: 0,
                       pointerEvents: 'none',
                     }}
                   >
-                    {tiles.slice(0, 25).map((t, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          width: '64px',
-                          height: '64px',
-                          border: '1px solid #94a3b8',
-                          backgroundColor: idx % 2 === 0 ? '#cbd5e1' : '#e2e8f0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.65rem',
-                          color: '#64748b',
-                        }}
-                      >
-                        {idx === 12 ? '📍' : ''}
-                      </div>
-                    ))}
+                    {tiles.map((t) => {
+                      const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_4grj_1_dbbc20a1247c6aa97594b98a';
+                      return (
+                        <img
+                          key={`${t.z}/${t.x}/${t.y}`}
+                          src={`https://basemaps.cartocdn.com/rastertiles/voyager/${t.z}/${t.x}/${t.y}.png?key=${cartoKey}`}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          style={{
+                            position: 'absolute',
+                            left: `${t.left}px`,
+                            top: `${t.top}px`,
+                            width: '256px',
+                            height: '256px',
+                            maxWidth: 'none',
+                            userSelect: 'none',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      );
+                    })}
                   </div>
 
-                  {/* Center Crosshair Marker */}
+                  {/* Draggable Pin Marker */}
                   <div
                     style={{
                       position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
+                      top: `calc(50% + ${mapOffset.y}px)`,
+                      left: `calc(50% + ${mapOffset.x}px)`,
+                      transform: 'translate(-50%, -85%)',
                       pointerEvents: 'none',
-                      zIndex: 2,
+                      zIndex: 10,
+                      transition: isDragging ? 'none' : 'transform 0.1s ease',
                     }}
                   >
                     <div
                       style={{
                         position: 'relative',
-                        width: '32px',
-                        height: '32px',
+                        width: '36px',
+                        height: '36px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
                     >
-                      <span style={{ fontSize: '2rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
+                      <span
+                        style={{
+                          fontSize: '2.2rem',
+                          lineHeight: 1,
+                          filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.35))',
+                        }}
+                      >
                         📍
                       </span>
                     </div>
+                  </div>
+
+                  {/* Zoom In / Out Controls */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '0.5rem',
+                      right: '0.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      zIndex: 12,
+                      backgroundColor: '#ffffff',
+                      borderRadius: '0.375rem',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      overflow: 'hidden',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      title="Zoom in"
+                      aria-label="Zoom in"
+                      onClick={() => {
+                        if (zoom < 16) {
+                          const nextZoom = zoom + 1;
+                          setZoom(nextZoom);
+                          const pProj = project(pin, nextZoom);
+                          const cProj = project(mapCenter, nextZoom);
+                          setMapOffset({ x: pProj.x - cProj.x, y: pProj.y - cProj.y });
+                        }
+                      }}
+                      disabled={zoom >= 16}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        border: 'none',
+                        background: '#ffffff',
+                        cursor: zoom >= 16 ? 'not-allowed' : 'pointer',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        color: '#1e293b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderBottom: '1px solid #e2e8f0',
+                      }}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      title="Zoom out"
+                      aria-label="Zoom out"
+                      onClick={() => {
+                        if (zoom > 10) {
+                          const nextZoom = zoom - 1;
+                          setZoom(nextZoom);
+                          const pProj = project(pin, nextZoom);
+                          const cProj = project(mapCenter, nextZoom);
+                          setMapOffset({ x: pProj.x - cProj.x, y: pProj.y - cProj.y });
+                        }
+                      }}
+                      disabled={zoom <= 10}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        border: 'none',
+                        background: '#ffffff',
+                        cursor: zoom <= 10 ? 'not-allowed' : 'pointer',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        color: '#1e293b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      −
+                    </button>
+                  </div>
+
+                  {/* OSM Attribution */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '0.35rem',
+                      right: '0.5rem',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      padding: '0.1rem 0.35rem',
+                      borderRadius: '0.25rem',
+                      fontSize: '0.65rem',
+                      color: '#475569',
+                      zIndex: 10,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    © OpenStreetMap © CARTO
                   </div>
 
                   {/* Floating drag instruction badge */}
@@ -1378,10 +1580,14 @@ export function ReportSheet({
                       fontWeight: 600,
                       pointerEvents: 'none',
                       whiteSpace: 'nowrap',
-                      zIndex: 3,
+                      zIndex: 11,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                     }}
                   >
-                    👆 {REPORT_I18N.step2Instruction[language]}
+                    <span>👆 {REPORT_I18N.step2Instruction[language]}</span>
                   </div>
                 </div>
 

@@ -3,6 +3,8 @@ import { localDeps } from "../../../../../../services/command-api/localStack";
 import { applyTicketAction, TicketError } from "../../../../../../services/command-api/tickets";
 import { RateLimiter } from "../../../../../../services/command-api/rateLimit";
 
+import { officerFrom } from "../../../../../../services/command-api/authz";
+
 const rateLimiter = new RateLimiter();
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string, action: string }> }) {
@@ -16,13 +18,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!rl.allowed) return NextResponse.json({ error: { code: "too_many_requests", message: "Rate limit exceeded" } }, { status: 429, headers: { 'Retry-After': (rl.retryAfter ?? 60).toString() } });
 
     const body = await req.json().catch(() => ({}));
-    body.action = action; // override action from path
+    if (action && action !== "actions") {
+      body.action = action; // override action from path only if not /actions
+    }
 
     const deps = await localDeps();
-    const isOfficer = req.headers.get("authorization") ? true : false;
-    const actor = isOfficer ? "officer-x" : user; 
+    const officer = officerFrom(req);
+    const isOfficer = officer !== null ? officer.role !== "citizen" : Boolean(req.headers.get("authorization"));
+    const actor = officer?.id || (req.headers.get("x-user-id") || user); 
     
-    if (!isOfficer && user === "anonymous") {
+    if (!isOfficer && (!actor || actor === "anonymous")) {
         return NextResponse.json({ error: { code: "unauthenticated", message: "Missing authentication" } }, { status: 401 });
     }
     

@@ -46,9 +46,12 @@ export function CaseMap({ points, onPick, title }: { points: MapPoint[]; onPick?
   return (
     <figure style={{ margin: 0, display: 'grid', gap: '0.35rem' }}>
       <svg viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label={title} style={{ width: '100%', maxWidth: SIZE, height: 'auto', borderRadius: '0.75rem', border: '1px solid #cbd5e1', background: '#e2e8f0' }}>
-        {tilesAround(centre, zoom, HALF).map((t) => (
-          <image key={`${t.x}-${t.y}`} href={`https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`} x={HALF + t.left} y={HALF + t.top} width={TILE} height={TILE} />
-        ))}
+        {tilesAround(centre, zoom, HALF).map((t) => {
+          const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_4grj_1_dbbc20a1247c6aa97594b98a';
+          return (
+            <image key={`${t.x}-${t.y}`} href={`https://basemaps.cartocdn.com/rastertiles/voyager/${t.z}/${t.x}/${t.y}.png?key=${cartoKey}`} x={HALF + t.left} y={HALF + t.top} width={TILE} height={TILE} />
+          );
+        })}
         {drawn.map((p) => {
           const { x, y } = at(p);
           const s = STYLE[p.kind];

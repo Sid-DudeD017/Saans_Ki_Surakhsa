@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { localDeps } from "../../../../services/command-api/localStack";
 import { createTicket, listTickets, TicketError } from "../../../../services/command-api/tickets";
 import { RateLimiter } from "../../../../services/command-api/rateLimit";
+import { officerFrom } from "../../../../services/command-api/authz";
 
 const rateLimiter = new RateLimiter();
 
@@ -27,17 +28,25 @@ export async function GET(req: NextRequest) {
     const rl = rateLimiter.check(ip);
     if (!rl.allowed) return NextResponse.json({ error: { code: "unavailable", message: "Rate limit exceeded" } }, { status: 429 });
 
+    const officer = officerFrom(req);
+    const isOfficer = officer !== null && officer.role !== "citizen";
+    const userId = req.headers.get("x-user-id") || (officer?.role === "citizen" ? officer.id : undefined);
+
+    if (!isOfficer && !userId) {
+      return NextResponse.json({ error: { code: "unauthenticated", message: "Missing authentication" } }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const deps = await localDeps();
-    
-    const isOfficer = req.headers.get("authorization") ? true : false;
-    
+
     const result = await listTickets(deps.db, isOfficer, {
       district: searchParams.get("district") || undefined,
       status: searchParams.get("status") || undefined,
       category: searchParams.get("category") || undefined,
       cursor: searchParams.get("cursor") || undefined,
-      limit: parseInt(searchParams.get("limit") || "50")
+      limit: parseInt(searchParams.get("limit") || "50"),
+      citizenId: !isOfficer ? userId : undefined,
+      officerDistrict: isOfficer && officer ? officer.district : undefined,
     });
     return NextResponse.json(result);
   } catch (e: any) {

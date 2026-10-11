@@ -31,6 +31,63 @@ export const translations = {
     sla: "SLA:",
     created: "created",
     supervisor_queue: "Supervisor queue",
+
+    // Types
+    type_farm_fire: "Crop or field fire",
+    type_garbage: "Burning waste",
+    type_vehicle: "Smoky vehicle",
+    type_firecrackers: "Firecrackers",
+    type_dust: "Construction or road dust",
+    type_industrial: "Factory or kiln smoke",
+    type_farmer_support: "Farmer asks for a machine",
+
+    // Statuses
+    status_submitted: "Submitted",
+    status_under_review: "Under Review",
+    status_assigned: "Assigned",
+    status_in_progress: "In Progress",
+    status_resolved: "Resolved",
+    status_closed: "Closed",
+    status_all: "All",
+
+    // Roles
+    role_citizen: "Citizen",
+    role_officer: "Officer",
+
+    // Citizen Progress Steps
+    step_submitted: "1. Submitted",
+    step_under_review: "2. Under review",
+    step_in_progress: "3. Action in progress",
+    step_resolved: "4. Resolved",
+    report_status: "Report Status",
+
+    // Details Section
+    details_title: "Details",
+    what_you_see: "WHAT YOU SEE:",
+    how_long: "HOW LONG:",
+    who_is_affected: "WHO IS AFFECTED:",
+    note_optional: "Note (optional):",
+    no_details_noted: "No additional details noted.",
+    photo_evidence_optional: "Photo evidence (optional):",
+    no_photo_uploaded: "No photo evidence uploaded",
+    incident_location: "Incident Location",
+    coordinates: "Coordinates:",
+    resolution_summary_title: "Resolution Summary",
+    help_request_badge: "Help request",
+
+    // Chips
+    chip_thick_smoke: "thick smoke",
+    chip_flames: "flames",
+    chip_ash_falling: "ash falling",
+    chip_strong_smell: "strong smell",
+    chip_dust_cloud: "dust cloud",
+    chip_just_started: "just started",
+    chip_under_hour: "under an hour",
+    chip_hours: "hours",
+    chip_every_day: "every day",
+    chip_children_outside: "children outside",
+    chip_class_indoors: "a class indoors",
+    chip_nearby_homes: "nearby homes",
   },
   hi: {
     queue: "कमांड कंसोल",
@@ -64,6 +121,63 @@ export const translations = {
     sla: "SLA:",
     created: "बनाया गया",
     supervisor_queue: "सुपरवाइज़र कतार",
+
+    // Types
+    type_farm_fire: "पराली / खेत की आग",
+    type_garbage: "कचरा जलाना",
+    type_vehicle: "धुआं छोड़ता वाहन",
+    type_firecrackers: "पटाखे",
+    type_dust: "धूल या निर्माण",
+    type_industrial: "फैक्ट्री या भट्ठे का धुआं",
+    type_farmer_support: "किसान सहायता / मशीन",
+
+    // Statuses
+    status_submitted: "दर्ज की गई",
+    status_under_review: "समीक्षाधीन",
+    status_assigned: "सौंपा गया",
+    status_in_progress: "कार्रवाई जारी",
+    status_resolved: "हल हो गया",
+    status_closed: "बंद",
+    status_all: "सभी",
+
+    // Roles
+    role_citizen: "नागरिक",
+    role_officer: "अधिकारी",
+
+    // Citizen Progress Steps
+    step_submitted: "1. दर्ज की गई",
+    step_under_review: "2. समीक्षाधीन",
+    step_in_progress: "3. कार्रवाई जारी",
+    step_resolved: "4. हल हो गया",
+    report_status: "रिपोर्ट स्थिति",
+
+    // Details Section
+    details_title: "विवरण",
+    what_you_see: "आपने क्या देखा:",
+    how_long: "कितने समय से:",
+    who_is_affected: "कौन प्रभावित है:",
+    note_optional: "नोट (वैकल्पिक):",
+    no_details_noted: "कोई अतिरिक्त विवरण नहीं दिया गया।",
+    photo_evidence_optional: "फोटो साक्ष्य (वैकल्पिक):",
+    no_photo_uploaded: "कोई फोटो साक्ष्य अपलोड नहीं किया गया",
+    incident_location: "घटना स्थल",
+    coordinates: "निर्देशांक:",
+    resolution_summary_title: "समाधान सारांश",
+    help_request_badge: "सहायता अनुरोध",
+
+    // Chips
+    chip_thick_smoke: "गाढ़ा धुआँ",
+    chip_flames: "आग की लपटें",
+    chip_ash_falling: "राख गिर रही है",
+    chip_strong_smell: "तेज़ दुर्गंध",
+    chip_dust_cloud: "धूल का गुबार",
+    chip_just_started: "अभी शुरू हुआ",
+    chip_under_hour: "एक घंटे से कम",
+    chip_hours: "कई घंटों से",
+    chip_every_day: "हर रोज़",
+    chip_children_outside: "बाहर खेलते बच्चे",
+    chip_class_indoors: "अंदर क्लास रूम",
+    chip_nearby_homes: "आस-पास के घर",
   },
   pa: {
     queue: "ਕਮਾਂਡ ਕੰਸੋਲ",
@@ -97,6 +211,63 @@ export const translations = {
     sla: "SLA:",
     created: "ਬਣਾਇਆ ਗਿਆ",
     supervisor_queue: "ਸੁਪਰਵਾਈਜ਼ਰ ਕਤਾਰ",
+
+    // Types
+    type_farm_fire: "ਪਰਾਲੀ / ਖੇਤ ਦੀ ਅੱਗ",
+    type_garbage: "ਕੂੜਾ ਸਾੜਨਾ",
+    type_vehicle: "ਧੂੰਆਂ ਛੱਡਦਾ ਵਾਹਨ",
+    type_firecrackers: "ਪਟਾਕੇ",
+    type_dust: "ਧੂੜ ਜਾਂ ਉਸਾਰੀ",
+    type_industrial: "ਫੈਕਟਰੀ ਜਾਂ ਭੱਠੇ ਦਾ ਧੂੰਆਂ",
+    type_farmer_support: "ਕਿਸਾਨ ਸਹਾਇਤਾ / ਮਸ਼ੀਨ",
+
+    // Statuses
+    status_submitted: "ਦਰਜ ਕੀਤੀ",
+    status_under_review: "ਜਾਂਚ ਅਧੀਨ",
+    status_assigned: "ਸੌਂਪਿਆ ਗਿਆ",
+    status_in_progress: "ਕਾਰਵਾਈ ਜਾਰੀ",
+    status_resolved: "ਹੱਲ ਹੋ ਗਿਆ",
+    status_closed: "ਬੰਦ",
+    status_all: "ਸਾਰੇ",
+
+    // Roles
+    role_citizen: "ਨਾਗਰਿਕ",
+    role_officer: "ਅਧਿਕਾਰੀ",
+
+    // Citizen Progress Steps
+    step_submitted: "1. ਦਰਜ ਕੀਤੀ",
+    step_under_review: "2. ਜਾਂਚ ਅਧੀਨ",
+    step_in_progress: "3. ਕਾਰਵਾਈ ਜਾਰੀ",
+    step_resolved: "4. ਹੱਲ ਹੋ ਗਿਆ",
+    report_status: "ਰਿਪੋਰਟ ਸਥਿਤੀ",
+
+    // Details Section
+    details_title: "ਵੇਰਵੇ",
+    what_you_see: "ਤੁਸੀਂ ਕੀ ਦੇਖਿਆ:",
+    how_long: "ਕਿੰਨੇ ਸਮੇਂ ਤੋਂ:",
+    who_is_affected: "ਕੌਣ ਪ੍ਰਭਾਵਿਤ ਹੈ:",
+    note_optional: "ਨੋਟ (ਵਿਕਲਪਿਕ):",
+    no_details_noted: "ਕੋਈ ਵਾਧੂ ਵੇਰਵਾ ਨਹੀਂ ਦਿੱਤਾ ਗਿਆ।",
+    photo_evidence_optional: "ਫੋਟੋ ਸਬੂਤ (ਵਿਕਲਪਿਕ):",
+    no_photo_uploaded: "ਕੋਈ ਫੋਟੋ ਸਬੂਤ ਅਪਲੋਡ ਨਹੀਂ ਕੀਤਾ ਗਿਆ",
+    incident_location: "ਘਟਨਾ ਸਥਾਨ",
+    coordinates: "ਨਿਰਦੇਸ਼ਾਂਕ:",
+    resolution_summary_title: "ਹੱਲ ਸਾਰਾਂਸ਼",
+    help_request_badge: "ਮਦਦ ਬੇਨਤੀ",
+
+    // Chips
+    chip_thick_smoke: "ਗਾੜ੍ਹਾ ਧੂੰਆਂ",
+    chip_flames: "ਅੱਗ ਦੀਆਂ ਲਾਟਾਂ",
+    chip_ash_falling: "ਸੁਆਹ ਡਿੱਗ ਰਹੀ ਹੈ",
+    chip_strong_smell: "ਤੇਜ਼ ਬਦਬੂ",
+    chip_dust_cloud: "ਧੂੜ ਦਾ ਗੁਬਾਰ",
+    chip_just_started: "ਹੁਣੇ ਸ਼ੁਰੂ ਹੋਇਆ",
+    chip_under_hour: "ਇੱਕ ਘੰਟੇ ਤੋਂ ਘੱਟ",
+    chip_hours: "ਕਈ ਘੰਟਿਆਂ ਤੋਂ",
+    chip_every_day: "ਹਰ ਰੋਜ਼",
+    chip_children_outside: "ਬਾਹਰ ਖੇਡਦੇ ਬੱਚੇ",
+    chip_class_indoors: "ਅੰਦਰ ਕਲਾਸ",
+    chip_nearby_homes: "ਨੇੜਲੇ ਘਰ",
   }
 } as const;
 

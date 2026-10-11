@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
+import { useLocation } from '../lib/useLocation';
 import { ReportSheet } from '../app/shala/ReportSheet';
 
 export const ReportButton: React.FC = () => {
   const { t, language } = useLanguage();
   const { role } = useAuth();
+  const { place } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -80,9 +82,15 @@ export const ReportButton: React.FC = () => {
           >
             <ReportSheet
               initialLocation={{
+                lat: place?.lat ?? 30.245,
+                lon: place?.lon ?? 75.842,
+                label: place?.label ?? 'Near you',
+                accuracyM: place?.kind === 'device' ? place.accuracyM : undefined,
+              }}
+              schoolLocation={{
                 lat: 30.245,
                 lon: 75.842,
-                label: 'Near you',
+                label: 'Sangrur Campus',
               }}
               role={role}
               language={language as 'pa' | 'hi' | 'en'}

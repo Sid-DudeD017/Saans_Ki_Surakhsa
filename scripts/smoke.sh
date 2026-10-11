@@ -10,7 +10,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PORT="${SMOKE_PORT:-3100}"
+if command -v curl.exe >/dev/null 2>&1; then
+  curl() { curl.exe "$@"; }
+fi
+
+PORT="${SMOKE_PORT:-3000}"
 URL="${SMOKE_URL:-http://127.0.0.1:$PORT}"
 WORK="$(mktemp -d)"
 DEV_PID=""
@@ -18,6 +22,8 @@ DEV_PID=""
 cleanup() {
   local exit_code=$?
   [ -n "$DEV_PID" ] && kill "$DEV_PID" 2>/dev/null || true
+  # Clean up test rows tagged with smoke- or kisan-smoke- to keep dev database pristine
+  node scripts/clean-smoke.mjs 2>/dev/null || true
   if [ $exit_code -ne 0 ]; then
     echo "--- next.log ---"
     cat "$WORK/next.log" 2>/dev/null || true

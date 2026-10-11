@@ -62,57 +62,115 @@ export async function createTicket(db: Db, body: any) {
   return { ticket: mapCaseToTicket(res.rows[0], false), status: 201 };
 }
 
-export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: string) {
-  const res = await db.query(`SELECT * FROM cases WHERE id = $1`, [id]);
+export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: string, officerDistrict?: string) {
+  const res = await db.query(`
+    SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
+           comp.body as complaint_body
+    FROM cases c
+    LEFT JOIN complaints comp ON comp.id = c.complaint_id
+    WHERE c.id = $1
+  `, [id]);
   if (res.rows.length === 0) throw new TicketError("not_found", "Ticket not found");
-  return mapCaseToTicket(res.rows[0], isOfficer, user);
+  const raw = res.rows[0];
+  if (!isOfficer && user && raw.reporter_identity !== user) {
+    throw new TicketError("forbidden", "Access restricted");
+  }
+  if (isOfficer && officerDistrict && officerDistrict !== "*" && raw.district && raw.district !== officerDistrict) {
+    throw new TicketError("forbidden", "Access restricted to officer district");
+  }
+  const history = await getTicketHistory(db, id);
+  const ticket = mapCaseToTicket(raw, isOfficer, user);
+  ticket.status_history = history;
+  return ticket;
 }
 
-export async function listTickets(db: Db, isOfficer: boolean, filters: { district?: string, status?: string, category?: string, cursor?: string, limit?: number }) {
-  let query = `SELECT *, ST_Y(location::geometry) as lat, ST_X(location::geometry) as lon FROM cases WHERE 1=1`;
+export async function listTickets(
+  db: Db, 
+  isOfficer: boolean, 
+  filters: { 
+    district?: string; 
+    status?: string; 
+    category?: string; 
+    cursor?: string; 
+    limit?: number;
+    citizenId?: string;
+    officerDistrict?: string;
+  }
+) {
+  let query = `
+    SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
+           comp.body as complaint_body
+    FROM cases c
+    LEFT JOIN complaints comp ON comp.id = c.complaint_id
+    WHERE 1=1
+  `;
   const params: any[] = [];
-  
-  if (filters.district) {
-    params.push(filters.district);
-    query += ` AND district = $${params.length}`;
-  }
-  if (filters.status) {
-    params.push(mapStatusToDb(filters.status as any));
-    query += ` AND status = $${params.length}`;
-  }
-  if (filters.category) {
-    params.push(filters.category);
-    query += ` AND type = $${params.length}`;
-  }
-  
-  // Cursor pagination assumes [threat_score, created_at_iso, id]
-  if (filters.cursor) {
-    try {
-      const v = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8"));
-      if (Array.isArray(v) && v.length === 3) {
-         params.push(v[0]);
-         const scoreParam = params.length;
-         params.push(v[1]);
-         const tparam = params.length;
-         params.push(v[2]);
-         const idparam = params.length;
-         query += ` AND (
-           CASE threat_level WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END,
-           created_at, 
-           id
-         ) < ($${scoreParam}, $${tparam}::timestamptz, $${idparam})`;
-      }
-    } catch (e) {
-      // invalid cursor
+  let countQuery = "SELECT COUNT(*) FROM cases c WHERE 1=1";
+  const countParams: any[] = [];
+
+  const addFilter = (sqlFragment: string, value?: any) => {
+    if (value !== undefined) {
+      params.push(value);
+      query += ` AND ${sqlFragment.replace("$X", "$" + params.length)}`;
+      countParams.push(value);
+      countQuery += ` AND ${sqlFragment.replace("$X", "$" + countParams.length)}`;
+    } else {
+      query += ` AND ${sqlFragment}`;
+      countQuery += ` AND ${sqlFragment}`;
+    }
+  };
+
+  if (filters.citizenId) {
+    addFilter("c.reporter_identity = $X", filters.citizenId);
+  } else if (filters.officerDistrict && filters.officerDistrict !== "*") {
+    addFilter("(c.district = $X OR c.district IS NULL OR c.district = '' OR c.district = 'unassigned')", filters.officerDistrict);
+  } else if (filters.district) {
+    if (filters.district === "unassigned") {
+      addFilter("(c.district IS NULL OR c.district = '' OR c.district = 'unassigned')");
+    } else {
+      addFilter("c.district = $X", filters.district);
     }
   }
 
-  // Threat level mapping for ordering: critical=4, high=3, medium=2, low=1, null=0
-  query += ` ORDER BY 
-    CASE threat_level WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC, 
-    created_at DESC, 
-    id DESC 
-  LIMIT $${params.push((filters.limit || 50) + 1)}`;
+  if (filters.status) {
+    addFilter("c.status = $X", mapStatusToDb(filters.status as any));
+  }
+  if (filters.category) {
+    addFilter("c.type = $X", filters.category);
+  }
+
+  if (isOfficer) {
+    // Cursor pagination for officers
+    if (filters.cursor) {
+      try {
+        const v = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8"));
+        if (Array.isArray(v) && v.length === 3) {
+          params.push(v[0]);
+          const scoreParam = params.length;
+          params.push(v[1]);
+          const tparam = params.length;
+          params.push(v[2]);
+          const idparam = params.length;
+          query += ` AND (
+            CASE c.threat_level WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END,
+            c.created_at, 
+            c.id
+          ) < ($${scoreParam}, $${tparam}::timestamptz, $${idparam})`;
+        }
+      } catch (e) {
+        // invalid cursor
+      }
+    }
+
+    query += ` ORDER BY 
+      CASE c.threat_level WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC, 
+      c.created_at DESC, 
+      c.id DESC 
+    LIMIT $${params.push((filters.limit || 50) + 1)}`;
+  } else {
+    // Citizens: newest first
+    query += ` ORDER BY c.created_at DESC, c.id DESC LIMIT $${params.push((filters.limit || 50) + 1)}`;
+  }
 
   const res = await db.query(query, params);
   const rows = res.rows;
@@ -129,18 +187,10 @@ export async function listTickets(db: Db, isOfficer: boolean, filters: { distric
     next_cursor = Buffer.from(JSON.stringify([score, lastDate.toISOString(), last.id])).toString("base64url");
   }
 
-  // Calculate total count (ignoring pagination, but with the same filters)
-  let countQuery = "SELECT COUNT(*) FROM cases WHERE 1=1";
-  const countParams: any[] = [];
-  if (filters.district) countQuery += ` AND district = $${countParams.push(filters.district)}`;
-  if (filters.category) countQuery += ` AND type = $${countParams.push(filters.category)}`;
-  if (filters.status) {
-    countQuery += ` AND status = $${countParams.push(mapStatusToDb(filters.status as any))}`;
-  }
   const countRes = await db.query(countQuery, countParams);
   const total = parseInt(String(countRes.rows[0].count), 10);
 
-  return { tickets: page.map(r => mapCaseToTicket(r, isOfficer)), next_cursor, total };
+  return { tickets: page.map(r => mapCaseToTicket(r, isOfficer, filters.citizenId)), next_cursor, total };
 }
 
 export async function applyTicketAction(db: Db, id: string, body: any, user: string, isOfficer: boolean) {
@@ -254,7 +304,13 @@ export async function applyTicketAction(db: Db, id: string, body: any, user: str
     `, [id, mapStatusToWire(String(nextStatus)), user, parsed.reason || parsed.summary || null]);
   }
 
-  return mapCaseToTicket(res.rows[0], isOfficer, user);
+  const rawUpdated = res.rows[0];
+  const compRes = await db.query(`SELECT comp.body as complaint_body FROM cases c LEFT JOIN complaints comp ON comp.id = c.complaint_id WHERE c.id = $1`, [id]);
+  rawUpdated.complaint_body = compRes.rows[0]?.complaint_body || null;
+  const history = await getTicketHistory(db, id);
+  const ticket = mapCaseToTicket(rawUpdated, isOfficer, user);
+  ticket.status_history = history;
+  return ticket;
 }
 
 export async function getTicketHistory(db: Db, id: string) {

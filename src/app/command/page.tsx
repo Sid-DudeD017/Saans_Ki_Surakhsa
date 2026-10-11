@@ -6,31 +6,96 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { Alert, Badge, Card, Container } from '../../components/ui';
+import { useLanguage } from '../../lib/i18n';
 import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getTicket, listTickets, type CaseDetail, type CaseStatus } from './commandApi';
 import { translations, type Lang } from './i18n';
 
+const ALLOWED_OFFICER_IDS = new Set([
+  '633870',
+  '608628',
+  '879821',
+  '672665',
+  '847544',
+  '797567',
+]);
+
 const STATUSES: [CaseStatus | '', string][] = [['OPEN', 'Open'], ['ACTION_APPROVED', 'Help approved'], ['ACTION_CHANGED', 'Changed'], ['CLOSED', 'Closed'], ['', 'All']];
-const DISTRICTS = ['', 'Sangrur', 'Patiala', 'unassigned'];
 const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑️', vehicle: '🚚', firecrackers: '🎆', farmer_support: '🌾' };
 
 const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', minHeight: '44px' };
 
 export default function CommandPage() {
-  const [lang, setLang] = useState<Lang>('en');
-  const [status, setStatus] = useState<string>('submitted');
-  const [district, setDistrict] = useState('');
+  const { language } = useLanguage();
+  const lang: Lang = (language as Lang) || 'en';
+  const [status, setStatus] = useState<string>('');
   const [category, setCategory] = useState('');
   const [queue, setQueue] = useState<{ tickets?: any[]; total?: number; error?: string }>({});
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>({});
   const [reloads, setReloads] = useState(0);
-  const [officer, setOfficer] = useState(DEFAULT_OFFICER);
+
+  // Authentication & Officer ID verification
+  const [officer, setOfficer] = useState<string>('local-citizen-1');
+  const [verifiedOfficerId, setVerifiedOfficerId] = useState<string | null>(null);
+  const [showOfficerModal, setShowOfficerModal] = useState<boolean>(false);
+  const [officerInputId, setOfficerInputId] = useState<string>('');
+  const [officerAuthError, setOfficerAuthError] = useState<string | null>(null);
+
+  // Restore existing session verification on mount if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('saans_officer_id');
+      if (saved && ALLOWED_OFFICER_IDS.has(saved)) {
+        setVerifiedOfficerId(saved);
+        setOfficer('local-state-command');
+      }
+    }
+  }, []);
+
+  const handleRoleChange = (newToken: string) => {
+    if (newToken === 'local-state-command') {
+      if (!verifiedOfficerId) {
+        setOfficerInputId('');
+        setOfficerAuthError(null);
+        setShowOfficerModal(true);
+        return;
+      }
+      setOfficer('local-state-command');
+      setSelected(null);
+    } else {
+      setOfficer(newToken);
+      setSelected(null);
+    }
+  };
+
+  const handleVerifyOfficer = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = officerInputId.trim();
+    if (ALLOWED_OFFICER_IDS.has(trimmed)) {
+      setVerifiedOfficerId(trimmed);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('saans_officer_id', trimmed);
+      }
+      setOfficer('local-state-command');
+      setShowOfficerModal(false);
+      setOfficerAuthError(null);
+      setSelected(null);
+    } else {
+      setOfficerAuthError('Invalid Officer ID. Access denied.');
+    }
+  };
+
+  const handleCancelModal = () => {
+    setShowOfficerModal(false);
+    setOfficerAuthError(null);
+    setOfficerInputId('');
+  };
 
   const fetchTickets = (cursor?: string) => {
-    return listTickets({ status: status || undefined, district: district || undefined, category: category || undefined, cursor }, officer);
+    return listTickets({ status: status || undefined, category: category || undefined, cursor }, officer);
   };
 
   useEffect(() => {
@@ -40,7 +105,7 @@ export default function CommandPage() {
       (e: Error) => { if (on) setQueue({ error: e.message }); }
     );
     return () => { on = false; };
-  }, [status, district, category, officer, reloads]);
+  }, [status, category, officer, reloads]);
 
   const loadMore = useCallback(async () => {
     if (!nextCursor) return;
@@ -51,7 +116,7 @@ export default function CommandPage() {
     } catch (e: any) {
       alert(e.message);
     }
-  }, [nextCursor, status, district, category, officer]);
+  }, [nextCursor, status, category, officer]);
 
   useEffect(() => {
     if (!selected) return;
@@ -70,8 +135,22 @@ export default function CommandPage() {
   const shown = selected && detail.ticket?.id === selected ? detail : null;
   const t = translations[lang];
 
-  const STATUS_OPTS = [['submitted', 'Submitted'], ['under_review', 'Under Review'], ['assigned', 'Assigned'], ['in_progress', 'In Progress'], ['resolved', 'Resolved'], ['closed', 'Closed'], ['', 'All']];
-  const CAT_OPTS = [['farm_fire', 'Stubble Burning'], ['garbage', 'Burning waste'], ['vehicle', 'Vehicle idling'], ['firecrackers', 'Firecrackers'], ['farmer_support', 'Farmer Support'], ['', 'All']];
+  const STATUS_OPTS = [
+    ['submitted', t.status_submitted],
+    ['in_progress', t.status_in_progress],
+    ['resolved', t.status_resolved],
+    ['', t.status_all],
+  ];
+  const CAT_OPTS = [
+    ['farm_fire', t.type_farm_fire],
+    ['garbage', t.type_garbage],
+    ['vehicle', t.type_vehicle],
+    ['firecrackers', t.type_firecrackers],
+    ['dust', t.type_dust],
+    ['industrial', t.type_industrial],
+    ['farmer_support', t.type_farmer_support],
+    ['', t.status_all],
+  ];
 
   return (
     <Container maxWidth="lg" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
@@ -83,13 +162,6 @@ export default function CommandPage() {
           </div>
           <h1 style={{ margin: '0.25rem 0', fontSize: '1.75rem', color: '#0f172a' }}>🛡️ {t.queue}</h1>
           <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569' }}>{t.desc}</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {(['en', 'hi', 'pa'] as const).map(l => (
-            <button key={l} onClick={() => setLang(l)} style={{ padding: '0.5rem 1rem', minHeight: '44px', minWidth: '44px', borderRadius: '0.5rem', border: '1px solid #cbd5e1', background: lang === l ? '#e2e8f0' : '#fff', cursor: 'pointer' }}>
-              {l.toUpperCase()}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -104,12 +176,40 @@ export default function CommandPage() {
           <Card padding="md">
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
               {!USE_MOCKS && (
-                <label style={{ fontSize: '0.85rem', color: '#334155' }}>
-                  {t.signed_in}{' '}
-                  <select style={select} value={officer} onChange={(e) => { setOfficer(e.target.value); setSelected(null); }}>
-                    {OFFICERS.map((o) => <option key={o.token} value={o.token}>{o.name}</option>)}
-                  </select>
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+                    {t.signed_in}{' '}
+                    <select
+                      style={select}
+                      value={officer}
+                      onChange={(e) => handleRoleChange(e.target.value)}
+                    >
+                      {OFFICERS.map((o) => (
+                        <option key={o.token} value={o.token}>
+                          {o.token === 'local-state-command' ? t.role_officer : t.role_citizen}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {officer === 'local-state-command' && verifiedOfficerId && (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontSize: '0.75rem',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#e0f2fe',
+                        color: '#0369a1',
+                        fontWeight: 600,
+                      }}
+                      title="Verified Officer ID"
+                    >
+                      ID: {verifiedOfficerId}
+                    </span>
+                  )}
+                </div>
               )}
               <label style={{ fontSize: '0.85rem', color: '#334155' }}>
                 {t.status}{' '}
@@ -123,12 +223,6 @@ export default function CommandPage() {
                   {CAT_OPTS.map(([v, name]) => <option key={v} value={v}>{name}</option>)}
                 </select>
               </label>
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
-                {t.district}{' '}
-                <select style={select} value={district} onChange={(e) => setDistrict(e.target.value)}>
-                  {DISTRICTS.map((d) => <option key={d} value={d}>{d || 'All'}</option>)}
-                </select>
-              </label>
               <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{queue.tickets ? `${queue.total || tickets.length} ticket${tickets.length === 1 ? '' : 's'}` : t.loading}</span>
             </div>
             {queue.error && <Alert variant="danger" title="No queue">{queue.error}</Alert>}
@@ -136,7 +230,14 @@ export default function CommandPage() {
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.5rem' }}>
               {tickets.map((s) => {
                 const catName = CAT_OPTS.find(o => o[0] === s.type)?.[1] || s.type;
-                const locText = s.district ? s.district : t.supervisor_queue;
+                const locText = s.district && s.district !== 'unassigned' ? ` · ${s.district}` : '';
+                const statusName =
+                  s.status === 'submitted' ? t.status_submitted :
+                  s.status === 'under_review' ? t.status_under_review :
+                  s.status === 'assigned' ? t.status_assigned :
+                  s.status === 'in_progress' ? t.status_in_progress :
+                  s.status === 'resolved' ? t.status_resolved :
+                  s.status === 'closed' ? t.status_closed : s.status;
                 return (
                 <li key={s.id}>
                   <button
@@ -149,7 +250,7 @@ export default function CommandPage() {
                     }}
                   >
                     <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.95rem', color: '#0f172a' }}>
-                      <strong>{TYPE_ICONS[s.type] ?? '•'} {catName} · {locText}</strong>
+                      <strong>{TYPE_ICONS[s.type] ?? '•'} {catName}{locText}</strong>
                       {s.threat_level && (
                         <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
                           {s.threat_level.toUpperCase()}
@@ -157,9 +258,9 @@ export default function CommandPage() {
                       )}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: '#475569' }}>
-                      {s.help_request ? '🌾 Help request · ' : ''}
-                      {s.status.replace('_', ' ')}
-                      {' · '}{s.deadline ? `SLA: ${when(s.deadline)}` : `created ${new Date(s.created_at).toLocaleString()}`}
+                      {s.help_request ? `🌾 ${t.help_request_badge} · ` : ''}
+                      {statusName}
+                      {' · '}{s.deadline ? `${t.sla} ${when(s.deadline)}` : `${t.created} ${new Date(s.created_at).toLocaleString()}`}
                     </span>
                   </button>
                 </li>
@@ -186,6 +287,147 @@ export default function CommandPage() {
           {shown && <CaseDetailPanel key={`${shown.ticket.id}-${shown.ticket.status}`} detail={shown} officer={officer} lang={lang} onChanged={reload} />}
         </div>
       </div>
+
+      {/* Officer ID Verification Popup Modal */}
+      {showOfficerModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="officer-auth-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 9999,
+          }}
+          onClick={handleCancelModal}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '1rem',
+              padding: '1.75rem',
+              width: '100%',
+              maxWidth: '400px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e2e8f0',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#e0f2fe',
+                  color: '#0284c7',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.6rem',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                🛡️
+              </div>
+              <h2
+                id="officer-auth-title"
+                style={{ margin: '0 0 0.35rem', fontSize: '1.25rem', color: '#0f172a', fontWeight: 700 }}
+              >
+                Officer Verification
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.4 }}>
+                Enter your authorized 6-digit Officer ID to access the enforcement console.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyOfficer}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label
+                  style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}
+                >
+                  Officer ID
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoFocus
+                  maxLength={6}
+                  value={officerInputId}
+                  onChange={(e) => {
+                    setOfficerInputId(e.target.value.replace(/\D/g, ''));
+                    setOfficerAuthError(null);
+                  }}
+                  placeholder="• • • • • •"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: officerAuthError ? '2px solid #ef4444' : '1.5px solid #cbd5e1',
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.25em',
+                    textAlign: 'center',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                    fontFamily: 'monospace',
+                  }}
+                />
+              </div>
+
+              {officerAuthError && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <Alert variant="danger">{officerAuthError}</Alert>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1.25rem' }}>
+                <button
+                  type="button"
+                  onClick={handleCancelModal}
+                  style={{
+                    padding: '0.65rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#f8fafc',
+                    color: '#475569',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    minHeight: '44px',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={officerInputId.trim().length !== 6}
+                  style={{
+                    padding: '0.65rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: 'none',
+                    backgroundColor: officerInputId.trim().length === 6 ? '#0284c7' : '#94a3b8',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: officerInputId.trim().length === 6 ? 'pointer' : 'not-allowed',
+                    minHeight: '44px',
+                    transition: 'background-color 0.15s',
+                  }}
+                >
+                  Verify & Access
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Container>
   );
 }

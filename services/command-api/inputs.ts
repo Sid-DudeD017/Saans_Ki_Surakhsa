@@ -41,6 +41,8 @@ export const ComplaintInput = z.object({
   vulnerable_people: z.boolean().optional(),
   immediacy: z.enum(["past", "imminent", "ongoing"]).optional(),
   location_sensitive: z.boolean().optional(),
+  reporter_identity: z.string().optional(),
+  reporter_consent: z.boolean().optional(),
 });
 export type ComplaintInput = z.infer<typeof ComplaintInput>;
 

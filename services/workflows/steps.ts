@@ -172,7 +172,26 @@ async function districtOf(deps: IntakeDeps, complaintId: string): Promise<string
       WHERE c.id = $1 ORDER BY d.name LIMIT 1`,
     [complaintId],
   );
-  return rows[0]?.name ?? null;
+  if (rows[0]?.name) return rows[0].name;
+
+  try {
+    const locRes = await deps.db.query<{ lat: number; lon: number }>(
+      `SELECT ST_Y(location::geometry) as lat, ST_X(location::geometry) as lon FROM complaints WHERE id = $1`,
+      [complaintId]
+    );
+    if (locRes.rows[0]) {
+      const { lat, lon } = locRes.rows[0];
+      const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}`, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        const data = await r.json();
+        return data.locality || data.city || data.principalSubdivision || null;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
 }
 
 export async function triage(deps: IntakeDeps, input: IntakeState): Promise<IntakeState> {
@@ -327,18 +346,34 @@ export async function assign(deps: IntakeDeps, input: IntakeState): Promise<Inta
 
     const deadlineMs = deps.config.deadlineMinutes ? deps.config.deadlineMinutes * 60_000 : t.deadlineHours * 3600_000;
     const deadline = new Date(received_at.getTime() + deadlineMs);
+    const citizen = complaint.type !== "farmer_support" ? (complaint as ComplaintInput) : null;
+    const reporterIdentity = citizen?.reporter_identity || null;
+    const reporterConsent = citizen?.reporter_consent ?? false;
+    const newCaseId = deps.newId("case");
+
     await deps.db.query(
       `INSERT INTO cases (id, complaint_id, type, district, location, authorities, penalty, deadline,
                           verification_status, help_request_id, help_link, observation, evidence_summary, 
-                          threat_level, threat_score, threat_reasons, automated_label, created_at, updated_at)
-       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $13, $14, $15, $16, $12, $12
+                          threat_level, threat_score, threat_reasons, automated_label,
+                          reporter_identity, reporter_consent, created_at, updated_at)
+       SELECT $1, c.id, c.type, $3, c.location, $4, $5, $6, $7, $8, $9, $10, $11, $13, $14, $15, $16, $17, $18, $12, $12
          FROM complaints c WHERE c.id = $2
        ON CONFLICT (complaint_id) DO NOTHING`,
-      [deps.newId("case"), input.complaintId, t.district ?? helpLink?.district ?? null, t.authorities, t.penalty, deadline,
+      [newCaseId, input.complaintId, t.district ?? helpLink?.district ?? null, t.authorities, t.penalty, deadline,
        verification, helpRequestId, helpLink && JSON.stringify(helpLink), observation && JSON.stringify(observation), summary(evidence), deps.now(),
-       threat?.level ?? null, threat?.score ?? null, threat?.reasons ?? null, threat?.automated_label ?? null],
+       threat?.level ?? null, threat?.score ?? null, threat?.reasons ?? null, threat?.automated_label ?? null,
+       reporterIdentity, reporterConsent],
     );
+
     const { rows } = await deps.db.query<{ id: string; district: string | null }>("SELECT id, district FROM cases WHERE complaint_id = $1", [input.complaintId]);
+    const actualCaseId = rows[0].id;
+
+    await deps.db.query(
+      `INSERT INTO status_history (case_id, status, changed_by, reason)
+       VALUES ($1, 'submitted', $2, 'ticket_created')`,
+      [actualCaseId, reporterIdentity || 'anonymous'],
+    );
+
     await deps.db.query("UPDATE complaints SET status = 'assigned', updated_at = $2 WHERE id = $1", [input.complaintId, deps.now()]);
     // Keyed by case, so a retry of this step texts nobody twice.
     await deps.notify?.caseAssigned({ caseId: rows[0].id, district: rows[0].district });

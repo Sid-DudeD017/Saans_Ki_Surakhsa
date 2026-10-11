@@ -71,6 +71,8 @@ export interface ComplaintPayload {
   idempotency_key?: string;
   idempotencyKey?: string;
   evidence?: ComplaintEvidence[];
+  reporter_identity?: string;
+  reporter_consent?: boolean;
 }
 
 export interface ComplaintStatusData {
@@ -331,11 +333,18 @@ export async function submitComplaint(
   const lon = Number(payload.lon ?? payload.longitude ?? 75.842);
   const idempotencyKey = generateIdempotencyKey(payload);
 
+  let citId = payload.reporter_identity;
+  if (!citId && typeof window !== 'undefined') {
+    citId = localStorage.getItem('saans_citizen_auth') || 'citizen-1';
+  }
+
   const body = {
     type: citizenType,
     location: { lat, lon },
     description: payload.description ? payload.description.trim() : undefined,
     evidence: payload.evidence ?? [],
+    reporter_identity: citId || 'citizen-1',
+    reporter_consent: payload.reporter_consent ?? true,
   };
 
   const res = await fetch(`${base}/v1/complaints`, {

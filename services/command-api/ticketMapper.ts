@@ -57,7 +57,9 @@ export function mapCaseToTicket(c: any, isOfficer: boolean = false, currentUser?
     updated_at: c.updated_at,
     reporter_consent: c.reporter_consent || false,
     public_notes: c.public_notes || [],
-    evidence: c.evidence || [],
+    evidence: (c.complaint_body?.evidence && c.complaint_body.evidence.length > 0) ? c.complaint_body.evidence : (c.evidence || []),
+    description: c.complaint_body?.description || c.description || null,
+    complaint_body: c.complaint_body || null,
     location: (c.lat !== undefined && c.lon !== undefined) ? { lat: Number(c.lat), lon: Number(c.lon) } : undefined,
     deadline: c.deadline
   };
@@ -66,11 +68,13 @@ export function mapCaseToTicket(c: any, isOfficer: boolean = false, currentUser?
     base.resolution_summary = c.resolution_summary;
   }
 
-  let showReporter = c.reporter_consent;
-  if (isOfficer || (currentUser && currentUser === c.reporter_identity)) {
+  let showReporter = false;
+  if (currentUser && currentUser === c.reporter_identity) {
+    showReporter = true;
+  } else if (c.reporter_consent) {
     showReporter = true;
   }
-  base.reporter_identity = showReporter ? c.reporter_identity : null;
+  base.reporter_identity = showReporter ? c.reporter_identity : "Citizen report";
 
   if (isOfficer) {
     return {
