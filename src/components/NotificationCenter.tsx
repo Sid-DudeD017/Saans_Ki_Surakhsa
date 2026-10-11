@@ -19,13 +19,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [notifications, setNotifications] = useState<MockNotification[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Read them on load too, not only when the panel opens, so the bell's count is the real one.
   useEffect(() => {
-    if (!isOpen) return;
-
     let isCancelled = false;
-    Promise.resolve().then(() => {
-      if (!isCancelled) setLoading(true);
-    });
+    if (isOpen) {
+      Promise.resolve().then(() => {
+        if (!isCancelled) setLoading(true);
+      });
+    }
 
     getNotifications()
       .then((data) => {

@@ -13,7 +13,7 @@ export const Header: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(2);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     let mounted = true;
