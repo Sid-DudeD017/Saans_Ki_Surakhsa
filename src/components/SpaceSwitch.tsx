@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useLanguage } from '../lib/i18n';
-import { PERSONA_WORDS, SPACES, SPACE_IDS, session, word, type SpaceId } from '../lib/space';
+import { PERSONA_WORDS, PUBLIC_SPACES, SPACES, session, word, type SpaceId } from '../lib/space';
 import { LanguageSwitcher } from './ui';
 
 export const SWITCH_RED = '#e23744';
@@ -98,7 +98,7 @@ export function SpaceSheet({ current, onClose }: { current: SpaceId | null; onCl
         </div>
 
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.6rem' }}>
-          {SPACE_IDS.map((id) => {
+          {PUBLIC_SPACES.map((id) => {
             const s = SPACES[id];
             const here = id === current;
             return (
@@ -138,15 +138,32 @@ export function SpaceSheet({ current, onClose }: { current: SpaceId | null; onCl
           })}
         </ul>
 
-        <Link
-          href="/command"
-          onClick={onClose}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 0.85rem', borderRadius: '0.9rem', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#334155', fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none' }}
+        <button
+          type="button"
+          onClick={() => open('command')}
+          aria-current={current === 'command' ? 'page' : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.7rem 0.85rem',
+            borderRadius: '0.9rem',
+            background: current === 'command' ? SPACES.command.wash : '#f8fafc',
+            border: `1px solid ${current === 'command' ? SPACES.command.accent : '#e2e8f0'}`,
+            color: '#334155',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            textAlign: 'left',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
         >
-          <span aria-hidden="true">🛡️</span>
+          <span aria-hidden="true">{SPACES.command.icon}</span>
           <span style={{ flex: 1, minWidth: 0 }}>{word('official', language)}</span>
-          <span aria-hidden="true">→</span>
-        </Link>
+          <span aria-hidden="true" style={{ color: current === 'command' ? SPACES.command.accent : undefined, fontWeight: 800 }}>
+            {current === 'command' ? '✓' : '→'}
+          </span>
+        </button>
 
         <section aria-labelledby="saans-account-title" style={{ display: 'grid', gap: '0.75rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
           <h3 id="saans-account-title" style={{ margin: 0, fontSize: '0.75rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#64748b' }}>

@@ -1,8 +1,8 @@
 'use client';
 
-// What goes around each page. The welcome screens stand alone, full screen. Kisan Saathi, Saans Shala
-// and Ghar ki Hawa are the app: the Blinkit-style header on top, their own tab bar and the Switch
-// button below. Everything else (Command) keeps the full platform header and footer.
+// What goes around each page. The welcome screens stand alone, full screen. Kisan Saathi, Saans Shala,
+// Ghar ki Hawa and Saans Command are the app: the Blinkit-style header on top, their own tab bar and the
+// Switch button below. Any other page keeps the full platform header and footer.
 import React from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -22,7 +22,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <>
         <AppHeader space={space} />
         <main style={{ flex: 1 }}>{children}</main>
-        <ReportButton />
+        {/* Officers act on reports; they don't file them. */}
+        {space !== 'command' && <ReportButton />}
       </>
     );
   }
