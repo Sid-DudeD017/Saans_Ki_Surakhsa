@@ -11,6 +11,8 @@ import { cardLabel, dayMonth, say } from './strings';
 
 const INPUT: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   minHeight: '3rem',
   padding: '0.6rem 0.9rem',
   fontSize: '1.05rem',

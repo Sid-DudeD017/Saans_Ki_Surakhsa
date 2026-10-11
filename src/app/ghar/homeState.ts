@@ -23,6 +23,8 @@ export interface HomeState {
   rooms: RoomState[];
 }
 
+const ROOM_SIZES: Record<string, number> = { small: 10, medium: 15, large: 20 };
+
 const COMMON_REQ = {
   lat: 28.5355,
   lon: 77.391, // Noida
@@ -81,9 +83,10 @@ export const DEFAULT_HOME: HomeState = {
         windows: INDOOR_DEFAULTS.rooms.living_room.windows,
         ceiling_height_m: INDOOR_DEFAULTS.rooms.living_room.ceiling_height_m,
         incense: true,
-        smokers: 1, // Neutral default is 0 according to prompt, but existing tests require 1. Let's set the UI to everyday.
+        // Nobody smokes unless the family says so: an example home with a daily smoker read Severe in every room.
+        smokers: 0,
       },
-      ui: { ...COMMON_UI, smokerSelect: 'every_day' },
+      ui: { ...COMMON_UI, smokerSelect: 'no' },
     },
   ],
 };
@@ -117,15 +120,25 @@ export function saveHomeState(state: HomeState) {
   }
 }
 
+/**
+ * A new room starts clean: medium-sized, one shut window, nothing burning. It used to copy the bedroom
+ * (coil and all), and with no rooms left after "Start over" there was nothing to copy, so it added nothing.
+ */
 export function addRoomToState(state: HomeState): { state: HomeState; addedId: string | null } {
-  const bedroom = state.rooms.find(r => r.id === 'master_bedroom') || state.rooms[0];
-  if (!bedroom) return { state, addedId: null };
+  const at = state.rooms[0]?.request ?? COMMON_REQ;
   const newId = 'room_' + Date.now() + Math.floor(Math.random() * 1000);
   const newRoom: RoomState = {
     id: newId,
-    name: 'New Room',
-    request: { ...bedroom.request },
-    ui: { ...bedroom.ui },
+    name: `Room ${state.rooms.length + 1}`,
+    request: {
+      ...COMMON_REQ,
+      lat: at.lat,
+      lon: at.lon,
+      room_area_m2: ROOM_SIZES.medium,
+      windows: 1,
+      ceiling_height_m: INDOOR_DEFAULTS.ceiling_height_m.value,
+    },
+    ui: { ...COMMON_UI, smokerSelect: 'no' },
   };
   return { state: { ...state, rooms: [...state.rooms, newRoom] }, addedId: newId };
 }
@@ -133,8 +146,6 @@ export function addRoomToState(state: HomeState): { state: HomeState; addedId: s
 export function removeRoomFromState(state: HomeState, id: string): HomeState {
   return { ...state, rooms: state.rooms.filter(r => r.id !== id) };
 }
-
-const ROOM_SIZES: Record<string, number> = { small: 10, medium: 15, large: 20 };
 
 export function updateRoomState(room: RoomState, newUi: Partial<RoomUiState>): RoomState {
   const combinedUi = { ...room.ui, ...newUi };

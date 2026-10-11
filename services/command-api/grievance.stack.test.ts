@@ -11,6 +11,7 @@ import { getCase } from "./cases";
 import { getComplaintStatus } from "./complaints";
 import { commandConfig } from "./config";
 import { ensureBucket, migrate, newId, pool, s3Client, type IntakeDeps } from "./deps";
+import { escalateOverdue } from "./escalation";
 import { handleComplaints } from "./http";
 
 const stack = !!process.env.SAANS_DATABASE_URL;
@@ -87,7 +88,16 @@ describe.skipIf(!stack)("a farmer's complaint, on PostGIS", () => {
   it("the farmer's status page follows it", async () => {
     const { complaintId } = await file(grievance());
     const status = await (await getComplaintStatus(deps, complaintId)).json();
-    expect(status).toMatchObject({ id: complaintId, type: "kisan_grievance", status: "case_opened" });
+    expect(status).toMatchObject({ id: complaintId, type: "kisan_grievance", status: "case_opened", escalated: false });
+  });
+
+  it("tells the farmer when nobody acted before the deadline (K24)", async () => {
+    const { complaintId, caseId } = await file(grievance());
+    await db.query("UPDATE cases SET deadline = now() - interval '1 minute' WHERE id = $1", [caseId]);
+    expect(await escalateOverdue(deps)).toContain(caseId);
+    const status = await (await getComplaintStatus(deps, complaintId)).json();
+    expect(status).toMatchObject({ status: "case_opened", escalated: true });
+    expect(JSON.stringify(status)).not.toContain("Deputy Commissioner"); // who it went to stays inside Command
   });
 
   it("shows a citizen's repeated report as merged (it joins the first report's case)", async () => {
