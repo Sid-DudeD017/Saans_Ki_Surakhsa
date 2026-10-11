@@ -38,10 +38,9 @@ const W = {
   until: { pa: 'ਤੱਕ ਲਾਗੂ', hi: 'तक लागू', en: 'valid until' },
 } satisfies Record<string, Words>;
 
-// Kisan Saathi's look: a pale wash, a thin edge and dark ink; the banner's edge a shade stronger.
-const GOOD = { bg: '#f0fdf4', ink: '#166534', edge: '#bbf7d0', ring: '#86efac' };
-const MID = { bg: '#fffbeb', ink: '#92400e', edge: '#fde68a', ring: '#fcd34d' };
-const BAD = { bg: '#fef2f2', ink: '#b91c1c', edge: '#fecaca', ring: '#fca5a5' };
+const GOOD = { bg: '#dcfce7', ink: '#14532d', edge: '#16a34a' };
+const MID = { bg: '#fef3c7', ink: '#78350f', edge: '#d97706' };
+const BAD = { bg: '#fee2e2', ink: '#7f1d1d', edge: '#dc2626' };
 
 function tone(value: string | boolean, goodWhen: 'outdoors' | 'true' | 'false' | 'none') {
   if (value === 'light_for_asthma') return MID;
@@ -57,7 +56,10 @@ function Tile({ label, value, colours }: { label: string; value: string; colours
         padding: '0.75rem 0.85rem',
         borderRadius: '0.625rem',
         background: colours.bg,
-        border: `1px solid ${colours.edge}`,
+        borderLeft: `5px solid ${colours.edge}`,
+        border: `1px solid ${colours.bg === '#fee2e2' ? '#fecaca' : colours.bg === '#dcfce7' ? '#bbf7d0' : '#fde68a'}`,
+        borderLeftWidth: '5px',
+        borderLeftColor: colours.edge,
         minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -92,17 +94,17 @@ export function PrincipalBoard({ advisory, language }: { advisory: SchoolAdvisor
         role="status"
         style={{
           padding: '0.875rem 1.15rem',
-          borderRadius: '0.875rem',
-          background: banner.bg,
-          border: `1.5px solid ${banner.ring}`,
-          color: banner.ink,
+          borderRadius: '0.625rem',
+          background: banner.edge,
+          color: '#ffffff',
           fontSize: '1.25rem',
           fontWeight: 800,
           lineHeight: 1.25,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
         }}
       >
         {W[day.decision][language]}
-        <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginTop: '0.25rem', color: '#475569' }}>
+        <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginTop: '0.25rem', opacity: 0.95 }}>
           AQI {day.aqi} · {W.rule[language]} {day.band.from}–{day.band.to} · {W.until[language]} {clock(advisory.valid_until)}
         </div>
       </div>

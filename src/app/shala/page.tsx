@@ -256,7 +256,7 @@ function ForecastStrip({
                   padding: '0.625rem 0.5rem',
                   borderRadius: '0.5rem',
                   backgroundColor: colours.tint,
-                  border: `1px solid ${colours.edge}`,
+                  border: `1.5px solid ${colours.fill}`,
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -876,7 +876,7 @@ export default function ShalaPage() {
                         fontWeight: 700,
                         backgroundColor: CATEGORY_COLOURS[air.category].tint,
                         color: CATEGORY_COLOURS[air.category].ink,
-                        border: `1px solid ${CATEGORY_COLOURS[air.category].edge}`,
+                        border: `1.5px solid ${CATEGORY_COLOURS[air.category].fill}`,
                         lineHeight: 1.2,
                       }}
                     >
@@ -895,10 +895,10 @@ export default function ShalaPage() {
               {roleAdviceSummary && (
                 <div
                   style={{
-                    padding: '0.6rem 0.8rem',
+                    padding: '0.5rem 0.75rem',
                     backgroundColor: CATEGORY_COLOURS[air.category].tint,
-                    border: `1px solid ${CATEGORY_COLOURS[air.category].edge}`,
-                    borderRadius: '0.75rem',
+                    borderLeft: `4px solid ${CATEGORY_COLOURS[air.category].fill}`,
+                    borderRadius: '0.375rem',
                     fontSize: '0.875rem',
                     fontWeight: 600,
                     color: CATEGORY_COLOURS[air.category].ink,

@@ -10,7 +10,7 @@ import type { UserRole } from './auth';
 import type { SupportedLanguage } from '../components/ui/LanguageSwitcher';
 
 export type Persona = 'farmer' | 'student' | 'principal' | 'home';
-export type SpaceId = 'kisan' | 'shala' | 'ghar' | 'command';
+export type SpaceId = 'kisan' | 'shala' | 'ghar';
 
 export interface Session {
   guest: true;
@@ -20,9 +20,7 @@ export interface Session {
 }
 
 export const PERSONAS: readonly Persona[] = ['farmer', 'student', 'principal', 'home'];
-export const SPACE_IDS: readonly SpaceId[] = ['kisan', 'shala', 'ghar', 'command'];
-/** The parts anyone can pick; Command (for officials) is a link under them. */
-export const PUBLIC_SPACES: readonly SpaceId[] = ['kisan', 'shala', 'ghar'];
+export const SPACE_IDS: readonly SpaceId[] = ['kisan', 'shala', 'ghar'];
 
 type Words = Record<SupportedLanguage, string>;
 
@@ -65,15 +63,6 @@ export const SPACES: Record<SpaceId, Space> = {
     forWhom: { en: 'The air in your home', hi: 'आपके घर की हवा', pa: 'ਤੁਹਾਡੇ ਘਰ ਦੀ ਹਵਾ' },
     accent: '#0d9488',
     wash: '#ccfbf1',
-  },
-  command: {
-    id: 'command',
-    href: '/command',
-    icon: '🛡️',
-    name: { en: 'Saans Command', hi: 'सांस कमांड', pa: 'ਸਾਂਸ ਕਮਾਂਡ' },
-    forWhom: { en: 'Cases for district officers', hi: 'ज़िला अधिकारियों के मामले', pa: 'ਜ਼ਿਲ੍ਹਾ ਅਧਿਕਾਰੀਆਂ ਦੇ ਮਾਮਲੇ' },
-    accent: '#4338ca',
-    wash: '#e0e7ff',
   },
 };
 
