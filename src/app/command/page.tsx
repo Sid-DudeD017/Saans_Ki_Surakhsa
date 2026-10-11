@@ -3,7 +3,7 @@
 // Saans Command's case console (P4): the officer's queue (nearest deadline first) and map, and one case at a
 // time with the farmer's help request before any penalty. Mock mode runs on example cases; live, on
 // /v1/cases from the local stack, signed in as one of the demo officers, so Cedar shows their district only.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 
 import { BottomTabs, TabPanel, useUrlTab } from '../../components/BottomTabs';
 import { Alert, Badge, Card, Container } from '../../components/ui';
@@ -13,7 +13,6 @@ import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getTicket, listTickets, type CaseDetail, type CaseStatus } from './commandApi';
 import { translations, type Lang } from './i18n';
-import { LiveCommandPage } from './LiveCommandPage';
 
 const ALLOWED_OFFICER_IDS = new Set([
   '633870',
@@ -38,6 +37,40 @@ const TAB_WORDS: Record<(typeof COMMAND_TABS)[number], { icon: string; label: Re
 };
 const BAR_NAME: Record<Lang, string> = { en: 'Command sections', hi: 'कमांड के हिस्से', pa: 'ਕਮਾਂਡ ਦੇ ਹਿੱਸੇ' };
 
+// The officer's PIN session and the citizen's "all reports" view live in this tab's sessionStorage. They're
+// read through useSyncExternalStore so the server's HTML and the browser's first render agree (both "not
+// signed in"); the saved values apply right after. Reading sessionStorage while rendering made React
+// throw away the server's HTML ("Hydration failed") after a reload.
+const sessionListeners = new Set<() => void>();
+function subscribeSession(listener: () => void) {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+function useSessionValue(key: string): string | null {
+  return useSyncExternalStore(
+    subscribeSession,
+    () => {
+      try {
+        return sessionStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    },
+    () => null,
+  );
+}
+function setSessionValue(key: string, value: string | null) {
+  try {
+    if (value === null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, value);
+  } catch {
+    // storage blocked: the choice lasts until the page closes
+  }
+  sessionListeners.forEach((l) => l());
+}
+
 function MockCommandPage() {
   const { language } = useLanguage();
   const lang: Lang = (language as Lang) || 'en';
@@ -55,18 +88,12 @@ function MockCommandPage() {
   const [detail, setDetail] = useState<any>({});
   const [reloads, setReloads] = useState(0);
 
-  // Authentication & Officer ID verification (lazy initialized from session storage to avoid cascading renders)
-  const [verifiedOfficerId, setVerifiedOfficerId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const saved = sessionStorage.getItem('saans_officer_id');
-    return saved && ALLOWED_OFFICER_IDS.has(saved) ? saved : null;
-  });
-
-  const [officer, setOfficer] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'local-citizen-1';
-    const saved = sessionStorage.getItem('saans_officer_id');
-    return saved && ALLOWED_OFFICER_IDS.has(saved) ? 'local-state-command' : 'local-citizen-1';
-  });
+  // Who's signed in: an officer whose PIN this tab has verified, else a citizen, unless they picked otherwise.
+  const savedOfficerId = useSessionValue('saans_officer_id');
+  const verifiedOfficerId = savedOfficerId && ALLOWED_OFFICER_IDS.has(savedOfficerId) ? savedOfficerId : null;
+  const [chosenRole, setOfficer] = useState<string | null>(null);
+  const officer = chosenRole ?? (verifiedOfficerId ? 'local-state-command' : 'local-citizen-1');
+  const viewAllCitizenReports = useSessionValue('saans_view_citizen_id') === '*';
 
   const [showOfficerModal, setShowOfficerModal] = useState<boolean>(false);
   const [officerInputId, setOfficerInputId] = useState<string>('');
@@ -92,10 +119,7 @@ function MockCommandPage() {
     if (e) e.preventDefault();
     const trimmed = officerInputId.trim();
     if (ALLOWED_OFFICER_IDS.has(trimmed)) {
-      setVerifiedOfficerId(trimmed);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('saans_officer_id', trimmed);
-      }
+      setSessionValue('saans_officer_id', trimmed);
       setOfficer('local-state-command');
       setShowOfficerModal(false);
       setOfficerAuthError(null);
@@ -246,27 +270,22 @@ function MockCommandPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const cur = typeof window !== 'undefined' ? sessionStorage.getItem('saans_view_citizen_id') : null;
-                        if (cur === '*') {
-                          sessionStorage.removeItem('saans_view_citizen_id');
-                        } else {
-                          sessionStorage.setItem('saans_view_citizen_id', '*');
-                        }
+                        setSessionValue('saans_view_citizen_id', viewAllCitizenReports ? null : '*');
                         reload();
                       }}
                       style={{
                         fontSize: '0.95rem',
                         padding: '0.2rem 0.5rem',
                         borderRadius: '0.375rem',
-                        backgroundColor: (typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '#dbeafe' : '#f1f5f9',
-                        color: (typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '#1d4ed8' : '#475569',
+                        backgroundColor: viewAllCitizenReports ? '#dbeafe' : '#f1f5f9',
+                        color: viewAllCitizenReports ? '#1d4ed8' : '#475569',
                         border: '1px solid #cbd5e1',
                         cursor: 'pointer',
                         fontWeight: 600,
                       }}
                       title="Toggle between all demo reports and current session only"
                     >
-                      {(typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '🌐 Showing all citizen reports' : '👤 My session only'}
+                      {viewAllCitizenReports ? '🌐 Showing all citizen reports' : '👤 My session only'}
                     </button>
                   )}
                   {officer === 'local-state-command' && verifiedOfficerId && (
@@ -578,5 +597,5 @@ function MockCommandPage() {
 }
 
 export default function CommandPage() {
-  return USE_MOCKS ? <MockCommandPage /> : <LiveCommandPage />;
+  return <MockCommandPage />;
 }
