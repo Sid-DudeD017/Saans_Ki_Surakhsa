@@ -6,37 +6,39 @@
 // as one of the demo officers, so Cedar shows their district only.
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { BottomTabs, TabPanel, useUrlTab, type TabItem } from '../../components/BottomTabs';
+import { BottomTabs, TabPanel, useUrlTab } from '../../components/BottomTabs';
 import { SlippyMap, type Pin } from '../../components/SlippyMap';
 import { Alert, Container } from '../../components/ui';
+import { useLanguage } from '../../lib/i18n';
 import { SPACES } from '../../lib/space';
-import { CaseDetailPanel, TYPE_NAMES, when } from './CaseDetailPanel';
+import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getCase, listCases, type CaseDetail, type CaseStatus, type CaseSummary } from './commandApi';
 import { PIN_COLOURS, TONE, caseTone, type Tone } from './tones';
+import { say, typeName, type WordKey } from './words';
 
 const TABS = ['cases', 'map', 'case'] as const;
 type CommandTab = (typeof TABS)[number];
-const TAB_ITEMS: TabItem<CommandTab>[] = [
-  { id: 'cases', icon: '📋', label: 'Cases' },
-  { id: 'map', icon: '🗺️', label: 'Map' },
-  { id: 'case', icon: '📁', label: 'Case' },
-];
+const TAB_ICONS: Record<CommandTab, [string, WordKey]> = { cases: ['📋', 'tabCases'], map: ['🗺️', 'tabMap'], case: ['📁', 'tabCase'] };
 const ACCENT = SPACES.command.accent;
 
-const STATUSES: [CaseStatus | '', string][] = [['OPEN', 'Open'], ['ACTION_APPROVED', 'Help approved'], ['ACTION_CHANGED', 'Changed'], ['CLOSED', 'Closed'], ['', 'All']];
-const DISTRICTS: [string, string][] = [['', 'All districts'], ['Sangrur', 'Sangrur'], ['Patiala', 'Patiala'], ['unassigned', 'Unassigned']];
+const STATUSES: [CaseStatus | '', WordKey][] = [['OPEN', 'open'], ['ACTION_APPROVED', 'approved'], ['ACTION_CHANGED', 'changed'], ['CLOSED', 'closed'], ['', 'all']];
+// District names stay as they are; the two catch-alls are words.
+const DISTRICTS: [string, WordKey | null][] = [['', 'allDistricts'], ['Sangrur', null], ['Patiala', null], ['unassigned', 'unassigned']];
 const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑️', vehicle: '🚚', firecrackers: '🎆', farmer_support: '🌾', kisan_grievance: '📣' };
 
-const pinFor = (s: CaseSummary, selected: boolean): Pin => ({
+const pinFor = (s: CaseSummary, selected: boolean, language: Lang): Pin => ({
   id: s.case.id,
-  label: `${TYPE_NAMES[s.type] ?? s.type}, ${s.district}`,
+  label: `${typeName(s.type, language)}, ${s.district}`,
   colour: PIN_COLOURS[s.case.status === 'CLOSED' ? 'closed' : s.hasHelpRequest ? 'help' : 'report'],
   quiet: s.case.status === 'CLOSED',
   selected,
   ...s.location,
 });
 
+type Lang = ReturnType<typeof useLanguage>['language'];
+
 export default function CommandPage() {
+  const { language } = useLanguage();
   const [tab, go] = useUrlTab(TABS);
   const [status, setStatus] = useState<CaseStatus | ''>('OPEN');
   const [district, setDistrict] = useState('');
@@ -95,9 +97,9 @@ export default function CommandPage() {
                 setSelected(null);
               }}
             />
-            {queue.error && <Alert variant="danger" title="No queue">{queue.error}</Alert>}
-            {!queue.cases && !queue.error && <p style={{ margin: 0, color: '#64748b' }}>Loading cases…</p>}
-            {queue.cases && cases.length === 0 && <p style={{ margin: 0, color: '#64748b' }}>No cases match.</p>}
+            {queue.error && <Alert variant="danger" title={say('noQueue', language)}>{queue.error}</Alert>}
+            {!queue.cases && !queue.error && <p style={{ margin: 0, color: '#64748b' }}>{say('loading', language)}</p>}
+            {queue.cases && cases.length === 0 && <p style={{ margin: 0, color: '#64748b' }}>{say('noMatch', language)}</p>}
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 20rem), 1fr))', gap: '0.75rem' }}>
               {cases.map((s) => (
                 <li key={s.case.id} style={{ display: 'grid' }}>
@@ -111,12 +113,12 @@ export default function CommandPage() {
         <TabPanel id="map" current={tab} prefix="command">
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <Legend />
-            <SlippyMap label="Cases on the map" height="min(62vh, 34rem)" pins={cases.map((s) => pinFor(s, s.case.id === selected))} onPick={setSelected} />
+            <SlippyMap label={say('mapLabel', language)} height="min(62vh, 34rem)" pins={cases.map((s) => pinFor(s, s.case.id === selected, language))} onPick={setSelected} />
             {picked ? (
-              <CaseCard summary={picked} selected onOpen={() => go('case')} cta="Open case →" />
+              <CaseCard summary={picked} selected onOpen={() => go('case')} cta={`${say('openCase', language)} →`} />
             ) : (
               <p style={{ margin: 0, color: '#475569' }}>
-                Tap a pin to see the case. {cases.length} {cases.length === 1 ? 'case' : 'cases'} on the map.
+                {say('tapPin', language)} {cases.length} {say('onMap', language)}.
               </p>
             )}
           </div>
@@ -128,27 +130,35 @@ export default function CommandPage() {
               <span aria-hidden="true" style={{ fontSize: '2.5rem' }}>
                 📁
               </span>
-              <p style={{ margin: 0, fontSize: '1.05rem', color: '#334155' }}>Pick a case from the list or the map.</p>
+              <p style={{ margin: 0, fontSize: '1.05rem', color: '#334155' }}>{say('pickCase', language)}</p>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Pill onClick={() => go('cases')}>📋 Cases</Pill>
-                <Pill onClick={() => go('map')}>🗺️ Map</Pill>
+                <Pill onClick={() => go('cases')}>📋 {say('tabCases', language)}</Pill>
+                <Pill onClick={() => go('map')}>🗺️ {say('tabMap', language)}</Pill>
               </div>
             </div>
           )}
           {selected && (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               <div>
-                <Pill onClick={() => go('cases')}>← All cases</Pill>
+                <Pill onClick={() => go('cases')}>← {say('allCases', language)}</Pill>
               </div>
-              {detail.error && <Alert variant="danger" title="Couldn't open the case">{detail.error}</Alert>}
-              {!shown && !detail.error && <p style={{ margin: 0, color: '#64748b' }}>Opening the case…</p>}
+              {detail.error && <Alert variant="danger" title={say('cantOpen', language)}>{detail.error}</Alert>}
+              {!shown && !detail.error && <p style={{ margin: 0, color: '#64748b' }}>{say('opening', language)}</p>}
               {shown && <CaseDetailPanel key={`${shown.case.id}-${shown.case.version}`} detail={shown} officer={officer} onChanged={reload} />}
             </div>
           )}
         </TabPanel>
       </div>
 
-      <BottomTabs tabs={TAB_ITEMS} current={tab} onChange={go} prefix="command" label="Command sections" accent={ACCENT} space="command" />
+      <BottomTabs
+        tabs={TABS.map((id) => ({ id, icon: TAB_ICONS[id][0], label: say(TAB_ICONS[id][1], language) }))}
+        current={tab}
+        onChange={go}
+        prefix="command"
+        label={say('sections', language)}
+        accent={ACCENT}
+        space="command"
+      />
     </Container>
   );
 }
@@ -180,11 +190,12 @@ function Pill({ children, onClick, on }: { children: React.ReactNode; onClick: (
 }
 
 function Counts({ cases }: { cases: CaseSummary[] }) {
+  const { language } = useLanguage();
   const tiles: [string, number, Tone][] = [
-    ['Cases', cases.length, 'neutral'],
-    ['Help requests', cases.filter((s) => s.hasHelpRequest).length, 'good'],
-    ['Escalated', cases.filter((s) => s.escalatedAt).length, 'bad'],
-    ['Satellite fires', cases.filter((s) => s.case.verificationStatus === 'SATELLITE_CORROBORATED').length, 'warn'],
+    [say('countCases', language), cases.length, 'neutral'],
+    [say('countHelp', language), cases.filter((s) => s.hasHelpRequest).length, 'good'],
+    [say('countEscalated', language), cases.filter((s) => s.escalatedAt).length, 'bad'],
+    [say('countFires', language), cases.filter((s) => s.case.verificationStatus === 'SATELLITE_CORROBORATED').length, 'warn'],
   ];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr))', gap: '0.6rem' }}>
@@ -206,12 +217,13 @@ function Filters({ status, onStatus, district, onDistrict, officer, onOfficer }:
   officer: string;
   onOfficer: (o: string) => void;
 }) {
+  const { language } = useLanguage();
   const row: React.CSSProperties = { display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.15rem' };
   return (
     <div style={{ display: 'grid', gap: '0.6rem', minWidth: 0 }}>
       {!USE_MOCKS && (
         <label style={{ fontSize: '0.9rem', color: '#334155', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          Signed in as
+          {say('signedInAs', language)}
           <select value={officer} onChange={(e) => onOfficer(e.target.value)} style={{ minHeight: '2.5rem', padding: '0 0.6rem', borderRadius: '0.75rem', border: '1px solid #cbd5e1', fontSize: '0.95rem', background: '#ffffff' }}>
             {OFFICERS.map((o) => (
               <option key={o.token} value={o.token}>
@@ -221,17 +233,17 @@ function Filters({ status, onStatus, district, onDistrict, officer, onOfficer }:
           </select>
         </label>
       )}
-      <div role="group" aria-label="Status" style={row}>
+      <div role="group" aria-label={say('status', language)} style={row}>
         {STATUSES.map(([v, name]) => (
           <Pill key={v || 'all'} on={status === v} onClick={() => onStatus(v)}>
-            {name}
+            {say(name, language)}
           </Pill>
         ))}
       </div>
-      <div role="group" aria-label="District" style={row}>
+      <div role="group" aria-label={say('district', language)} style={row}>
         {DISTRICTS.map(([v, name]) => (
           <Pill key={v || 'all'} on={district === v} onClick={() => onDistrict(v)}>
-            {name}
+            {name ? say(name, language) : v}
           </Pill>
         ))}
       </div>
@@ -240,13 +252,14 @@ function Filters({ status, onStatus, district, onDistrict, officer, onOfficer }:
 }
 
 function Legend() {
+  const { language } = useLanguage();
   const items: [string, string][] = [
-    [PIN_COLOURS.report, 'Report'],
-    [PIN_COLOURS.help, 'Farmer asked for help'],
-    [PIN_COLOURS.closed, 'Closed'],
+    [PIN_COLOURS.report, say('pinReport', language)],
+    [PIN_COLOURS.help, say('pinHelp', language)],
+    [PIN_COLOURS.closed, say('closed', language)],
   ];
   return (
-    <ul aria-label="Map key" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', gap: '0.9rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#334155' }}>
+    <ul aria-label={say('mapKey', language)} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', gap: '0.9rem', flexWrap: 'wrap', fontSize: '0.85rem', color: '#334155' }}>
       {items.map(([colour, name]) => (
         <li key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <span aria-hidden="true" style={{ width: '0.8rem', height: '0.8rem', borderRadius: '50%', background: colour, border: '2px solid #ffffff', boxShadow: '0 0 0 1px #cbd5e1' }} />
@@ -258,12 +271,13 @@ function Legend() {
 }
 
 function CaseCard({ summary: s, selected, onOpen, cta }: { summary: CaseSummary; selected: boolean; onOpen: () => void; cta?: string }) {
+  const { language } = useLanguage();
   const tone = caseTone(s);
-  const due = s.escalatedAt ? '⏫ Escalated' : s.case.status === 'CLOSED' ? 'Closed' : `Act by ${when(s.deadline)}`;
+  const due = s.escalatedAt ? `⏫ ${say('escalated', language)}` : s.case.status === 'CLOSED' ? say('closed', language) : `${say('actBy', language)} ${when(s.deadline)}`;
   const lines = [
-    s.hasHelpRequest ? '🌾 Help request: offer a machine first' : null,
-    (s.reports ?? 1) > 1 ? `${s.reports} reports merged` : null,
-    s.case.verificationStatus === 'SATELLITE_CORROBORATED' ? '🛰️ Satellite saw a fire' : null,
+    s.hasHelpRequest ? `🌾 ${say('helpLine', language)}` : null,
+    (s.reports ?? 1) > 1 ? `${s.reports} ${say('reportsMerged', language)}` : null,
+    s.case.verificationStatus === 'SATELLITE_CORROBORATED' ? `🛰️ ${say('satelliteSaw', language)}` : null,
   ].filter(Boolean);
   return (
     <button
@@ -293,7 +307,7 @@ function CaseCard({ summary: s, selected, onOpen, cta }: { summary: CaseSummary;
       </span>
       <span style={{ display: 'grid', gap: '0.3rem', minWidth: 0 }}>
         <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: '1rem' }}>{TYPE_NAMES[s.type] ?? s.type}</strong>
+          <strong style={{ fontSize: '1rem' }}>{typeName(s.type, language)}</strong>
           <span style={{ fontSize: '0.78rem', fontWeight: 700, color: TONE[tone].ink, background: TONE[tone].wash, border: `1px solid ${TONE[tone].edge}`, borderRadius: '9999px', padding: '0.1rem 0.55rem', whiteSpace: 'nowrap' }}>{due}</span>
         </span>
         <span style={{ fontSize: '0.88rem', color: '#475569' }}>📍 {s.district}</span>
