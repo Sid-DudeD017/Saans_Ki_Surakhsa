@@ -520,6 +520,9 @@ export function ReportSheet({
   const [selectedChips, setSelectedChips] = useState<Set<string>>(new Set());
   const [description, setDescription] = useState(''); // Note starts empty!
   const [isRecording, setIsRecording] = useState(false);
+  const [dictateLanguage, setDictateLanguage] = useState<'en' | 'hi' | 'pa'>('en');
+  const recognitionRef = useRef<any>(null);
+  const baseTextRef = useRef<string>('');
   const [photoFile, setPhotoFile] = useState<Blob | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoHash, setPhotoHash] = useState<string | null>(null);
@@ -747,32 +750,79 @@ export function ReportSheet({
           ? 'ਤੁਹਾਡਾ ਬ੍ਰਾਊਜ਼ਰ ਵੌਇਸ ਰਿਕਾਰਡਿੰਗ ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦਾ।'
           : language === 'hi'
           ? 'आपका ब्राउज़र वॉयस रिकॉर्डिंग का समर्थन नहीं करता।'
-          : 'Speech recognition is not supported in this browser.'
+          : 'Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.'
       );
+      return;
+    }
+
+    // Toggle off if already recording
+    if (isRecording && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      setIsRecording(false);
       return;
     }
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = language === 'pa' ? 'pa-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
-      recognition.interimResults = false;
+      const targetLang =
+        dictateLanguage === 'en'
+          ? 'en-IN'
+          : dictateLanguage === 'hi'
+          ? 'hi-IN'
+          : 'pa-IN';
+
+      recognition.lang = targetLang;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
+      baseTextRef.current = description;
+      recognitionRef.current = recognition;
       setIsRecording(true);
+
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0]?.[0]?.transcript;
-        if (transcript) {
-          setDescription((prev) => {
-            const trimmed = prev.trim();
-            const combined = trimmed ? `${trimmed}. ${transcript}` : transcript;
-            return combined.slice(0, 1000);
-          });
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalTranscript += res[0].transcript + ' ';
+          } else {
+            interimTranscript += res[0].transcript;
+          }
         }
-        setIsRecording(false);
+
+        const spoken = (finalTranscript + interimTranscript).trim();
+        if (spoken) {
+          const base = baseTextRef.current.trim();
+          const combined = base ? `${base}. ${spoken}` : spoken;
+          setDescription(combined.slice(0, 1000));
+        }
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition error:', event.error);
         setIsRecording(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          alert(
+            language === 'pa'
+              ? 'ਮਾਈਕ੍ਰੋਫੋਨ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਮਿਲੀ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਮਾਈਕ੍ਰੋਫੋਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ।'
+              : language === 'hi'
+              ? 'माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें।'
+              : 'Microphone permission was denied. Please allow microphone access in your browser settings.'
+          );
+        } else if (event.error === 'network') {
+          alert(
+            language === 'pa'
+              ? 'ਨੈੱਟਵਰਕ ਸਮੱਸਿਆ: ਸਪੀਚ ਸਰਵਿਸ ਨਾਲ ਸੰਪਰਕ ਨਹੀਂ ਹੋ ਸਕਿਆ।'
+              : language === 'hi'
+              ? 'नेटवर्क समस्या: स्पीच रिकग्निशन सेवा से कनेक्ट नहीं हो सका।'
+              : 'Network error connecting to speech recognition service. Please check your internet connection.'
+          );
+        }
       };
 
       recognition.onend = () => {
@@ -1680,28 +1730,58 @@ export function ReportSheet({
                     <label htmlFor="report-desc" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
                       {REPORT_I18N.noteLabel[language]}
                     </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <select
+                        value={dictateLanguage}
+                        onChange={(e) => setDictateLanguage(e.target.value as any)}
+                        disabled={isRecording}
+                        aria-label="Speech language"
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '0.2rem 0.4rem',
+                          borderRadius: '0.375rem',
+                          border: '1px solid #cbd5e1',
+                          color: '#334155',
+                          backgroundColor: '#ffffff',
+                          cursor: isRecording ? 'not-allowed' : 'pointer',
+                          minHeight: '36px',
+                        }}
+                      >
+                        <option value="en">🌐 English (IN)</option>
+                        <option value="hi">🇮🇳 हिन्दी</option>
+                        <option value="pa">🇮🇳 ਪੰਜਾਬੀ</option>
+                      </select>
+
                       <button
                         type="button"
                         onClick={handleVoiceNote}
                         style={{
-                          background: 'none',
-                          border: '1px solid #cbd5e1',
+                          background: isRecording ? '#fef2f2' : '#ffffff',
+                          border: isRecording ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
                           borderRadius: '0.375rem',
-                          padding: '0.25rem 0.5rem',
+                          padding: '0.25rem 0.6rem',
                           fontSize: '0.75rem',
                           color: isRecording ? '#dc2626' : '#0284c7',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
-                          minHeight: '44px',
-                          minWidth: '44px',
+                          minHeight: '36px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.25rem',
+                          gap: '0.35rem',
+                          boxShadow: isRecording ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        {isRecording ? REPORT_I18N.dictating[language] : REPORT_I18N.dictateBtn[language]}
+                        {isRecording ? (
+                          <>
+                            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
+                            <span>⏹️ {REPORT_I18N.dictating[language]}</span>
+                          </>
+                        ) : (
+                          <span>{REPORT_I18N.dictateBtn[language]}</span>
+                        )}
                       </button>
+
                       <span style={{ fontSize: '0.75rem', color: description.length > 900 ? '#dc2626' : '#64748b' }}>
                         {description.length}/1000
                       </span>
