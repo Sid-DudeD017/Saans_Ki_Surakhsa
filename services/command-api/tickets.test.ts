@@ -43,6 +43,14 @@ describe("tickets API", () => {
     expect(list[0].district).toBe("Mohali");
   });
 
+  it("list with citizenId filter", async () => {
+    const cId = "cit-" + Date.now();
+    await createTicket(db, { type: "garbage", district: "Mohali", reporter_identity: cId, idempotency_key: newId("test") });
+    const res = await listTickets(db, false, { citizenId: cId });
+    expect(res.tickets.length).toBe(1);
+    expect(res.tickets[0].reporter_identity).toBe(cId);
+  });
+
   it("accept", async () => {
     const res = await createTicket(db, { type: "garbage", district: "Patiala", idempotency_key: newId("test") });
     const accepted = await applyTicketAction(db, res.ticket.id, { action: "accept" }, "officer-1", true);

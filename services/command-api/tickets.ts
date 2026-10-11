@@ -119,9 +119,9 @@ export async function listTickets(
   const addFilter = (sqlFragment: string, value?: any) => {
     if (value !== undefined) {
       params.push(value);
-      query += ` AND ${sqlFragment.replace("$X", "$" + params.length)}`;
+      query += ` AND ${sqlFragment.replaceAll("$X", "$" + params.length)}`;
       countParams.push(value);
-      countQuery += ` AND ${sqlFragment.replace("$X", "$" + countParams.length)}`;
+      countQuery += ` AND ${sqlFragment.replaceAll("$X", "$" + countParams.length)}`;
     } else {
       query += ` AND ${sqlFragment}`;
       countQuery += ` AND ${sqlFragment}`;
