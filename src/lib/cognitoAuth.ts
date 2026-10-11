@@ -52,6 +52,20 @@ function config() {
   };
 }
 
+/**
+ * Whether this build has Cognito set up (the AWS deployment does; a developer's machine usually doesn't).
+ * Each variable is read by name so Next.js can inline it.
+ */
+export function isCognitoConfigured(): boolean {
+  return !!(
+    process.env.NEXT_PUBLIC_COGNITO_REGION &&
+    process.env.NEXT_PUBLIC_COGNITO_DOMAIN &&
+    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID &&
+    process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI &&
+    process.env.NEXT_PUBLIC_COGNITO_LOGOUT_URI
+  );
+}
+
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);

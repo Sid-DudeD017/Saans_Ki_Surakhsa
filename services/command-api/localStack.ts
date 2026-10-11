@@ -34,7 +34,11 @@ export function localDeps(): Promise<IntakeDeps> {
     };
     deps.notify = notifierFromEnv(deps.db);
     await migrate(deps.db);
-    await ensureBucket(deps.s3, config.evidenceBucket);
+    try {
+      await ensureBucket(deps.s3, config.evidenceBucket);
+    } catch (e: any) {
+      console.warn("Evidence bucket initialization skipped or failed:", e?.message || e);
+    }
     // The local stand-in for template.yaml's one-minute EscalationFunction schedule.
     setInterval(() => {
       escalateOverdue(deps).catch((e) => console.error("escalation sweep failed", e));

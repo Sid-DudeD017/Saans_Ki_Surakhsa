@@ -13,19 +13,25 @@ const STORAGE_KEY = 'saans_home_location';
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Told when the home moves, so every part of the page (the app header too) follows it. */
+const CHANGED = 'saans-home-location';
+
 export function useHomeLocation() {
   const [location, setLocationState] = useState<LocationState>(EXAMPLE_LOCATION);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setLocationState(JSON.parse(stored));
-      }
-    } catch {}
+    const load = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) setLocationState(JSON.parse(stored));
+      } catch {}
+    };
+    load();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsReady(true);
+    window.addEventListener(CHANGED, load);
+    return () => window.removeEventListener(CHANGED, load);
   }, []);
 
   const saveLocation = (loc: LocationState) => {
@@ -34,6 +40,7 @@ export function useHomeLocation() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rounded));
     } catch {}
+    window.dispatchEvent(new Event(CHANGED));
   };
 
   return { location, saveLocation, isReady };

@@ -60,7 +60,10 @@ html {
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* System fonts first; the Noto families so Hindi and Punjabi get a proper face, as Kisan Saathi already does. */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gurmukhi', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   color: #0f172a;
   background-color: #f8fafc;
   overflow-x: hidden;
@@ -79,6 +82,21 @@ body {
 
 .saans-fab-button:active {
   transform: scale(0.96) !important;
+}
+
+/* Over a floating bottom tab bar (src/components/BottomTabs.tsx) the Report button sits centred just
+   above it, like Blinkit's cart pill, leaving the corner to the round Switch button. */
+body[data-bottom-bar] .saans-report-fab {
+  left: 50%;
+  right: auto !important;
+  bottom: calc(0.4rem + var(--saans-bottom-bar, 0px)) !important;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ...and the page leaves room for both, so its last card can scroll clear of them. */
+body[data-bottom-bar]:has(.saans-report-fab) {
+  padding-bottom: calc(var(--saans-bottom-bar, 0px) + 4rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* Interactive Card & Tile Micro-interactions */

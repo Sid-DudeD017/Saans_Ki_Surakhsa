@@ -122,8 +122,8 @@ async function replayed(deps: IntakeDeps, key: string, hash: string): Promise<Re
 
 /**
  * GET /v1/complaints/{id}: Read-only status tracking.
- * Returns: received -> sent_to_officer -> merged or case_opened -> acted_on -> closed.
- * Strips all officer names and reporter identities.
+ * Returns: received -> sent_to_officer -> merged or case_opened -> acted_on -> closed, and whether the case
+ * was escalated for passing its deadline. Strips all officer names and reporter identities.
  */
 export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<Response> {
   const { rows: complaints } = await deps.db.query<{
@@ -148,10 +148,11 @@ export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<
     status: string;
     updated_at: Date;
     is_merged: boolean;
+    escalated_at: Date | null;
   }>(
-    `SELECT c.id, c.status, c.updated_at, false as is_merged FROM cases c WHERE c.complaint_id = $1
+    `SELECT c.id, c.status, c.updated_at, false as is_merged, c.escalated_at FROM cases c WHERE c.complaint_id = $1
      UNION
-     SELECT c.id, c.status, c.updated_at, true as is_merged FROM cases c JOIN case_reports cr ON cr.case_id = c.id WHERE cr.complaint_id = $1
+     SELECT c.id, c.status, c.updated_at, true as is_merged, c.escalated_at FROM cases c JOIN case_reports cr ON cr.case_id = c.id WHERE cr.complaint_id = $1
      LIMIT 1`,
     [id],
   );
@@ -206,6 +207,9 @@ export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<
     type: complaint.type,
     received_at: complaint.received_at.toISOString(),
     updated_at: (cCase?.updated_at ?? complaint.updated_at).toISOString(),
+    // The deadline passed with no officer acting, so the case went up to the Deputy Commissioner
+    // (escalation.ts). Only that it happened: who it went to stays inside Command.
+    escalated: !!cCase?.escalated_at,
     description: typeof body.description === "string" ? body.description : undefined,
     evidence: Array.isArray(body.evidence) ? body.evidence : undefined,
   });
