@@ -11,6 +11,7 @@ import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getTicket, listTickets, type CaseDetail, type CaseStatus } from './commandApi';
 import { translations, type Lang } from './i18n';
+import { LiveCommandPage } from './LiveCommandPage';
 
 const ALLOWED_OFFICER_IDS = new Set([
   '633870',
@@ -27,7 +28,7 @@ const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑�
 
 const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', minHeight: '44px' };
 
-export default function CommandPage() {
+function MockCommandPage() {
   const { language } = useLanguage();
   const lang: Lang = (language as Lang) || 'en';
   const [status, setStatus] = useState<string>('');
@@ -558,4 +559,8 @@ export default function CommandPage() {
       )}
     </Container>
   );
+}
+
+export default function CommandPage() {
+  return USE_MOCKS ? <MockCommandPage /> : <LiveCommandPage />;
 }
