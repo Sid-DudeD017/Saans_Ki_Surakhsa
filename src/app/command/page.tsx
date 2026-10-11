@@ -390,9 +390,55 @@ export default function CommandPage() {
               >
                 Officer Verification
               </h2>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.4 }}>
-                Enter your authorized 6-digit Officer ID to access the enforcement console.
+              <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.4 }}>
+                Enter your authorized 6-digit Officer PIN to access the enforcement console.
               </p>
+
+              <div
+                style={{
+                  padding: '0.75rem',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #e2e8f0',
+                  marginBottom: '1.15rem',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                  Demo Prototype Access
+                </div>
+                <div style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                  Use any of these authorized PIN values to log in:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  {['633870', '608628', '879821', '672665', '847544', '797567'].map((pin) => (
+                    <button
+                      key={pin}
+                      type="button"
+                      onClick={() => {
+                        setOfficerInputId(pin);
+                        setOfficerAuthError(null);
+                      }}
+                      title={`Click to fill ${pin}`}
+                      style={{
+                        padding: '0.3rem 0.55rem',
+                        backgroundColor: '#ffffff',
+                        border: officerInputId === pin ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                        borderRadius: '0.375rem',
+                        fontSize: '0.825rem',
+                        fontWeight: 700,
+                        color: officerInputId === pin ? '#0284c7' : '#1e293b',
+                        cursor: 'pointer',
+                        fontFamily: 'monospace',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      • {pin}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <form onSubmit={handleVerifyOfficer}>
@@ -400,7 +446,7 @@ export default function CommandPage() {
                 <label
                   style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}
                 >
-                  Officer ID
+                  Officer PIN
                 </label>
                 <input
                   type="text"
