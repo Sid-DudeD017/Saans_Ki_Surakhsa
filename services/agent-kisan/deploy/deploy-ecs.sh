@@ -53,7 +53,11 @@ CONTAINER="{\"image\":\"$IMAGE\",\"containerPort\":8080,\"environment\":[
   {\"name\":\"KISAN_MODEL_ID\",\"value\":\"$MODEL_ID\"},
   {\"name\":\"KISAN_BEDROCK_REGION\",\"value\":\"$REGION\"},
   {\"name\":\"SAANS_API_URL\",\"value\":\"$SAANS_API_URL\"}]}"
-ARN=$(aws ecs list-services --region "$REGION" --query "serviceArns[?ends_with(@, '/$SERVICE')] | [0]" --output text)
+# Express Mode services live in the "default" cluster, which a fresh account doesn't have yet (creating it is
+# free, and does nothing when it exists).
+aws ecs create-cluster --region "$REGION" --cluster-name default >/dev/null
+ARN=$(aws ecs list-services --region "$REGION" --cluster default \
+  --query "serviceArns[?ends_with(@, '/$SERVICE')] | [0]" --output text)
 if [ "$ARN" = "None" ] || [ -z "$ARN" ]; then
   sleep 10 # new IAM roles take a moment to be usable
   ARN=$(aws ecs create-express-gateway-service --region "$REGION" \
