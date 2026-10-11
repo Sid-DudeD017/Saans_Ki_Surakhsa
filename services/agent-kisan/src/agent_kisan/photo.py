@@ -7,6 +7,7 @@
   reported as unavailable and nothing else is affected.
 """
 
+import base64
 import io
 import json
 import os
@@ -75,10 +76,8 @@ def intake(data: bytes, find_faces: Callable[[Image.Image], list[Box]] = opencv_
 
 
 def identify_machine(jpeg: bytes, client=None, model_id: str | None = None) -> dict:
-    """{"machine": one of MACHINES or "none" / "other", "confidence": 0-1, "why": "..."} from Claude on Bedrock."""
-    import boto3
-
-    client = client or boto3.client("bedrock-runtime", region_name=os.environ.get("KISAN_BEDROCK_REGION", "ap-south-1"))
+    """{"machine": one of MACHINES or "none" / "other", "confidence": 0-1, "why": "..."} from Claude on Bedrock,
+    or on Anthropic's API when ANTHROPIC_API_KEY is set (see agent.default_model)."""
     prompt = (
         "This photo is from a paddy farmer in Punjab. Which stubble machine is the main subject? Answer with JSON "
         'only: {"machine": "happy_seeder" | "super_seeder" | "mulcher_rmb" | "baler" | "other" | "none", '
@@ -87,13 +86,20 @@ def identify_machine(jpeg: bytes, client=None, model_id: str | None = None) -> d
         "has a rotor (rotavator) in front of the seed drill; a mulcher has a closed hood with flails; a baler "
         "makes rectangular or round bales."
     )
-    res = client.converse(
-        modelId=model_id or os.environ.get("KISAN_MODEL_ID", "in.anthropic.claude-opus-5"),
-        messages=[{"role": "user", "content": [{"image": {"format": "jpeg", "source": {"bytes": jpeg}}},
-                                               {"text": prompt}]}],
-        inferenceConfig={"maxTokens": 300},
-    )
-    text = "".join(b.get("text", "") for b in res["output"]["message"]["content"])
+    if client is None and os.environ.get("ANTHROPIC_API_KEY"):
+        text = _ask_anthropic(jpeg, prompt, model_id)
+    else:
+        if client is None:
+            import boto3
+
+            client = boto3.client("bedrock-runtime", region_name=os.environ.get("KISAN_BEDROCK_REGION", "ap-south-1"))
+        res = client.converse(
+            modelId=model_id or os.environ.get("KISAN_MODEL_ID", "in.anthropic.claude-opus-5"),
+            messages=[{"role": "user", "content": [{"image": {"format": "jpeg", "source": {"bytes": jpeg}}},
+                                                   {"text": prompt}]}],
+            inferenceConfig={"maxTokens": 300},
+        )
+        text = "".join(b.get("text", "") for b in res["output"]["message"]["content"])
     match = re.search(r"\{.*\}", text, re.S)
     if not match:
         return {"machine": None, "confidence": 0.0, "why": "no answer we could read", "raw": text[:200]}
@@ -102,6 +108,23 @@ def identify_machine(jpeg: bytes, client=None, model_id: str | None = None) -> d
     if machine not in (*MACHINES, "other", "none"):
         machine = "other"
     return {"machine": machine, "confidence": float(answer.get("confidence", 0)), "why": str(answer.get("why", ""))}
+
+
+def _ask_anthropic(jpeg: bytes, prompt: str, model_id: str | None = None) -> str:
+    import anthropic
+
+    from agent_kisan.agent import DEFAULT_ANTHROPIC_MODEL
+
+    res = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]).messages.create(
+        model=model_id or os.environ.get("KISAN_ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
+        max_tokens=300,
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                         "data": base64.b64encode(jpeg).decode()}},
+            {"type": "text", "text": prompt},
+        ]}],
+    )
+    return "".join(b.text for b in res.content if b.type == "text")
 
 
 def _gps(exif) -> tuple[float | None, float | None]:

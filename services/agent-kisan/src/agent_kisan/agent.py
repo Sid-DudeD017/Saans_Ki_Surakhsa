@@ -1,4 +1,4 @@
-"""The Kisan Saathi agent: Strands on Amazon Bedrock, with tools bound to one KisanSession.
+"""The Kisan Saathi agent: Strands on Amazon Bedrock (or Anthropic's API), with tools bound to one KisanSession.
 
 The model talks and decides which tool to call. Every number comes from the
 coverage engine, and the filing rules live in KisanSession, not in the prompt.
@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from strands import Agent, tool
 from strands.models import BedrockModel
-from strands.models.model import CacheConfig
+from strands.models.model import CacheConfig, Model
 
 from agent_kisan.filing import Filer, default_filer
 from agent_kisan.session import KisanSession
@@ -23,6 +23,9 @@ if TYPE_CHECKING:
 # global.anthropic.claude-opus-5-5 is newer, but global routing can send data outside India.
 DEFAULT_MODEL_ID = "in.anthropic.claude-opus-5"
 DEFAULT_REGION = "ap-south-1"
+# With ANTHROPIC_API_KEY set, the agent calls Anthropic's API instead, for accounts where Bedrock won't serve
+# Anthropic models (AWS India accounts get "Operation not allowed"). That leaves India-only inference behind.
+DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5"
 
 SYSTEM_PROMPT = """You are Kisan Saathi, part of the Saans app. You help farmers in Punjab and Haryana clear paddy stubble without burning it, and you get them help when they don't have enough machines. Saans exists to offer help before any penalty; you never threaten, judge or mention fines.
 
@@ -52,7 +55,7 @@ How to work:
 """
 
 
-def build_agent(session: KisanSession, model: BedrockModel | None = None, callback_handler=None) -> Agent:
+def build_agent(session: KisanSession, model: Model | None = None, callback_handler=None) -> Agent:
     """A Strands agent whose tools read and write this session."""
 
     @tool
@@ -153,7 +156,16 @@ def build_agent(session: KisanSession, model: BedrockModel | None = None, callba
     )
 
 
-def default_model() -> BedrockModel:
+def default_model() -> Model:
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        from strands.models.anthropic import AnthropicModel  # the strands-agents[anthropic] extra
+
+        return AnthropicModel(
+            client_args={"api_key": os.environ["ANTHROPIC_API_KEY"]},
+            model_id=os.environ.get("KISAN_ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
+            max_tokens=4096,
+            cache_config=CacheConfig(strategy="anthropic"),
+        )
     return BedrockModel(
         model_id=os.environ.get("KISAN_MODEL_ID", DEFAULT_MODEL_ID),
         region_name=os.environ.get("KISAN_BEDROCK_REGION", DEFAULT_REGION),
@@ -165,7 +177,7 @@ def default_model() -> BedrockModel:
 class KisanChat:
     """One farmer's conversation: a session and the agent bound to it."""
 
-    def __init__(self, filer: Filer | None = None, language: str = "pa", model: BedrockModel | None = None,
+    def __init__(self, filer: Filer | None = None, language: str = "pa", model: Model | None = None,
                  callback_handler=None, **session_options):
         self.session = KisanSession(filer=filer or default_filer(), language=language, **session_options)
         self.agent = build_agent(self.session, model=model, callback_handler=callback_handler)

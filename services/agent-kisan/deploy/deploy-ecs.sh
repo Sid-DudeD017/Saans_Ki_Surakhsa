@@ -43,6 +43,23 @@ aws iam put-role-policy --role-name saansAgentKisanTaskRole --policy-name bedroc
     \"Resource\": [\"arn:aws:bedrock:$REGION:$ACCOUNT:inference-profile/*\", \"arn:aws:bedrock:*::foundation-model/anthropic.*\"]}]
 }"
 
+# Claude through Anthropic's API (for accounts where Bedrock won't serve Anthropic models): when the Secrets
+# Manager secret saans/anthropic-api-key exists, ECS hands it to the agent as ANTHROPIC_API_KEY. Create it with
+#   read -rs KEY && aws secretsmanager create-secret --region ap-south-1 --name saans/anthropic-api-key --secret-string "$KEY"
+SECRETS=""
+KEY_ARN=$(aws secretsmanager describe-secret --region "$REGION" --secret-id saans/anthropic-api-key \
+  --query ARN --output text 2>/dev/null || true)
+if [ -n "$KEY_ARN" ]; then
+  aws iam put-role-policy --role-name ecsTaskExecutionRole --policy-name saans-anthropic-key --policy-document "{
+    \"Version\": \"2012-10-17\",
+    \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"secretsmanager:GetSecretValue\", \"Resource\": \"$KEY_ARN\"}]
+  }"
+  SECRETS=",\"secrets\":[{\"name\":\"ANTHROPIC_API_KEY\",\"valueFrom\":\"$KEY_ARN\"}]"
+  echo "Using Anthropic's API (key from $KEY_ARN)"
+else
+  echo "No saans/anthropic-api-key secret: the agent will use Bedrock"
+fi
+
 # 2. Image: Fargate here runs x86_64, so build for that even on an Apple Silicon Mac.
 aws ecr describe-repositories --region "$REGION" --repository-names "$REPO" >/dev/null 2>&1 ||
   aws ecr create-repository --region "$REGION" --repository-name "$REPO" \
@@ -55,7 +72,7 @@ docker push "$IMAGE"
 CONTAINER="{\"image\":\"$IMAGE\",\"containerPort\":8080,\"environment\":[
   {\"name\":\"KISAN_MODEL_ID\",\"value\":\"$MODEL_ID\"},
   {\"name\":\"KISAN_BEDROCK_REGION\",\"value\":\"$REGION\"},
-  {\"name\":\"SAANS_API_URL\",\"value\":\"$SAANS_API_URL\"}]}"
+  {\"name\":\"SAANS_API_URL\",\"value\":\"$SAANS_API_URL\"}]$SECRETS}"
 # Express Mode services live in the "default" cluster, which a fresh account doesn't have yet (creating it is
 # free, and does nothing when it exists).
 aws ecs create-cluster --region "$REGION" --cluster-name default >/dev/null
