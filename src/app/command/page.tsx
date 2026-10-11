@@ -81,12 +81,6 @@ export default function CommandPage() {
   return (
     <Container maxWidth="lg" style={{ paddingTop: '0.25rem', paddingBottom: '2rem' }}>
       <div style={{ display: 'grid', gap: '1rem' }}>
-        {USE_MOCKS && (
-          <p style={{ margin: 0, justifySelf: 'start', fontSize: '0.8rem', fontWeight: 600, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '9999px', padding: '0.25rem 0.75rem' }}>
-            Example cases: decisions last until the page reloads
-          </p>
-        )}
-
         <TabPanel id="cases" current={tab} prefix="command">
           <div style={{ display: 'grid', gap: '1rem' }}>
             <Counts cases={cases} />
