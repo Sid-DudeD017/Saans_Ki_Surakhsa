@@ -13,6 +13,7 @@ import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getTicket, listTickets, type CaseDetail, type CaseStatus } from './commandApi';
 import { translations, type Lang } from './i18n';
+import { LiveCommandPage } from './LiveCommandPage';
 
 const ALLOWED_OFFICER_IDS = new Set([
   '633870',
@@ -37,7 +38,7 @@ const TAB_WORDS: Record<(typeof COMMAND_TABS)[number], { icon: string; label: Re
 };
 const BAR_NAME: Record<Lang, string> = { en: 'Command sections', hi: 'कमांड के हिस्से', pa: 'ਕਮਾਂਡ ਦੇ ਹਿੱਸੇ' };
 
-export default function CommandPage() {
+function MockCommandPage() {
   const { language } = useLanguage();
   const lang: Lang = (language as Lang) || 'en';
   // The app's bottom bar: the queue, the map, and the open case (src/components/BottomTabs.tsx).
@@ -224,7 +225,8 @@ export default function CommandPage() {
       <TabPanel id="cases" current={tab} prefix="command">
           <Card padding="md">
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-              {!USE_MOCKS && (
+              {/* The local console always offers the demo sign-ins: a citizen, or an officer with a PIN. Since #61
+                  it only shows in local mode, so the old "live only" condition hid them for good. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                   <label style={{ fontSize: '0.85rem', color: '#334155' }}>
                     {t.signed_in}{' '}
@@ -286,7 +288,6 @@ export default function CommandPage() {
                     </span>
                   )}
                 </div>
-              )}
               <label style={{ fontSize: '0.85rem', color: '#334155' }}>
                 {t.status}{' '}
                 <select style={select} value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -574,4 +575,8 @@ export default function CommandPage() {
       )}
     </Container>
   );
+}
+
+export default function CommandPage() {
+  return USE_MOCKS ? <MockCommandPage /> : <LiveCommandPage />;
 }
