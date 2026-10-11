@@ -309,6 +309,7 @@ function LocationBar({
   language,
   onAsk,
   onOpenSearch,
+  promptShown = false,
 }: {
   place: Place;
   status: LocationStatus;
@@ -316,6 +317,8 @@ function LocationBar({
   language: 'pa' | 'hi' | 'en';
   onAsk: () => void;
   onOpenSearch: () => void;
+  /** The "See the air where you are" card is on screen with its own button, so this bar doesn't repeat it. */
+  promptShown?: boolean;
 }) {
   const isDevice = place.kind === 'device';
   const district = place.district || 'Sangrur';
@@ -399,7 +402,7 @@ function LocationBar({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {status !== 'insecure' && !isDevice && status !== 'asking' && (
+        {status !== 'insecure' && !isDevice && status !== 'asking' && !promptShown && (
           <Button
             size="sm"
             variant="primary"
@@ -737,6 +740,8 @@ export default function ShalaPage() {
 
 
 
+  const promptShown = tab === 'today' && locationStatus === 'idle' && !promptDismissed && place.kind === 'school';
+
   return (
     <Container maxWidth="md" className="saans-compact-mobile" style={{ paddingTop: '0.25rem', paddingBottom: '4rem' }}>
       {/* The app header (src/components/AppHeader.tsx) carries the name. */}
@@ -744,6 +749,7 @@ export default function ShalaPage() {
       <Stack gap="md">
         {/* Section A: Location bar */}
         <LocationBar
+          promptShown={promptShown}
           place={place}
           status={locationStatus}
           isRough={isRough}
@@ -753,7 +759,7 @@ export default function ShalaPage() {
         />
 
         {/* First visit permission prompt card */}
-        {tab === 'today' && locationStatus === 'idle' && !promptDismissed && place.kind === 'school' && (
+        {promptShown && (
           <LocationPermissionCard
             language={language}
             onAsk={askLocation}
