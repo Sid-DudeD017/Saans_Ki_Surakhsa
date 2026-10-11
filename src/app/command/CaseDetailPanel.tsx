@@ -173,19 +173,12 @@ export function CaseDetailPanel({
     ? [{ id: 'report', kind: t.type === 'farmer_support' ? 'farm' : 'report', label: typeNames[t.type] || 'Report', ...t.location }]
     : [];
 
-  const [resolvedRegion, setResolvedRegion] = useState<string | null>(
-    t.district && t.district !== 'unassigned' ? t.district : null
-  );
+  const [geocodedRegion, setGeocodedRegion] = useState<string | null>(null);
+  const resolvedRegion = (t.district && t.district !== 'unassigned') ? t.district : geocodedRegion;
 
   React.useEffect(() => {
-    if (t.district && t.district !== 'unassigned') {
-      setResolvedRegion(t.district);
-      return;
-    }
-    if (!t.location?.lat || !t.location?.lon) {
-      setResolvedRegion(null);
-      return;
-    }
+    if (t.district && t.district !== 'unassigned') return;
+    if (!t.location?.lat || !t.location?.lon) return;
 
     let active = true;
     fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${t.location.lat}&longitude=${t.location.lon}`)
@@ -199,17 +192,15 @@ export function CaseDetailPanel({
           data.principalSubdivision ||
           null;
         if (region) {
-          setResolvedRegion(region);
+          setGeocodedRegion(region);
         }
       })
-      .catch(() => {
-        if (active) setResolvedRegion(null);
-      });
+      .catch(() => {});
 
     return () => {
       active = false;
     };
-  }, [t.id, t.district, t.location?.lat, t.location?.lon]);
+  }, [t.district, t.location?.lat, t.location?.lon]);
 
   const rawDescription = t.description || t.complaint_body?.description || '';
   const { matchedChips, customNote } = parseReportDetails(rawDescription);

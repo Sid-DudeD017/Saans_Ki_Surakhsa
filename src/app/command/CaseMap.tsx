@@ -60,13 +60,16 @@ export function CaseMap({
   onPick?: (id: string) => void;
   title: string;
 }) {
-  if (!points.length) return null;
+  const pointsKey = points.map((p) => `${p.id}-${p.lat.toFixed(4)}-${p.lon.toFixed(4)}`).join(';');
+  const [prevKey, setPrevKey] = useState<string>(pointsKey);
 
-  const defaultCentre = {
-    lat: (Math.max(...points.map((p) => p.lat)) + Math.min(...points.map((p) => p.lat))) / 2,
-    lon: (Math.max(...points.map((p) => p.lon)) + Math.min(...points.map((p) => p.lon))) / 2,
-  };
-  const baseZoom = fitZoom(points);
+  const defaultCentre = points.length > 0
+    ? {
+        lat: (Math.max(...points.map((p) => p.lat)) + Math.min(...points.map((p) => p.lat))) / 2,
+        lon: (Math.max(...points.map((p) => p.lon)) + Math.min(...points.map((p) => p.lon))) / 2,
+      }
+    : { lat: 30.2, lon: 75.8 };
+  const baseZoom = points.length > 0 ? fitZoom(points) : 9;
 
   const [currentZoom, setCurrentZoom] = useState<number>(baseZoom);
   const [centre, setCentre] = useState<LatLon>(defaultCentre);
@@ -74,12 +77,14 @@ export function CaseMap({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; centrePx: { x: number; y: number } } | null>(null);
 
-  // Reset to points whenever points collection changes
-  const pointsKey = points.map((p) => `${p.id}-${p.lat.toFixed(4)}-${p.lon.toFixed(4)}`).join(';');
-  useEffect(() => {
+  // Sync zoom and centre if points collection changes
+  if (pointsKey !== prevKey) {
+    setPrevKey(pointsKey);
     setCurrentZoom(baseZoom);
     setCentre(defaultCentre);
-  }, [pointsKey]);
+  }
+
+  if (!points.length) return null;
 
   // Pointer drag to pan map
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
