@@ -73,7 +73,15 @@ export async function getTicket(db: Db, id: string, isOfficer: boolean, user?: s
   if (res.rows.length === 0) throw new TicketError("not_found", "Ticket not found");
   const raw = res.rows[0];
   if (!isOfficer && user && raw.reporter_identity !== user) {
-    throw new TicketError("forbidden", "Access restricted");
+    const mergedCheck = await db.query(
+      `SELECT 1 FROM case_reports cr
+       JOIN complaints comp ON comp.id = cr.complaint_id
+       WHERE cr.case_id = $1 AND comp.body->>'reporter_identity' = $2 LIMIT 1`,
+      [id, user]
+    );
+    if (mergedCheck.rows.length === 0) {
+      throw new TicketError("forbidden", "Access restricted");
+    }
   }
   if (isOfficer && officerDistrict && officerDistrict !== "*" && raw.district && raw.district !== officerDistrict) {
     throw new TicketError("forbidden", "Access restricted to officer district");
@@ -121,7 +129,14 @@ export async function listTickets(
   };
 
   if (filters.citizenId) {
-    addFilter("c.reporter_identity = $X", filters.citizenId);
+    addFilter(`(
+      c.reporter_identity = $X
+      OR EXISTS (
+        SELECT 1 FROM case_reports cr
+        JOIN complaints comp2 ON comp2.id = cr.complaint_id
+        WHERE cr.case_id = c.id AND comp2.body->>'reporter_identity' = $X
+      )
+    )`, filters.citizenId);
   } else if (filters.officerDistrict && filters.officerDistrict !== "*") {
     addFilter("(c.district = $X OR c.district IS NULL OR c.district = '' OR c.district = 'unassigned')", filters.officerDistrict);
   } else if (filters.district) {
