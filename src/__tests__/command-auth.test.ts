@@ -33,6 +33,12 @@ describe("live Command authorization", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("NEXT_PUBLIC_USE_MOCKS", "false");
+    // The deployment this models has Cognito set up; without it Command uses the local console.
+    vi.stubEnv("NEXT_PUBLIC_COGNITO_REGION", "ap-south-1");
+    vi.stubEnv("NEXT_PUBLIC_COGNITO_DOMAIN", "saans-test");
+    vi.stubEnv("NEXT_PUBLIC_COGNITO_CLIENT_ID", "test-client");
+    vi.stubEnv("NEXT_PUBLIC_COGNITO_REDIRECT_URI", "https://app.example/command");
+    vi.stubEnv("NEXT_PUBLIC_COGNITO_LOGOUT_URI", "https://app.example/");
     vi.stubEnv(
       "NEXT_PUBLIC_COMMAND_API_BASE_URL",
       "https://command.example/dev",
