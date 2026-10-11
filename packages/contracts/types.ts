@@ -494,6 +494,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tickets
+         * @description List tickets with filtering
+         */
+        get: operations["listTickets"];
+        put?: never;
+        /**
+         * Create Ticket
+         * @description Create a new ticket (additive to cases)
+         */
+        post: operations["createTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tickets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ticket
+         * @description Get a ticket by ID
+         */
+        get: operations["getTicket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tickets/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ticket History
+         * @description Get the audit log history for a ticket
+         */
+        get: operations["getTicketHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tickets/{id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Ticket Action
+         * @description Apply an action to a ticket (e.g. accept, resolve, citizen_confirm)
+         */
+        post: operations["applyTicketAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads": {
         parameters: {
             query?: never;
@@ -780,7 +864,7 @@ export interface components {
         };
         CaseActionInput: {
             /** @enum {string} */
-            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE";
+            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "OVERRIDE_THREAT";
             /** @description Needed for CHANGE */
             selectedMachineId?: string;
             reason: string;
@@ -1780,7 +1864,7 @@ export interface components {
              * @description ESCALATE is written by Saans itself (officerId saans-escalation) when a deadline passes
              * @enum {string}
              */
-            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "ESCALATE";
+            action: "APPROVE" | "CHANGE" | "REJECT" | "MARK_IN_FIELD" | "RECORD_ACTION_TAKEN" | "CLOSE" | "ESCALATE" | "OVERRIDE_THREAT";
             selectedMachineId?: string;
             reason: string;
             createdAt: components["schemas"]["IndiaTimestamp"];
@@ -4490,6 +4574,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicBoard"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description The board is being recomputed */
             503: {
                 headers: {
@@ -4779,6 +4864,181 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+        };
+    };
+    listTickets: {
+        parameters: {
+            query?: {
+                district?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "tickets": [
+                     *         {
+                     *           "id": "SAANS-20231010-ABCDEF",
+                     *           "status": "submitted"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    createTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    type: string;
+                    district: string;
+                    idempotency_key: string;
+                    reporter_identity?: string;
+                    reporter_consent?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "SAANS-20231010-ABCDEF",
+                     *       "status": "submitted"
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "ticket": {
+                     *         "id": "SAANS-20231010-ABCDEF",
+                     *         "status": "submitted"
+                     *       }
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getTicketHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "history": [
+                     *         {
+                     *           "action": "accept",
+                     *           "actor": "officer-1"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    applyTicketAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    summary?: string;
+                    reason?: string;
+                    status?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "ticket": {
+                     *         "id": "SAANS-20231010-ABCDEF",
+                     *         "status": "resolved"
+                     *       }
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+            400: components["responses"]["BadRequest"];
         };
     };
     createUpload: {

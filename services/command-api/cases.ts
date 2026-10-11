@@ -29,6 +29,11 @@ interface CaseRow {
   status: CaseStatus;
   help_request_id: string | null;
   help_link: { distance_m: number; ambiguous: boolean; other_help_request_id?: string } | null;
+  threat_level: "low" | "medium" | "high" | "critical" | null;
+  threat_score: number | null;
+  threat_reasons: string[] | null;
+  automated_label: string | null;
+  override: any | null;
   observation: (Record<string, unknown> & { id: string }) | null;
   escalated_at: Date | null;
   escalated_to: string[] | null;
@@ -58,6 +63,7 @@ const CASE_SELECT = `
   SELECT c.id, c.complaint_id, c.type, c.district, ST_Y(c.location::geometry) AS lat, ST_X(c.location::geometry) AS lon,
          c.authorities, c.penalty, c.deadline, c.verification_status, c.status, c.help_request_id, c.help_link,
          c.observation, c.escalated_at, c.escalated_to,
+         c.threat_level, c.threat_score, c.threat_reasons, c.automated_label, c.override,
          1 + (SELECT count(*) FROM case_reports r WHERE r.case_id = c.id)::int AS reports,
          c.evidence_summary, c.version, c.created_at, c.updated_at,
          h.body AS help_body, h.district AS help_district, k.body AS complaint_body, k.received_at
@@ -65,9 +71,9 @@ const CASE_SELECT = `
     JOIN complaints k ON k.id = c.complaint_id
     LEFT JOIN help_requests h ON h.id = c.help_request_id`;
 
-/** The district triage found, else the linked farm's, else unassigned. */
-const districtOf = (r: CaseRow) => r.district ?? r.help_district ?? "unassigned";
-const DISTRICT_SQL = "COALESCE(c.district, h.district, 'unassigned')";
+/** The district triage found, else the linked farm's, else supervisor_queue. */
+const districtOf = (r: CaseRow) => r.district ?? r.help_district ?? "supervisor_queue";
+const DISTRICT_SQL = "COALESCE(c.district, h.district, 'supervisor_queue')";
 
 const factsOf = (r: CaseRow): CaseFacts => ({
   id: r.id,
@@ -76,6 +82,7 @@ const factsOf = (r: CaseRow): CaseFacts => ({
   type: r.type,
   hasHelpRequest: !!r.help_request_id,
   reporterConsent: r.complaint_body?.reporter_consent === true,
+  reporterId: r.complaint_body?.reporter_id ?? "",
 });
 
 // Not "this case is in Patiala": a refusal says nothing about the case.
@@ -198,6 +205,13 @@ function commandCase(r: CaseRow, now: Date) {
     ...(rec?.machine ? { recommendedMachineId: rec.machine.id } : {}),
     evidenceSummary: r.evidence_summary,
     ...(rec ? { recommendationReason: rec.reason } : {}),
+    ...(r.threat_level ? {
+      threat_level: r.threat_level,
+      threat_score: r.threat_score,
+      threat_reasons: r.threat_reasons,
+      automated_label: r.automated_label,
+      override: r.override
+    } : {}),
     status: r.status,
     version: r.version,
     createdAt: indiaTime(r.created_at),
@@ -294,6 +308,20 @@ async function decisions(deps: IntakeDeps, id: string) {
   }));
 }
 
+async function ticketNotes(deps: IntakeDeps, id: string, showInternal: boolean) {
+  const query = showInternal
+    ? "SELECT * FROM ticket_notes WHERE case_id = $1 ORDER BY created_at"
+    : "SELECT * FROM ticket_notes WHERE case_id = $1 AND internal = false ORDER BY created_at";
+  const { rows } = await deps.db.query<{ id: string; author_id: string; body: string; internal: boolean; created_at: Date }>(query, [id]);
+  return rows.map((n) => ({
+    id: n.id,
+    authorId: n.author_id,
+    body: n.body,
+    internal: n.internal,
+    createdAt: indiaTime(n.created_at),
+  }));
+}
+
 export async function getCase(deps: IntakeDeps, id: string, officer: Officer): Promise<Response> {
   const r = await loadCase(deps, id);
   if (!r) return notFound(id);
@@ -301,6 +329,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
   const rules = rulesOf(deps);
   if (!(await rules.may(officer, "ViewCase", facts))) return forbidden("you can't open this case");
   const showReporter = await rules.may(officer, "ViewReporter", facts);
+  const showInternalNotes = await rules.may(officer, "ViewInternalNotes", facts);
   const rec = recommendation(r, deps.now());
   const help = r.help_body;
   const channel = r.type === "farmer_support" || r.type === "kisan_grievance" ? "kisan_saathi" : "anonymous";
@@ -329,6 +358,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
     ...(r.help_link ? { helpLink: { distanceMeters: r.help_link.distance_m, ambiguous: r.help_link.ambiguous, ...(r.help_link.other_help_request_id ? { otherHelpRequestId: r.help_link.other_help_request_id } : {}) } } : {}),
     ...(rec?.machine ? { recommendedMachine: rec.machine } : {}),
     decisions: await decisions(deps, id),
+    notes: await ticketNotes(deps, id, showInternalNotes),
   });
 }
 
@@ -337,6 +367,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
 export const ActionInput = z.object({
   action: z.enum(ACTIONS),
   selectedMachineId: z.string().min(1).optional(),
+  overrideThreatLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
   reason: z.string().trim().min(1),
   previousCaseVersion: z.number().int().min(1),
 });
@@ -354,12 +385,22 @@ export async function actOnCase(deps: IntakeDeps, id: string, body: unknown, off
     return Response.json({ error: { code: "conflict", message: `case ${id} is closed` } }, { status: 409 });
   }
   if (!(await rules.may(officer, VERB_FOR[a.action], facts))) return forbidden("you can't take that action on this case");
+
+  if (a.action === "OVERRIDE_THREAT" && !a.overrideThreatLevel) {
+    return Response.json({ error: { code: "bad_request", message: "overrideThreatLevel is required" } }, { status: 400 });
+  }
+
   const status = nextStatus(a.action, current.status);
   const now = deps.now();
+
+  const overrideValue = a.action === "OVERRIDE_THREAT" 
+    ? JSON.stringify({ level: a.overrideThreatLevel, reason: a.reason, by: officer.id, at: now.toISOString() })
+    : (current.override ? JSON.stringify(current.override) : null);
+
   // Only the officer who saw the latest version wins; the other gets 409 and reloads.
   const { rowCount } = await deps.db.query(
-    "UPDATE cases SET status = $3, version = version + 1, updated_at = $4 WHERE id = $1 AND version = $2",
-    [id, a.previousCaseVersion, status, now],
+    "UPDATE cases SET status = $3, version = version + 1, updated_at = $4, override = COALESCE($5::jsonb, override) WHERE id = $1 AND version = $2",
+    [id, a.previousCaseVersion, status, now, overrideValue],
   );
   if (!rowCount) {
     const fresh = await loadCase(deps, id);

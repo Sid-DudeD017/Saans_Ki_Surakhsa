@@ -71,6 +71,8 @@ export interface ComplaintPayload {
   idempotency_key?: string;
   idempotencyKey?: string;
   evidence?: ComplaintEvidence[];
+  reporter_identity?: string;
+  reporter_consent?: boolean;
 }
 
 export interface ComplaintStatusData {
@@ -374,11 +376,22 @@ export async function submitComplaint(
   const lon = Number(payload.lon ?? payload.longitude ?? 75.842);
   const idempotencyKey = generateIdempotencyKey(payload);
 
+  let citId = payload.reporter_identity;
+  if (!citId && typeof window !== 'undefined') {
+    citId = localStorage.getItem('saans_citizen_auth') || undefined;
+    if (!citId) {
+      citId = 'citizen-' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('saans_citizen_auth', citId);
+    }
+  }
+
   const body = {
     type: citizenType,
     location: { lat, lon },
     description: payload.description ? payload.description.trim() : undefined,
     evidence: payload.evidence ?? [],
+    reporter_identity: citId || 'citizen-1',
+    reporter_consent: payload.reporter_consent ?? true,
   };
 
   const res = await fetch(`${base}/v1/complaints`, {
@@ -402,6 +415,19 @@ export async function submitComplaint(
 
   const data = await res.json();
   const ticketId = data.ticket_id || data.id || `TKT-${Date.now()}`;
+
+  // Notify other tabs and windows immediately
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('saans_ticket_bump', String(Date.now()));
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('saans_channel');
+        bc.postMessage({ type: 'ticket_created', id: data.id || ticketId });
+        bc.close();
+      }
+    } catch {}
+  }
+
   return {
     id: data.id || ticketId,
     ticket_id: ticketId,

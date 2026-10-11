@@ -1894,6 +1894,8 @@ paths:
                     machines_sent: null
                     acres_cleared_without_fire: null
                     median_resolution_hours: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "503":
           description: The board is being recomputed
           content:
@@ -2302,6 +2304,187 @@ paths:
     servers:
       - url: /
         description: Root server
+  /v1/tickets:
+    post:
+      tags:
+        - Command
+      summary: Create Ticket
+      operationId: createTicket
+      description: Create a new ticket (additive to cases)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - district
+                - idempotency_key
+              properties:
+                type:
+                  type: string
+                district:
+                  type: string
+                idempotency_key:
+                  type: string
+                reporter_identity:
+                  type: string
+                reporter_consent:
+                  type: boolean
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              example:
+                id: SAANS-20231010-ABCDEF
+                status: submitted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-owner: P4
+    get:
+      tags:
+        - Command
+      summary: List Tickets
+      operationId: listTickets
+      description: List tickets with filtering
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: district
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                tickets:
+                  - id: SAANS-20231010-ABCDEF
+                    status: submitted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-owner: P4
+    servers:
+      - url: http://localhost:3000
+        description: Local development server
+  /v1/tickets/{id}:
+    get:
+      tags:
+        - Command
+      summary: Get Ticket
+      operationId: getTicket
+      description: Get a ticket by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                ticket:
+                  id: SAANS-20231010-ABCDEF
+                  status: submitted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-owner: P4
+    servers:
+      - url: http://localhost:3000
+        description: Local development server
+  /v1/tickets/{id}/history:
+    get:
+      tags:
+        - Command
+      summary: Get Ticket History
+      operationId: getTicketHistory
+      description: Get the audit log history for a ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                history:
+                  - action: accept
+                    actor: officer-1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-owner: P4
+    servers:
+      - url: http://localhost:3000
+        description: Local development server
+  /v1/tickets/{id}/{action}:
+    post:
+      tags:
+        - Command
+      summary: Apply Ticket Action
+      operationId: applyTicketAction
+      description: Apply an action to a ticket (e.g. accept, resolve, citizen_confirm)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                summary:
+                  type: string
+                reason:
+                  type: string
+                status:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              example:
+                ticket:
+                  id: SAANS-20231010-ABCDEF
+                  status: resolved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      x-owner: P4
+    servers:
+      - url: http://localhost:3000
+        description: Local development server
   /v1/uploads:
     post:
       tags:
@@ -2776,6 +2959,7 @@ components:
             - MARK_IN_FIELD
             - RECORD_ACTION_TAKEN
             - CLOSE
+            - OVERRIDE_THREAT
         selectedMachineId:
           type: string
           description: Needed for CHANGE
@@ -4657,6 +4841,7 @@ components:
             - RECORD_ACTION_TAKEN
             - CLOSE
             - ESCALATE
+            - OVERRIDE_THREAT
         selectedMachineId:
           type: string
         reason:

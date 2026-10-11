@@ -109,9 +109,12 @@ export function RedZoneMap({ school, wind, fires, stations, language, demo, fire
       </h3>
       <div style={{ position: 'relative', width: '100%', maxWidth: '32rem', aspectRatio: '1 / 1', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid #cbd5e1', background: '#eef2f7' }}>
         <svg viewBox={`${-HALF} ${-HALF} ${HALF * 2} ${HALF * 2}`} style={{ width: '100%', height: '100%', display: 'block' }} aria-hidden>
-          {tilesAround(school, ZOOM, HALF).map((t) => (
-            <image key={`${t.x}-${t.y}`} href={`https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`} x={t.left} y={t.top} width={256} height={256} />
-          ))}
+          {tilesAround(school, ZOOM, HALF).map((t) => {
+            const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_4grj_1_dbbc20a1247c6aa97594b98a';
+            return (
+              <image key={`${t.x}-${t.y}`} href={`https://basemaps.cartocdn.com/rastertiles/voyager/${t.z}/${t.x}/${t.y}.png?key=${cartoKey}`} x={t.left} y={t.top} width={256} height={256} />
+            );
+          })}
           <circle r={ringPx} fill="rgba(220, 38, 38, 0.10)" stroke="#dc2626" strokeWidth={3} strokeDasharray="10 6" />
           {(stations ?? []).map((s) => {
             const p = at(s);

@@ -258,6 +258,21 @@ export const REPORT_I18N = {
     hi: 'स्कूल की लोकेशन चुनें',
     en: 'Use school location',
   },
+  useCurrentLocationBtn: {
+    pa: '🎯 ਮੇਰੀ ਮੌਜੂਦਾ ਲੋਕੇਸ਼ਨ ਵਰਤੋ',
+    hi: '🎯 मेरी लाइव लोकेशन इस्तेमाल करें',
+    en: '🎯 Use my current location',
+  },
+  locatingBtn: {
+    pa: '⏳ ਲੋਕੇਸ਼ਨ ਲੱਭ ਰਿਹਾ ਹੈ...',
+    hi: '⏳ लोकेशन खोजी जा रही है...',
+    en: '⏳ Locating you...',
+  },
+  locationDeniedAlert: {
+    pa: 'ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਲੋਕੇਸ਼ਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ।',
+    hi: 'कृपया अपने ब्राउज़र में लोकेशन की अनुमति दें।',
+    en: 'Please allow location access in your browser settings.',
+  },
   step3Title: {
     pa: 'ਵੇਰਵੇ',
     hi: 'विवरण',
@@ -502,9 +517,12 @@ export function ReportSheet({
   });
 
   // Step 3: Details
-  const [selectedChips, setSelectedChips] = useState<Set<string>>(new Set());
+  const [selectedCategoryOptions, setSelectedCategoryOptions] = useState<Record<number, string>>({});
   const [description, setDescription] = useState(''); // Note starts empty!
   const [isRecording, setIsRecording] = useState(false);
+  const [dictateLanguage, setDictateLanguage] = useState<'en' | 'hi' | 'pa'>('en');
+  const recognitionRef = useRef<any>(null);
+  const baseTextRef = useRef<string>('');
   const [photoFile, setPhotoFile] = useState<Blob | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoHash, setPhotoHash] = useState<string | null>(null);
@@ -528,12 +546,77 @@ export function ReportSheet({
   const [statusError, setStatusError] = useState<string | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [mapCenter, setMapCenter] = useState<LatLon>(initialLocation);
+  const [zoom, setZoom] = useState<number>(13);
+  const [accuracyM, setAccuracyM] = useState<number | undefined>(initialLocation.accuracyM);
+  const [isLocating, setIsLocating] = useState(false);
+  const [currentLabel, setCurrentLabel] = useState<string>(
+    initialLocation.label || (language === 'pa' ? 'ਸੰਗਰੂਰ' : language === 'hi' ? 'संगरूर' : 'Sangrur')
+  );
   const [prevLoc, setPrevLoc] = useState({ lat: initialLocation.lat, lon: initialLocation.lon });
   if (prevLoc.lat !== initialLocation.lat || prevLoc.lon !== initialLocation.lon) {
     setPrevLoc({ lat: initialLocation.lat, lon: initialLocation.lon });
+    setMapCenter(initialLocation);
     setPin({ lat: initialLocation.lat, lon: initialLocation.lon });
     setMapOffset({ x: 0, y: 0 });
+    setAccuracyM(initialLocation.accuracyM);
+    setCurrentLabel(initialLocation.label || (language === 'pa' ? 'ਸੰਗਰੂਰ' : language === 'hi' ? 'संगरूर' : 'Sangrur'));
   }
+
+  const handleUseCurrentLocation = React.useCallback(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert(
+        language === 'pa'
+          ? 'ਤੁਹਾਡਾ ਬ੍ਰਾਊਜ਼ਰ ਲੋਕੇਸ਼ਨ ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦਾ।'
+          : language === 'hi'
+          ? 'आपका ब्राउज़र लोकेशन का समर्थन नहीं करता।'
+          : 'Geolocation is not supported by your browser.'
+      );
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Math.round(pos.coords.latitude * 10000) / 10000;
+        const lon = Math.round(pos.coords.longitude * 10000) / 10000;
+        const acc = Math.round(pos.coords.accuracy);
+        setMapCenter({ lat, lon });
+        setPin({ lat, lon });
+        setMapOffset({ x: 0, y: 0 });
+        setAccuracyM(acc);
+        setCurrentLabel(
+          language === 'pa'
+            ? 'ਮੌਜੂਦਾ ਸਥਿਤੀ'
+            : language === 'hi'
+            ? 'वर्तमान स्थान'
+            : 'Current Location'
+        );
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn('Geolocation query failed or denied:', err);
+        setIsLocating(false);
+        alert(REPORT_I18N.locationDeniedAlert[language]);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }, [language]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return;
+    if (Math.abs(initialLocation.lat - 30.245) < 0.001 && Math.abs(initialLocation.lon - 75.842) < 0.001) {
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions
+          .query({ name: 'geolocation' })
+          .then((status) => {
+            if (status.state === 'granted') {
+              handleUseCurrentLocation();
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [initialLocation.lat, initialLocation.lon, handleUseCurrentLocation]);
 
   const fileInputId = useId();
 
@@ -631,29 +714,22 @@ export function ReportSheet({
     setPhotoError(null);
   };
 
-  // Toggle Chip insertion into Description
-  const handleChipToggle = (chipId: string, phrase: string) => {
-    const nextSet = new Set(selectedChips);
-    let newDesc = description.trim();
-
-    if (nextSet.has(chipId)) {
-      nextSet.delete(chipId);
-      const pattern = new RegExp(`(^|,\\s*|\\s*)${phrase}(,\\s*|\\s*|$)`, 'i');
-      newDesc = newDesc.replace(pattern, ' ').replace(/\s{2,}/g, ' ').trim();
-    } else {
-      nextSet.add(chipId);
-      if (newDesc.length > 0) {
-        newDesc = `${newDesc}, ${phrase}`;
-      } else {
-        newDesc = phrase;
+  // Select an option for a specific category (does NOT touch description notes!)
+  const handleSelectCategoryOption = (catIdx: number, chipId: string) => {
+    setSelectedCategoryOptions((prev) => {
+      if (prev[catIdx] === chipId) {
+        const next = { ...prev };
+        delete next[catIdx];
+        return next;
       }
-    }
-
-    if (newDesc.length <= 1000) {
-      setSelectedChips(nextSet);
-      setDescription(newDesc);
-    }
+      return { ...prev, [catIdx]: chipId };
+    });
   };
+
+  const allCategoriesSelected =
+    Boolean(selectedCategoryOptions[0]) &&
+    Boolean(selectedCategoryOptions[1]) &&
+    Boolean(selectedCategoryOptions[2]);
 
   // Voice note via SpeechRecognition
   const handleVoiceNote = () => {
@@ -667,32 +743,79 @@ export function ReportSheet({
           ? 'ਤੁਹਾਡਾ ਬ੍ਰਾਊਜ਼ਰ ਵੌਇਸ ਰਿਕਾਰਡਿੰਗ ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦਾ।'
           : language === 'hi'
           ? 'आपका ब्राउज़र वॉयस रिकॉर्डिंग का समर्थन नहीं करता।'
-          : 'Speech recognition is not supported in this browser.'
+          : 'Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.'
       );
+      return;
+    }
+
+    // Toggle off if already recording
+    if (isRecording && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      setIsRecording(false);
       return;
     }
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = language === 'pa' ? 'pa-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
-      recognition.interimResults = false;
+      const targetLang =
+        dictateLanguage === 'en'
+          ? 'en-IN'
+          : dictateLanguage === 'hi'
+          ? 'hi-IN'
+          : 'pa-IN';
+
+      recognition.lang = targetLang;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
+      baseTextRef.current = description;
+      recognitionRef.current = recognition;
       setIsRecording(true);
+
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0]?.[0]?.transcript;
-        if (transcript) {
-          setDescription((prev) => {
-            const trimmed = prev.trim();
-            const combined = trimmed ? `${trimmed}. ${transcript}` : transcript;
-            return combined.slice(0, 1000);
-          });
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalTranscript += res[0].transcript + ' ';
+          } else {
+            interimTranscript += res[0].transcript;
+          }
         }
-        setIsRecording(false);
+
+        const spoken = (finalTranscript + interimTranscript).trim();
+        if (spoken) {
+          const base = baseTextRef.current.trim();
+          const combined = base ? `${base}. ${spoken}` : spoken;
+          setDescription(combined.slice(0, 1000));
+        }
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition error:', event.error);
         setIsRecording(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          alert(
+            language === 'pa'
+              ? 'ਮਾਈਕ੍ਰੋਫੋਨ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਮਿਲੀ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਮਾਈਕ੍ਰੋਫੋਨ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ।'
+              : language === 'hi'
+              ? 'माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें।'
+              : 'Microphone permission was denied. Please allow microphone access in your browser settings.'
+          );
+        } else if (event.error === 'network') {
+          alert(
+            language === 'pa'
+              ? 'ਨੈੱਟਵਰਕ ਸਮੱਸਿਆ: ਸਪੀਚ ਸਰਵਿਸ ਨਾਲ ਸੰਪਰਕ ਨਹੀਂ ਹੋ ਸਕਿਆ।'
+              : language === 'hi'
+              ? 'नेटवर्क समस्या: स्पीच रिकग्निशन सेवा से कनेक्ट नहीं हो सका।'
+              : 'Network error connecting to speech recognition service. Please check your internet connection.'
+          );
+        }
       };
 
       recognition.onend = () => {
@@ -707,8 +830,7 @@ export function ReportSheet({
   };
 
   // Map Dragging and Pin Drop
-  const ZOOM = 12;
-  const tiles = tilesAround(initialLocation, ZOOM, 2);
+  const tiles = tilesAround(mapCenter, zoom, 320);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(true);
@@ -726,11 +848,11 @@ export function ReportSheet({
     const dx = e.clientX - dragStartRef.current.clientX;
     const dy = e.clientY - dragStartRef.current.clientY;
 
-    const newX = Math.max(-140, Math.min(140, dragStartRef.current.startX + dx));
-    const newY = Math.max(-140, Math.min(140, dragStartRef.current.startY + dy));
+    const newX = Math.max(-200, Math.min(200, dragStartRef.current.startX + dx));
+    const newY = Math.max(-100, Math.min(100, dragStartRef.current.startY + dy));
 
     setMapOffset({ x: newX, y: newY });
-    const updated = unprojectOffset(initialLocation, newX, newY, ZOOM);
+    const updated = unprojectOffset(mapCenter, newX, newY, zoom);
     setPin(updated);
   };
 
@@ -749,11 +871,11 @@ export function ReportSheet({
     const clickX = e.clientX - rect.left - rect.width / 2;
     const clickY = e.clientY - rect.top - rect.height / 2;
 
-    const clampedX = Math.max(-140, Math.min(140, clickX));
-    const clampedY = Math.max(-140, Math.min(140, clickY));
+    const clampedX = Math.max(-200, Math.min(200, clickX));
+    const clampedY = Math.max(-100, Math.min(100, clickY));
     setMapOffset({ x: clampedX, y: clampedY });
 
-    const updated = unprojectOffset(initialLocation, clampedX, clampedY, ZOOM);
+    const updated = unprojectOffset(mapCenter, clampedX, clampedY, zoom);
     setPin(updated);
   };
 
@@ -788,9 +910,30 @@ export function ReportSheet({
 
       // 2. Submit complaint with the pin's coordinates, not the school's!
       const tile = TILES.find((t) => t.type === selectedType);
+
+      const selectedChipIds = [
+        selectedCategoryOptions[0],
+        selectedCategoryOptions[1],
+        selectedCategoryOptions[2],
+      ].filter(Boolean);
+
+      const chipLabels = selectedChipIds.map((id) => {
+        for (const cat of CHIP_CATEGORIES) {
+          const found = cat.chips.find((c) => c.id === id);
+          if (found) return found.label.en;
+        }
+        return id;
+      });
+
+      const userNote = description.trim();
+      const combinedDescription = [
+        chipLabels.join(', '),
+        userNote ? `Note: ${userNote}` : '',
+      ].filter(Boolean).join('\n\n');
+
       const res = await submitComplaint({
         category: selectedType,
-        description: description.trim(),
+        description: combinedDescription,
         lat: pin.lat,
         lon: pin.lon,
         latitude: pin.lat,
@@ -809,7 +952,7 @@ export function ReportSheet({
         typeName: tile ? tile.label[language] : selectedType,
         lat: pin.lat,
         lon: pin.lon,
-        description: description.trim(),
+        description: userNote || chipLabels.join(', '),
         hasPhoto: !!photoFile,
         createdAt: res.created_at || new Date().toISOString(),
         isMock,
@@ -843,8 +986,20 @@ export function ReportSheet({
     }
   };
 
+  useEffect(() => {
+    if (!inspectingReport) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await getComplaintStatus(inspectingReport.id);
+        setLiveStatus(data);
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [inspectingReport]);
+
   const selectedTile = TILES.find((t) => t.type === selectedType);
   const placeLabel =
+    currentLabel ||
     initialLocation.label ||
     (language === 'pa' ? 'ਸੰਗਰੂਰ' : language === 'hi' ? 'संगरूर' : 'Sangrur');
 
@@ -1089,7 +1244,7 @@ export function ReportSheet({
                   setStep(1);
                   setSelectedType(null);
                   setDescription('');
-                  setSelectedChips(new Set());
+                  setSelectedCategoryOptions({});
                   removePhoto();
                 }}
                 style={{ minHeight: '44px', minWidth: '44px' }}
@@ -1259,27 +1414,42 @@ export function ReportSheet({
                   <div style={{ fontSize: '0.8125rem', color: '#334155', fontWeight: 600 }}>
                     {REPORT_I18N.pinLocationLabel[language]}: <code>{pin.lat.toFixed(4)}°N, {pin.lon.toFixed(4)}°E</code>
                   </div>
-                  {initialLocation.accuracyM && (
+                  {accuracyM && (
                     <Badge variant="neutral" size="sm">
-                      {REPORT_I18N.deviceAccuracyLabel[language]} ±{initialLocation.accuracyM} m
+                      {REPORT_I18N.deviceAccuracyLabel[language]} ±{accuracyM} m
                     </Badge>
                   )}
                 </div>
 
-                {/* Optional School Fallback button */}
-                {schoolLocation && (
+                {/* Location Selection Controls */}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <Button
                     size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setPin({ lat: schoolLocation.lat, lon: schoolLocation.lon });
-                      setMapOffset({ x: 0, y: 0 });
-                    }}
-                    style={{ minHeight: '44px', width: '100%' }}
+                    variant="primary"
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLocating}
+                    style={{ minHeight: '44px', flex: '1 1 180px' }}
                   >
-                    🏫 {REPORT_I18N.useSchoolLocationBtn[language]}: {schoolLocation.label}
+                    {isLocating
+                      ? REPORT_I18N.locatingBtn[language]
+                      : REPORT_I18N.useCurrentLocationBtn[language]}
                   </Button>
-                )}
+                  {schoolLocation && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setMapCenter({ lat: schoolLocation.lat, lon: schoolLocation.lon });
+                        setPin({ lat: schoolLocation.lat, lon: schoolLocation.lon });
+                        setMapOffset({ x: 0, y: 0 });
+                        setCurrentLabel(schoolLocation.label);
+                      }}
+                      style={{ minHeight: '44px', flex: '1 1 180px' }}
+                    >
+                      🏫 {REPORT_I18N.useSchoolLocationBtn[language]}: {schoolLocation.label}
+                    </Button>
+                  )}
+                </div>
 
                 {/* Interactive Draggable Pin Map Viewport */}
                 <div
@@ -1303,73 +1473,174 @@ export function ReportSheet({
                   role="region"
                   aria-label="Map to select smoke location. Drag the pin or click anywhere to position it."
                 >
-                  {/* Real OpenStreetMap SVG/Raster Layer */}
-                  <svg
-                    viewBox="-200 -120 400 240"
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      width: '100%',
-                      height: '100%',
-                      pointerEvents: 'none',
-                    }}
-                    aria-hidden
-                  >
-                    {tilesAround(initialLocation, ZOOM, 200).map((t) => (
-                      <image
-                        key={`${t.x}-${t.y}`}
-                        href={`https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`}
-                        x={t.left}
-                        y={t.top}
-                        width={256}
-                        height={256}
-                      />
-                    ))}
-                    {/* Initial Location reference pulse ring */}
-                    <circle cx={0} cy={0} r={18} fill="rgba(2, 132, 199, 0.15)" stroke="#0284c7" strokeWidth={1.5} strokeDasharray="3 3" />
-                    <circle cx={0} cy={0} r={4} fill="#0284c7" />
-                  </svg>
-
-                  {/* Movable Pin that follows finger/mouse drag and click offset */}
+                  {/* Background raster tile grid using CartoDB Voyager (OSM-based, free, no 403 block) */}
                   <div
                     style={{
                       position: 'absolute',
                       top: '50%',
                       left: '50%',
-                      transform: `translate(-50%, -100%) translate(${mapOffset.x}px, ${mapOffset.y}px)`,
+                      width: 0,
+                      height: 0,
+                      pointerEvents: 'none',
+                    }}
+                    aria-hidden
+                  >
+                    {tiles.map((t) => {
+                      const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_4grj_1_dbbc20a1247c6aa97594b98a';
+                      return (
+                        <img
+                          key={`${t.z}/${t.x}/${t.y}`}
+                          src={`https://basemaps.cartocdn.com/rastertiles/voyager/${t.z}/${t.x}/${t.y}.png?key=${cartoKey}`}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          style={{
+                            position: 'absolute',
+                            left: `${t.left}px`,
+                            top: `${t.top}px`,
+                            width: '256px',
+                            height: '256px',
+                            maxWidth: 'none',
+                            userSelect: 'none',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Draggable Pin Marker */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `calc(50% + ${mapOffset.y}px)`,
+                      left: `calc(50% + ${mapOffset.x}px)`,
+                      transform: 'translate(-50%, -85%)',
                       pointerEvents: 'none',
                       zIndex: 10,
-                      transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-                      filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.35))',
+                      transition: isDragging ? 'none' : 'transform 0.1s ease',
                     }}
                   >
                     <div
                       style={{
+                        position: 'relative',
+                        width: '36px',
+                        height: '36px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         userSelect: 'none',
                       }}
                     >
-                      <div
+                      <span
                         style={{
-                          backgroundColor: '#dc2626',
-                          color: '#ffffff',
-                          fontSize: '0.65rem',
-                          fontWeight: 800,
-                          padding: '0.15rem 0.4rem',
-                          borderRadius: '9999px',
-                          whiteSpace: 'nowrap',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                          marginBottom: '-2px',
+                          fontSize: '2.2rem',
+                          lineHeight: 1,
+                          filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.35))',
                         }}
                       >
-                        {selectedTile?.label[language] || 'Smoke here'}
-                      </div>
-                      <span style={{ fontSize: '2.25rem', lineHeight: 1 }}>
                         📍
                       </span>
                     </div>
+                  </div>
+
+                  {/* Zoom In / Out Controls */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '0.5rem',
+                      right: '0.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      zIndex: 12,
+                      backgroundColor: '#ffffff',
+                      borderRadius: '0.375rem',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      overflow: 'hidden',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      title="Zoom in"
+                      aria-label="Zoom in"
+                      onClick={() => {
+                        if (zoom < 16) {
+                          const nextZoom = zoom + 1;
+                          setZoom(nextZoom);
+                          const pProj = project(pin, nextZoom);
+                          const cProj = project(mapCenter, nextZoom);
+                          setMapOffset({ x: pProj.x - cProj.x, y: pProj.y - cProj.y });
+                        }
+                      }}
+                      disabled={zoom >= 16}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        border: 'none',
+                        background: '#ffffff',
+                        cursor: zoom >= 16 ? 'not-allowed' : 'pointer',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        color: '#1e293b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderBottom: '1px solid #e2e8f0',
+                      }}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      title="Zoom out"
+                      aria-label="Zoom out"
+                      onClick={() => {
+                        if (zoom > 10) {
+                          const nextZoom = zoom - 1;
+                          setZoom(nextZoom);
+                          const pProj = project(pin, nextZoom);
+                          const cProj = project(mapCenter, nextZoom);
+                          setMapOffset({ x: pProj.x - cProj.x, y: pProj.y - cProj.y });
+                        }
+                      }}
+                      disabled={zoom <= 10}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        border: 'none',
+                        background: '#ffffff',
+                        cursor: zoom <= 10 ? 'not-allowed' : 'pointer',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        color: '#1e293b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      −
+                    </button>
+                  </div>
+
+                  {/* OSM Attribution */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '0.35rem',
+                      right: '0.5rem',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      padding: '0.1rem 0.35rem',
+                      borderRadius: '0.25rem',
+                      fontSize: '0.65rem',
+                      color: '#475569',
+                      zIndex: 10,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    © OpenStreetMap © CARTO
                   </div>
 
                   {/* Floating drag instruction badge */}
@@ -1386,13 +1657,15 @@ export function ReportSheet({
                       padding: '0.25rem 0.65rem',
                       borderRadius: '9999px',
                       pointerEvents: 'none',
-                      backdropFilter: 'blur(4px)',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                       whiteSpace: 'nowrap',
-                      zIndex: 5,
+                      zIndex: 11,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                     }}
                   >
-                    👆 {REPORT_I18N.step2Instruction[language]}
+                    <span>👆 {REPORT_I18N.step2Instruction[language]}</span>
                   </div>
                 </div>
 
@@ -1427,45 +1700,68 @@ export function ReportSheet({
                   </h4>
                 </div>
 
-                {/* Quick Chips Groups */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                  {CHIP_CATEGORIES.map((cat, idx) => (
-                    <div key={idx}>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                        {cat.title[language]}:
+                {/* Quick Chips Groups (Single selection per category required) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  {CHIP_CATEGORIES.map((cat, idx) => {
+                    const isAnswered = Boolean(selectedCategoryOptions[idx]);
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '0.65rem 0.85rem',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '0.5rem',
+                          border: isAnswered ? '1px solid #cbd5e1' : '1.5px solid #f87171',
+                          transition: 'border-color 0.2s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {cat.title[language]}:
+                          </span>
+                          {isAnswered ? (
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#16a34a' }}>
+                              ✓ Selected
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>
+                              * {language === 'pa' ? 'ਇੱਕ ਚੁਣੋ (ਜ਼ਰੂਰੀ)' : language === 'hi' ? 'एक चुनें (अनिवार्य)' : 'Select one (required)'}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {cat.chips.map((chip) => {
+                            const isSelected = selectedCategoryOptions[idx] === chip.id;
+                            return (
+                              <button
+                                key={chip.id}
+                                type="button"
+                                onClick={() => handleSelectCategoryOption(idx, chip.id)}
+                                style={{
+                                  padding: '0.45rem 0.85rem',
+                                  borderRadius: '9999px',
+                                  border: `1.5px solid ${isSelected ? '#0284c7' : '#cbd5e1'}`,
+                                  backgroundColor: isSelected ? '#e0f2fe' : '#ffffff',
+                                  color: isSelected ? '#0369a1' : '#334155',
+                                  fontWeight: isSelected ? 700 : 500,
+                                  fontSize: '0.8125rem',
+                                  cursor: 'pointer',
+                                  minHeight: '40px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                {isSelected ? '✓ ' : '+ '}
+                                {chip.label[language]}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                        {cat.chips.map((chip) => {
-                          const isSelected = selectedChips.has(chip.id);
-                          return (
-                            <button
-                              key={chip.id}
-                              type="button"
-                              onClick={() => handleChipToggle(chip.id, chip.label[language])}
-                              style={{
-                                padding: '0.35rem 0.65rem',
-                                borderRadius: '9999px',
-                                border: `1.5px solid ${isSelected ? '#0284c7' : '#cbd5e1'}`,
-                                backgroundColor: isSelected ? '#e0f2fe' : '#ffffff',
-                                color: isSelected ? '#0369a1' : '#334155',
-                                fontWeight: isSelected ? 700 : 500,
-                                fontSize: '0.75rem',
-                                cursor: 'pointer',
-                                minHeight: '38px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.25rem',
-                                transition: 'all 0.15s ease',
-                              }}
-                            >
-                              {isSelected ? '✓ ' : '+ '}
-                              {chip.label[language]}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Editable Text Area (Starts EMPTY, max 1000 characters) */}
@@ -1474,28 +1770,58 @@ export function ReportSheet({
                     <label htmlFor="report-desc" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
                       {REPORT_I18N.noteLabel[language]}
                     </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <select
+                        value={dictateLanguage}
+                        onChange={(e) => setDictateLanguage(e.target.value as any)}
+                        disabled={isRecording}
+                        aria-label="Speech language"
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '0.2rem 0.4rem',
+                          borderRadius: '0.375rem',
+                          border: '1px solid #cbd5e1',
+                          color: '#334155',
+                          backgroundColor: '#ffffff',
+                          cursor: isRecording ? 'not-allowed' : 'pointer',
+                          minHeight: '36px',
+                        }}
+                      >
+                        <option value="en">🌐 English (IN)</option>
+                        <option value="hi">🇮🇳 हिन्दी</option>
+                        <option value="pa">🇮🇳 ਪੰਜਾਬੀ</option>
+                      </select>
+
                       <button
                         type="button"
                         onClick={handleVoiceNote}
                         style={{
-                          background: 'none',
-                          border: '1px solid #cbd5e1',
+                          background: isRecording ? '#fef2f2' : '#ffffff',
+                          border: isRecording ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
                           borderRadius: '0.375rem',
-                          padding: '0.25rem 0.5rem',
+                          padding: '0.25rem 0.6rem',
                           fontSize: '0.75rem',
                           color: isRecording ? '#dc2626' : '#0284c7',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
-                          minHeight: '44px',
-                          minWidth: '44px',
+                          minHeight: '36px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.25rem',
+                          gap: '0.35rem',
+                          boxShadow: isRecording ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        {isRecording ? REPORT_I18N.dictating[language] : REPORT_I18N.dictateBtn[language]}
+                        {isRecording ? (
+                          <>
+                            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
+                            <span>⏹️ {REPORT_I18N.dictating[language]}</span>
+                          </>
+                        ) : (
+                          <span>{REPORT_I18N.dictateBtn[language]}</span>
+                        )}
                       </button>
+
                       <span style={{ fontSize: '0.75rem', color: description.length > 900 ? '#dc2626' : '#64748b' }}>
                         {description.length}/1000
                       </span>
@@ -1590,8 +1916,34 @@ export function ReportSheet({
                   )}
                 </div>
 
-                {/* Navigation */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                {!allCategoriesSelected && (
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.8rem',
+                      color: '#b91c1c',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <span>⚠️</span>
+                    <span>
+                      {language === 'pa'
+                        ? 'ਕਿਰਪਾ ਕਰਕੇ ਅੱਗੇ ਵਧਣ ਲਈ ਉੱਪਰਲੇ ਸਾਰੇ 3 ਭਾਗਾਂ ਵਿੱਚੋਂ ਇੱਕ-ਇੱਕ ਵਿਕਲਪ ਚੁਣੋ।'
+                        : language === 'hi'
+                        ? 'कृपया आगे बढ़ने के लिए ऊपर दिए गए तीनों वर्गों में से एक-एक विकल्प चुनें।'
+                        : 'Please select one option from all 3 sections above to proceed.'}
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem' }}>
                   <Button
                     size="md"
                     variant="secondary"
@@ -1603,8 +1955,16 @@ export function ReportSheet({
                   <Button
                     size="md"
                     variant="primary"
-                    onClick={() => setStep(4)}
-                    style={{ minHeight: '44px', minWidth: '44px' }}
+                    disabled={!allCategoriesSelected}
+                    onClick={() => {
+                      if (allCategoriesSelected) setStep(4);
+                    }}
+                    style={{
+                      minHeight: '44px',
+                      minWidth: '44px',
+                      opacity: allCategoriesSelected ? 1 : 0.5,
+                      cursor: allCategoriesSelected ? 'pointer' : 'not-allowed',
+                    }}
                   >
                     {REPORT_I18N.nextCheckBtn[language]}
                   </Button>
@@ -1642,9 +2002,39 @@ export function ReportSheet({
                       <code>{pin.lat.toFixed(4)}°N, {pin.lon.toFixed(4)}°E</code>
                     </div>
 
+                    <div style={{ color: '#64748b', fontWeight: 600 }}>{language === 'pa' ? 'ਚੁਣੇ ਹੋਏ ਵੇਰਵੇ' : language === 'hi' ? 'चुने गए विकल्प' : 'Selected options'}</div>
+                    <div style={{ color: '#0f172a', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                      {[0, 1, 2].map((idx) => {
+                        const chipId = selectedCategoryOptions[idx];
+                        const chip = CHIP_CATEGORIES[idx]?.chips.find((c) => c.id === chipId);
+                        if (!chip) return null;
+                        return (
+                          <span
+                            key={idx}
+                            style={{
+                              backgroundColor: '#e0f2fe',
+                              color: '#0369a1',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: '9999px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            ✓ {chip.label[language]}
+                          </span>
+                        );
+                      })}
+                    </div>
+
                     <div style={{ color: '#64748b', fontWeight: 600 }}>{REPORT_I18N.noteSummaryLabel[language]}</div>
                     <div style={{ color: '#0f172a' }}>
-                      {description || <em style={{ color: '#94a3b8' }}>{REPORT_I18N.noneAdded[language]}</em>}
+                      {description.trim() ? (
+                        <div style={{ padding: '0.4rem 0.6rem', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '0.375rem', fontWeight: 600 }}>
+                          {description.trim()}
+                        </div>
+                      ) : (
+                        <em style={{ color: '#94a3b8' }}>{REPORT_I18N.noneAdded[language]}</em>
+                      )}
                     </div>
 
                     <div style={{ color: '#64748b', fontWeight: 600 }}>{REPORT_I18N.photoSummaryLabel[language]}</div>

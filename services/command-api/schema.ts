@@ -86,6 +86,13 @@ ALTER TABLE cases ADD COLUMN IF NOT EXISTS observation jsonb;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_at timestamptz;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_to text[];
 
+-- Stage 4: Threat Assessment fields
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS threat_level text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS threat_score integer;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS threat_reasons text[];
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS automated_label text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS override jsonb;
+
 -- Reports merged into an existing case as duplicates (same type, close by, soon after). The case's own
 -- report is cases.complaint_id; these are the others. complaint_id is the key, so a retry can't add one twice.
 CREATE TABLE IF NOT EXISTS case_reports (
@@ -131,6 +138,61 @@ CREATE TABLE IF NOT EXISTS workflow_events (
   at            timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id          text PRIMARY KEY,
+  role        text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS status_history (
+  id          bigserial PRIMARY KEY,
+  case_id     text NOT NULL REFERENCES cases(id),
+  status      text NOT NULL,
+  changed_by  text NOT NULL,
+  reason      text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_notes (
+  id          bigserial PRIMARY KEY,
+  case_id     text NOT NULL REFERENCES cases(id),
+  author_id   text NOT NULL,
+  body        text NOT NULL,
+  internal    boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS consent_records (
+  complaint_id text PRIMARY KEY REFERENCES complaints(id),
+  consented    boolean NOT NULL,
+  recorded_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id             bigserial PRIMARY KEY,
+  actor          text NOT NULL,
+  role           text NOT NULL,
+  action         text NOT NULL,
+  ticket_id      text,
+  before_state   jsonb,
+  after_state    jsonb,
+  previous_hash  text NOT NULL,
+  entry_hash     text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION prevent_audit_log_mutation()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log is append-only';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_audit_log_immutable ON audit_log;
+CREATE TRIGGER trg_audit_log_immutable
+BEFORE UPDATE OR DELETE ON audit_log
+FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
+
 CREATE INDEX IF NOT EXISTS complaints_location ON complaints USING gist (location);
 CREATE INDEX IF NOT EXISTS cases_location ON cases USING gist (location);
 CREATE INDEX IF NOT EXISTS help_requests_location ON help_requests USING gist (location);
@@ -139,4 +201,21 @@ CREATE INDEX IF NOT EXISTS cases_deadline ON cases (deadline, id);
 CREATE INDEX IF NOT EXISTS case_reports_case ON case_reports (case_id);
 CREATE INDEX IF NOT EXISTS districts_boundary ON districts USING gist (boundary);
 CREATE INDEX IF NOT EXISTS workflow_events_complaint ON workflow_events (complaint_id, id);
+
+-- Stage 5: Ticket fields and relaxed constraints
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reporter_identity text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reporter_consent boolean DEFAULT false;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS duplicate_of text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_notes jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS internal_notes jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS evidence jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS resolution_summary text;
+
+ALTER TABLE cases ALTER COLUMN complaint_id DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN location DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN authorities DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN penalty DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN deadline DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN verification_status DROP NOT NULL;
+ALTER TABLE cases ALTER COLUMN evidence_summary DROP NOT NULL;
 `;

@@ -11,7 +11,7 @@ describe("distances", () => {
 
 describe("actions", () => {
   it("APPROVE and CHANGE settle the recommendation, REJECT reopens it, notes keep the status, CLOSE ends it", () => {
-    expect(ACTIONS.map((a) => nextStatus(a, "ACTION_APPROVED"))).toEqual(["ACTION_APPROVED", "ACTION_CHANGED", "OPEN", "ACTION_APPROVED", "ACTION_APPROVED", "CLOSED"]);
+    expect(ACTIONS.map((a) => nextStatus(a, "ACTION_APPROVED"))).toEqual(["ACTION_APPROVED", "ACTION_CHANGED", "OPEN", "ACTION_APPROVED", "ACTION_APPROVED", "CLOSED", "ACTION_APPROVED"]);
     expect(nextStatus("MARK_IN_FIELD", "OPEN")).toBe("OPEN");
   });
 });

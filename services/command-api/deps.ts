@@ -45,7 +45,15 @@ export interface IntakeDeps {
   notify?: Notifier;
 }
 
+import { randomBytes } from "node:crypto";
+
 export function newId(prefix: string) {
+  if (prefix === "SAANS") {
+    const d = new Date();
+    const dStr = d.toISOString().split('T')[0].replace(/-/g, '');
+    const rand = randomBytes(3).toString("hex").toUpperCase();
+    return `SAANS-${dStr}-${rand}`;
+  }
   return `${prefix}-${randomUUID()}`;
 }
 

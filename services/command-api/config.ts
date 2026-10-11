@@ -64,10 +64,10 @@ export interface District {
 export const DISTRICTS: District[] = districts.districts;
 
 /** Who a case outside both districts escalates to. */
-export const UNASSIGNED_ESCALATION = ["State Command Centre"];
+export const SUPERVISOR_QUEUE_ESCALATION = ["State Command Centre"];
 
 export function escalationFor(district: string | null): string[] {
-  return DISTRICTS.find((d) => d.name === district)?.escalateTo ?? UNASSIGNED_ESCALATION;
+  return DISTRICTS.find((d) => d.name === district)?.escalateTo ?? SUPERVISOR_QUEUE_ESCALATION;
 }
 
 const ROUTES: Record<string, Route> = Object.fromEntries(

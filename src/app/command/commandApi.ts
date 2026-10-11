@@ -14,12 +14,13 @@ export type CaseStatus = CommandCase['status'];
 export type { CaseAction };
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
-const BASE = (
-  process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || ''
-).replace(/\/$/, '');
+const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
 
-/** The local stack's demo officers (non-production; Cognito replaces them at G7). */
-export const OFFICERS = officers.officers.map(({ token, name, district }) => ({ token, name, district }));
+/** The console's role options: Officer and Citizen only */
+export const OFFICERS = [
+  { token: 'local-state-command', name: 'Officer', role: 'supervisor', district: '*' },
+  { token: 'local-citizen-1', name: 'Citizen', role: 'citizen', district: 'Sangrur' },
+];
 export const DEFAULT_OFFICER = OFFICERS[0].token;
 
 export class ApiError extends Error {
@@ -28,8 +29,26 @@ export class ApiError extends Error {
   }
 }
 
+export function getCitizenIdentity(): string {
+  if (typeof window === 'undefined') return 'citizen-1';
+  let id = localStorage.getItem('saans_citizen_auth');
+  if (!id) {
+    id = 'citizen-' + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('saans_citizen_auth', id);
+  }
+  return id;
+}
+
 async function call<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` } });
+  const headers: Record<string, string> = {
+    ...((init?.headers as Record<string, string>) || {}),
+    Authorization: `Bearer ${token}`,
+  };
+  if (token === 'local-citizen-1') {
+    const customUser = typeof window !== 'undefined' ? sessionStorage.getItem('saans_view_citizen_id') : null;
+    headers['x-user-id'] = customUser || getCitizenIdentity();
+  }
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, body?.error?.code ?? 'error', body?.error?.message ?? res.statusText);
   return body as T;
@@ -65,6 +84,25 @@ export async function listCases(f: Filters = {}, token = DEFAULT_OFFICER): Promi
   }
   const q = new URLSearchParams({ limit: '100', ...(f.status ? { status: f.status } : {}), ...(f.district ? { district: f.district } : {}) });
   return (await call<{ cases: CaseSummary[] }>(`/v1/cases?${q}`, token)).cases;
+}
+
+export interface TicketFilters {
+  status?: string;
+  district?: string;
+  category?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export async function listTickets(f: TicketFilters = {}, token = DEFAULT_OFFICER): Promise<{ tickets: any[]; next_cursor: string | null; total?: number }> {
+  const q = new URLSearchParams();
+  if (f.status) q.set('status', f.status);
+  if (f.district) q.set('district', f.district);
+  if (f.category) q.set('category', f.category);
+  if (f.cursor) q.set('cursor', f.cursor);
+  if (f.limit) q.set('limit', String(f.limit));
+  
+  return call<{ tickets: any[]; next_cursor: string | null; total?: number }>(`/v1/tickets?${q}`, token);
 }
 
 export async function getCase(id: string, token = DEFAULT_OFFICER): Promise<CaseDetail> {
@@ -105,6 +143,18 @@ export async function actOnCase(id: string, input: ActionInput, token = DEFAULT_
     return structuredClone(d.case);
   }
   return call(`/v1/cases/${encodeURIComponent(id)}/actions`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getTicket(id: string, token = DEFAULT_OFFICER): Promise<any> {
+  return call(`/v1/tickets/${encodeURIComponent(id)}`, token);
+}
+
+export async function actOnTicket(id: string, input: any, token = DEFAULT_OFFICER): Promise<any> {
+  return call(`/v1/tickets/${encodeURIComponent(id)}/actions`, token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),

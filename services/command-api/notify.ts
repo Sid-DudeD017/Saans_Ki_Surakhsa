@@ -29,7 +29,7 @@ const ACTION_WORDS: Record<string, string> = {
 };
 
 export function smsNotifier(sender: NotificationSender, recipients: Record<string, string>): Notifier {
-  const to = (district: string | null) => recipients[district ?? "unassigned"] ?? recipients.unassigned;
+  const to = (district: string | null) => recipients[district ?? "supervisor_queue"] ?? recipients.supervisor_queue;
   const attempt = async (what: string, send: () => Promise<{ success: boolean }>) => {
     try {
       const { success } = await send();
@@ -57,7 +57,7 @@ export function notifierFromEnv(db: Db, env: Record<string, string | undefined> 
     [
       ["Sangrur", env.SAANS_SMS_TO_SANGRUR],
       ["Patiala", env.SAANS_SMS_TO_PATIALA],
-      ["unassigned", env.SAANS_SMS_TO_UNASSIGNED],
+      ["supervisor_queue", env.SAANS_SMS_TO_UNASSIGNED],
     ].filter(([, phone]) => phone),
   ) as Record<string, string>;
   if (!Object.keys(recipients).length) return undefined;

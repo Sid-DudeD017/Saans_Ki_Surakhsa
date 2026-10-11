@@ -1,213 +1,796 @@
 'use client';
 
-// One case in the console (P4). The farmer's open help request comes first, with the machine that can be
-// sent, and only then the report and the actions, so help is offered before any penalty.
 import React, { useState } from 'react';
-
 import { Alert, Badge, Button, Card } from '../../components/ui';
 import { CaseMap, type MapPoint } from './CaseMap';
-import { ApiError, actOnCase, type CaseAction, type CaseDetail } from './commandApi';
+import { ApiError, actOnTicket, OFFICERS } from './commandApi';
+import { translations, type Lang } from './i18n';
 
-const TYPE_NAMES: Record<string, string> = {
-  farm_fire: 'Farm fire',
-  garbage: 'Garbage burning',
-  vehicle: 'Smoky vehicle',
-  firecrackers: 'Firecrackers',
-  farmer_support: 'Farmer asks for a machine',
-  kisan_grievance: "Farmer's complaint",
-};
-// What a farmer's complaint (Kisan Saathi) is about.
-const GRIEVANCE_NAMES: Record<string, string> = {
-  chc_no_show: "The CHC machine didn't come",
-  chc_overcharge: 'The CHC charged too much',
-  machine_broken: 'The machine broke down',
-  subsidy_delay: 'The subsidy is late',
-  officer_conduct: "An officer's behaviour",
-  other: 'Something else',
-};
-const STATUS_NAMES: Record<string, string> = { OPEN: 'Open', ACTION_APPROVED: 'Help approved', ACTION_CHANGED: 'Changed', CLOSED: 'Closed' };
-const ACTION_NAMES: Record<CaseAction, string> = {
-  APPROVE: 'Send the machine',
-  CHANGE: 'Send a different machine',
-  REJECT: 'Reject the recommendation',
-  MARK_IN_FIELD: 'Officer in the field',
-  RECORD_ACTION_TAKEN: 'Record action taken',
-  CLOSE: 'Close the case',
-};
-const SYSTEM_ACTIONS: Record<string, string> = { ESCALATE: 'Escalated' };
-const VERIFICATION: Record<string, string> = {
-  SATELLITE_CORROBORATED: 'Satellite saw a fire',
-  NO_MATCH: 'No satellite fire nearby',
-  NEEDS_REVIEW: 'Evidence needs review',
+const MONTHS: Record<Lang, string[]> = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  hi: ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'],
+  pa: ['ਜਨਵਰੀ', 'ਫ਼ਰਵਰੀ', 'ਮਾਰਚ', 'ਅਪ੍ਰੈਲ', 'ਮਈ', 'ਜੂਨ', 'ਜੁਲਾਈ', 'ਅਗਸਤ', 'ਸਤੰਬਰ', 'ਅਕਤੂਬਰ', 'ਨਵੰਬਰ', 'ਦਸੰਬਰ'],
 };
 
-/** "9 Oct, 18:02" from an India-time ISO string, without the browser's time zone. */
-export function when(iso: string) {
+export function when(iso: string, lang: Lang = 'en') {
+  if (!iso) return '';
   const [date, time] = iso.split('T');
+  if (!date) return iso;
   const [, m, d] = date.split('-').map(Number);
-  return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]}, ${time.slice(0, 5)}`;
+  const monthName = (MONTHS[lang] || MONTHS.en)[m - 1] || '';
+  return `${d} ${monthName}, ${time ? time.slice(0, 5) : ''}`;
 }
 
-/** "9 Oct" for dates that have no meaningful time. */
-const day = (iso: string) => when(iso).split(',')[0];
+function getTypeNames(tr: (typeof translations)[Lang]): Record<string, string> {
+  return {
+    farm_fire: tr.type_farm_fire,
+    garbage: tr.type_garbage,
+    vehicle: tr.type_vehicle,
+    firecrackers: tr.type_firecrackers,
+    dust: tr.type_dust,
+    industrial: tr.type_industrial,
+    farmer_support: tr.type_farmer_support,
+  };
+}
 
-/** "40 m" under a kilometre, "1.2 km" above (as the API writes it). */
-const distanceText = (m: number) => {
-  const tens = Math.max(10, Math.round(m / 10) * 10);
-  return tens < 1000 ? `${tens} m` : `${(m / 1000).toFixed(1)} km`;
+const row: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '1rem',
+  fontSize: '0.875rem',
+  color: '#334155',
+  flexWrap: 'wrap',
 };
 
-const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: '1rem', fontSize: '0.875rem', color: '#334155', flexWrap: 'wrap' };
+const REPORT_CHIP_CATEGORIES = [
+  {
+    title: 'WHAT YOU SEE:',
+    chips: [
+      { id: 'thick_smoke', label: 'thick smoke', aliases: ['thick smoke', 'thick_smoke', 'ਗਾੜ੍ਹਾ ਧੂੰਆਂ', 'गाढ़ा धुआँ'] },
+      { id: 'flames', label: 'flames', aliases: ['flames', 'flame', 'ਅੱਗ ਦੀਆਂ ਲਾਟਾਂ', 'आग की लपटें'] },
+      { id: 'ash_falling', label: 'ash falling', aliases: ['ash falling', 'ash_falling', 'ਸੁਆਹ ਡਿੱਗ ਰਹੀ ਹੈ', 'राख गिर रही है'] },
+      { id: 'strong_smell', label: 'strong smell', aliases: ['strong smell', 'strong_smell', 'ਤੇਜ਼ ਬਦਬੂ', 'तेज़ दुर्गंध'] },
+      { id: 'dust_cloud', label: 'dust cloud', aliases: ['dust cloud', 'dust_cloud', 'ਧੂੜ ਦਾ ਗੁਬਾਰ', 'धूल का गुबार'] },
+    ],
+  },
+  {
+    title: 'HOW LONG:',
+    chips: [
+      { id: 'just_started', label: 'just started', aliases: ['just started', 'just_started', 'ਹੁਣੇ ਸ਼ੁਰੂ ਹੋਇਆ', 'अभी शुरू हुआ'] },
+      { id: 'under_hour', label: 'under an hour', aliases: ['under an hour', 'under_hour', 'under hour', 'ਇੱਕ ਘੰਟੇ ਤੋਂ ਘੱਟ', 'एक घंटे से कम'] },
+      { id: 'hours', label: 'hours', aliases: ['hours', 'ਕਈ ਘੰਟਿਆਂ ਤੋਂ', 'कई घंटों से'] },
+      { id: 'every_day', label: 'every day', aliases: ['every day', 'every_day', 'daily', 'ਹਰ ਰੋਜ਼', 'हर रोज़'] },
+    ],
+  },
+  {
+    title: 'WHO IS AFFECTED:',
+    chips: [
+      { id: 'children_outside', label: 'children outside', aliases: ['children outside', 'children_outside', 'ਬਾਹਰ ਖੇਡਦੇ ਬੱਚੇ', 'बाहर खेलते बच्चे'] },
+      { id: 'class_indoors', label: 'a class indoors', aliases: ['a class indoors', 'class indoors', 'class_indoors', 'ਅੰਦਰ ਕਲਾਸ', 'अंदर क्लास रूम'] },
+      { id: 'nearby_homes', label: 'nearby homes', aliases: ['nearby homes', 'nearby_homes', 'homes', 'ਨੇੜਲੇ ਘਰ', 'आस-पास के घर'] },
+    ],
+  },
+];
 
-export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDetail; officer: string; onChanged: () => void }) {
-  const c = detail.case;
-  const help = detail.helpRequest;
-  const machine = detail.recommendedMachine;
-  const closed = c.status === 'CLOSED';
+function parseReportDetails(descriptionText: string) {
+  const desc = (descriptionText || '').toLowerCase();
+  const matched = new Set<string>();
+
+  for (const cat of REPORT_CHIP_CATEGORIES) {
+    for (const chip of cat.chips) {
+      if (chip.aliases.some((alias) => desc.includes(alias.toLowerCase()))) {
+        matched.add(chip.id);
+      }
+    }
+  }
+
+  // Direct match for explicit Note: / Notes: section
+  const noteMatch = (descriptionText || '').match(/(?:^|\n|\r)\s*notes?:\s*([\s\S]+)$/i);
+  if (noteMatch && noteMatch[1].trim()) {
+    return {
+      matchedChips: matched,
+      customNote: noteMatch[1].trim(),
+    };
+  }
+
+  // Filter out chip labels from the description to extract the custom note
+  let remainingNote = descriptionText || '';
+  for (const cat of REPORT_CHIP_CATEGORIES) {
+    for (const chip of cat.chips) {
+      for (const alias of chip.aliases) {
+        const regex = new RegExp(`(^|,|\\n|·|\\s*)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,|\\n|·|\\s*|$)`, 'gi');
+        remainingNote = remainingNote.replace(regex, ' ');
+      }
+    }
+  }
+  const cleanNote = remainingNote.trim().replace(/^notes?:\s*/i, '').replace(/^,\s*|,\s*$/g, '').trim();
+
+  return {
+    matchedChips: matched,
+    customNote: cleanNote.length > 0 ? cleanNote : (matched.size === 0 ? descriptionText : ''),
+  };
+}
+
+export function CaseDetailPanel({
+  detail,
+  officer,
+  lang,
+  onChanged,
+}: {
+  detail: any;
+  officer: string;
+  lang: Lang;
+  onChanged: () => void;
+}) {
+  const tr = translations[lang];
+  const t = detail.ticket;
+  const closed = t.status === 'closed' || t.status === 'resolved';
+
+  const currentOfficerObj = OFFICERS.find((o) => o.token === officer);
+  const isCitizen =
+    officer === 'local-citizen-1' ||
+    currentOfficerObj?.role === 'citizen' ||
+    (!t.threat_level && !t.internal_notes);
+  const isAccepted = t.status === 'in_progress' || t.status === 'assigned';
   const [reason, setReason] = useState('');
-  const [machineId, setMachineId] = useState(machine?.id ?? '');
+  const [summary, setSummary] = useState('');
   const [busy, setBusy] = useState(false);
+  const [overrideLevel, setOverrideLevel] = useState('low');
   const [message, setMessage] = useState<{ tone: 'success' | 'danger' | 'warning'; text: string } | null>(null);
 
-  const act = async (action: CaseAction) => {
-    if (!reason.trim()) {
-      setMessage({ tone: 'warning', text: 'Write a reason first: every decision is recorded with one.' });
+  const act = async (action: string) => {
+    if (
+      (action === 'resolve' && !summary.trim()) ||
+      (action === 'override_threat' && !reason.trim()) ||
+      (action === 'note' && !reason.trim()) ||
+      (action === 'request_info' && !reason.trim())
+    ) {
+      setMessage({ tone: 'warning', text: 'Provide a reason or summary for this action.' });
       return;
     }
     setBusy(true);
     setMessage(null);
     try {
-      const sendsMachine = action === 'APPROVE' || action === 'CHANGE';
-      await actOnCase(c.id, { action, reason: reason.trim(), previousCaseVersion: c.version, ...(sendsMachine && machineId ? { selectedMachineId: machineId } : {}) }, officer);
+      const payload: any = { action };
+      if (reason) payload.reason = reason;
+      if (summary) payload.summary = summary;
+      if (action === 'override_threat') payload.overrideThreatLevel = overrideLevel;
+
+      await actOnTicket(t.id, payload, officer);
       setReason('');
-      setMessage({ tone: 'success', text: `${ACTION_NAMES[action]}: recorded.` });
+      setSummary('');
+      setMessage({ tone: 'success', text: `Action recorded.` });
       onChanged();
-    } catch (e) {
-      const conflict = e instanceof ApiError && e.code === 'version_conflict';
-      const refused = e instanceof ApiError && e.code === 'forbidden';
-      setMessage({ tone: 'danger', text: conflict ? 'Someone else changed this case. It has been reloaded; decide again.' : refused ? `Not allowed for your role: ${e.message}.` : (e as Error).message });
-      if (conflict) onChanged();
+    } catch (e: any) {
+      setMessage({ tone: 'danger', text: e.message || 'Error executing action' });
     } finally {
       setBusy(false);
     }
   };
 
-  const points: MapPoint[] = [
-    { id: 'report', kind: detail.type === 'farmer_support' ? 'farm' : 'report', label: detail.type === 'farmer_support' ? 'The farm' : 'The report', ...detail.report.location },
-    ...(help && detail.type !== 'farmer_support' ? [{ id: 'farm', kind: 'farm' as const, label: `The farm with the open help request (${help.id})`, ...help.farmLocation }] : []),
-    ...(machine ? [{ id: 'chc', kind: 'chc' as const, label: `${machine.chcName}: ${machine.machineType}`, ...machine.location }] : []),
-    ...(detail.observation ? [{ id: 'firms', kind: 'fire' as const, label: `FIRMS fire, ${when(detail.observation.observedAt)}`, ...detail.observation.location }] : []),
+  const typeNames = getTypeNames(tr);
+  const points: MapPoint[] = t.location
+    ? [{ id: 'report', kind: t.type === 'farmer_support' ? 'farm' : 'report', label: typeNames[t.type] || 'Report', ...t.location }]
+    : [];
+
+  const [geocodedRegion, setGeocodedRegion] = useState<string | null>(null);
+  const resolvedRegion = (t.district && t.district !== 'unassigned') ? t.district : geocodedRegion;
+
+  React.useEffect(() => {
+    if (t.district && t.district !== 'unassigned') return;
+    if (!t.location?.lat || !t.location?.lon) return;
+
+    let active = true;
+    fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${t.location.lat}&longitude=${t.location.lon}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        const region =
+          data.locality ||
+          data.city ||
+          data.localityInfo?.administrative?.[2]?.name ||
+          data.principalSubdivision ||
+          null;
+        if (region) {
+          setGeocodedRegion(region);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [t.district, t.location?.lat, t.location?.lon]);
+
+  const rawDescription = t.description || t.complaint_body?.description || '';
+  const { matchedChips, customNote } = parseReportDetails(rawDescription);
+  const evidenceList = Array.isArray(t.evidence) && t.evidence.length > 0
+    ? t.evidence
+    : Array.isArray(t.complaint_body?.evidence) && t.complaint_body.evidence.length > 0
+    ? t.complaint_body.evidence
+    : [];
+
+  // Progression steps for citizen view
+  const progressSteps = [
+    { key: 'submitted', label: tr.step_submitted },
+    { key: 'under_review', label: tr.step_under_review },
+    { key: 'in_progress', label: tr.step_in_progress },
+    { key: 'resolved', label: tr.step_resolved },
   ];
+
+  const currentStepIndex = (() => {
+    if (t.status === 'closed' || t.status === 'resolved') return 3;
+    if (t.status === 'in_progress' || t.status === 'assigned') return 2;
+    if (t.status === 'under_review' || t.status === 'awaiting_information') return 1;
+    return 0;
+  })();
+
+  const statusBadgeText =
+    t.status === 'submitted' ? tr.status_submitted :
+    t.status === 'under_review' ? tr.status_under_review :
+    t.status === 'assigned' ? tr.status_assigned :
+    t.status === 'in_progress' ? tr.status_in_progress :
+    t.status === 'resolved' ? tr.status_resolved :
+    t.status === 'closed' ? tr.status_closed : t.status.toUpperCase();
+
+  const getChipLabel = (id: string) => {
+    switch (id) {
+      case 'thick_smoke': return tr.chip_thick_smoke;
+      case 'flames': return tr.chip_flames;
+      case 'ash_falling': return tr.chip_ash_falling;
+      case 'strong_smell': return tr.chip_strong_smell;
+      case 'dust_cloud': return tr.chip_dust_cloud;
+      case 'just_started': return tr.chip_just_started;
+      case 'under_hour': return tr.chip_under_hour;
+      case 'hours': return tr.chip_hours;
+      case 'every_day': return tr.chip_every_day;
+      case 'children_outside': return tr.chip_children_outside;
+      case 'class_indoors': return tr.chip_class_indoors;
+      case 'nearby_homes': return tr.chip_nearby_homes;
+      default: return id;
+    }
+  };
+
+  const activeChipStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    padding: '0.5rem 1rem',
+    borderRadius: '9999px',
+    border: '2px solid #0284c7',
+    backgroundColor: '#e0f2fe',
+    color: '#0369a1',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    boxShadow: '0 1px 2px rgba(2, 132, 199, 0.1)',
+  };
+
+  const inactiveChipStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    padding: '0.5rem 1rem',
+    borderRadius: '9999px',
+    border: '1.5px solid #cbd5e1',
+    backgroundColor: '#ffffff',
+    color: '#475569',
+    fontWeight: 500,
+    fontSize: '0.9rem',
+  };
 
   return (
     <div style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
+      {/* 1. Header Card */}
       <Card padding="lg">
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-          <Badge variant={closed ? 'neutral' : 'primary'}>{STATUS_NAMES[c.status]}</Badge>
-          {VERIFICATION[c.verificationStatus] && <Badge variant={c.verificationStatus === 'NEEDS_REVIEW' ? 'warning' : 'neutral'}>{VERIFICATION[c.verificationStatus]}</Badge>}
-          {(detail.reports ?? 1) > 1 && <Badge variant="neutral">{detail.reports} reports merged</Badge>}
-          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{c.id} · version {c.version}</span>
+          <Badge variant={closed ? 'neutral' : 'primary'}>{statusBadgeText}</Badge>
+          {!isCitizen && t.automated_label && <Badge variant="warning">{tr.automated_rec}</Badge>}
+          {!isCitizen && t.threat_level && (
+            <Badge variant={t.threat_level === 'critical' ? 'danger' : 'warning'}>
+              {tr.threat}: {t.threat_level}
+            </Badge>
+          )}
+          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.id}</span>
         </div>
-        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.2rem', color: '#0f172a' }}>{TYPE_NAMES[detail.type ?? ''] ?? detail.type} · {detail.report.district}</h2>
+        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.25rem', color: '#0f172a' }}>
+          {typeNames[t.type] ?? t.type}{resolvedRegion ? ` · ${resolvedRegion}` : ''}
+        </h2>
         <div style={row}>
-          <span>Reported {when(detail.report.reportedAt)}</span>
-          {detail.deadline && <span>Act by <strong>{when(detail.deadline)}</strong></span>}
+          <span>{tr.created} {when(t.created_at, lang)}</span>
+          {!isCitizen && t.deadline && (
+            <span style={{ color: '#b91c1c', fontWeight: 'bold' }}>
+              {tr.sla} {when(t.deadline, lang)}
+            </span>
+          )}
         </div>
-        {detail.escalatedAt && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <Alert variant="danger" title="Escalated">The deadline passed with no action, so the case went to {(detail.escalatedTo ?? []).join(', ')} at {when(detail.escalatedAt)}.</Alert>
+
+        {/* Citizen Progression Bar */}
+        {isCitizen && (
+          <div style={{ marginTop: '1.25rem', borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>
+              {tr.report_status}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+              {progressSteps.map((step, idx) => {
+                const isPassed = idx <= currentStepIndex;
+                const isCurrent = idx === currentStepIndex;
+                return (
+                  <div
+                    key={step.key}
+                    style={{
+                      padding: '0.45rem 0.5rem',
+                      borderRadius: '0.375rem',
+                      backgroundColor: isCurrent ? '#0284c7' : isPassed ? '#e0f2fe' : '#f1f5f9',
+                      color: isCurrent ? '#ffffff' : isPassed ? '#0369a1' : '#64748b',
+                      fontSize: '0.75rem',
+                      fontWeight: isCurrent || isPassed ? 600 : 500,
+                      textAlign: 'center',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {step.label}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </Card>
 
-      {help && (
-        <Card padding="lg" style={{ borderLeft: '6px solid #16a34a' }}>
-          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem', color: '#14532d' }}>
-            {help.status === 'OPEN' ? 'Help before penalty: this farmer asked for a machine' : `The farmer's help request is ${help.status.toLowerCase()}`}
-          </h3>
-          <div style={{ display: 'grid', gap: '0.35rem' }}>
-            <div style={row}><span>{help.crop}, {help.acreage} acres; {help.coveragePercent}% covered by the farmer&apos;s own plan</span><strong>{help.uncoveredAcres} acres still need a {help.machineType}</strong></div>
-            <div style={row}><span>Needed between</span><span>{day(help.requiredFrom)} and {day(help.requiredUntil)}</span></div>
-            {detail.helpLink && <div style={row}><span>Farm</span><span>{distanceText(detail.helpLink.distanceMeters)} from the report</span></div>}
+      {/* 2. Details Card (Matching 2nd Image) */}
+      <Card padding="lg">
+        <h3 style={{ margin: '0 0 1.25rem', fontSize: '1.15rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>📝</span> {tr.details_title}
+        </h3>
+
+        {/* WHAT YOU SEE */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', letterSpacing: '0.05em', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+            {tr.what_you_see}
           </div>
-          {detail.helpLink?.ambiguous && (
-            <div style={{ marginTop: '0.75rem' }}>
-              <Alert variant="warning" title="Two farms are about as close">Another open request ({detail.helpLink.otherHelpRequestId}) is within 100 m of the same distance. Check which farm is burning before you send a machine.</Alert>
-            </div>
-          )}
-          {machine ? (
-            <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '0.5rem', background: '#f0fdf4', fontSize: '0.9rem', color: '#14532d' }}>
-              <strong>{machine.machineType} at {machine.chcName}</strong>, free from {day(machine.availableFrom)} to {day(machine.availableUntil)}.
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {REPORT_CHIP_CATEGORIES[0].chips.map((chip) => {
+              const isSelected = matchedChips.has(chip.id);
+              return (
+                <span key={chip.id} style={isSelected ? activeChipStyle : inactiveChipStyle}>
+                  {isSelected ? '✓ ' : '+ '} {getChipLabel(chip.id)}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* HOW LONG */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', letterSpacing: '0.05em', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+            {tr.how_long}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {REPORT_CHIP_CATEGORIES[1].chips.map((chip) => {
+              const isSelected = matchedChips.has(chip.id);
+              return (
+                <span key={chip.id} style={isSelected ? activeChipStyle : inactiveChipStyle}>
+                  {isSelected ? '✓ ' : '+ '} {getChipLabel(chip.id)}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* WHO IS AFFECTED */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', letterSpacing: '0.05em', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+            {tr.who_is_affected}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {REPORT_CHIP_CATEGORIES[2].chips.map((chip) => {
+              const isSelected = matchedChips.has(chip.id);
+              return (
+                <span key={chip.id} style={isSelected ? activeChipStyle : inactiveChipStyle}>
+                  {isSelected ? '✓ ' : '+ '} {getChipLabel(chip.id)}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Note */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+              {tr.note_optional} {t.all_reports && t.all_reports.length > 1 ? `(${t.all_reports.length} citizen notes)` : ''}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+              {customNote.length}/1000
+            </span>
+          </div>
+
+          {!isCitizen && t.all_reports && t.all_reports.length > 1 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {t.all_reports.map((rep: any, idx: number) => {
+                const { customNote: repNote } = parseReportDetails(rep.description);
+                return (
+                  <div
+                    key={rep.id || idx}
+                    style={{
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '0.5rem',
+                      border: rep.is_primary ? '1.5px solid #93c5fd' : '1.5px solid #fed7aa',
+                      backgroundColor: rep.is_primary ? '#eff6ff' : '#fff7ed',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.75rem', color: '#64748b' }}>
+                      <span style={{ fontWeight: 700, color: rep.is_primary ? '#1d4ed8' : '#c2410c' }}>
+                        {rep.is_primary ? '★ Initial Report' : `↳ Additional Report #${idx + 1}`} ({rep.reporter_identity})
+                      </span>
+                      <span>{when(rep.received_at, lang)}</span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: repNote ? '#0f172a' : '#64748b', fontStyle: repNote ? 'normal' : 'italic' }}>
+                      {repNote || tr.no_details_noted}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <p style={{ margin: '0.75rem 0 0', fontSize: '0.875rem', color: '#92400e' }}>No CHC machine of this type is free in the farmer&apos;s window.</p>
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#f8fafc',
+                color: customNote ? '#0f172a' : '#64748b',
+                fontSize: '0.925rem',
+                lineHeight: 1.5,
+                minHeight: '70px',
+                fontStyle: customNote ? 'normal' : 'italic',
+              }}
+            >
+              {customNote || tr.no_details_noted}
+            </div>
           )}
-          {c.recommendationReason && <p style={{ margin: '0.75rem 0 0', fontSize: '0.85rem', color: '#334155' }}>{c.recommendationReason}</p>}
+        </div>
+
+        {/* Photo Evidence */}
+        <div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>
+            📷 {tr.photo_evidence_optional}
+          </div>
+          {evidenceList.length > 0 ? (
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {evidenceList.map((ev: any, idx: number) => {
+                const key = typeof ev === 'string' ? ev : ev.object_key || `Photo #${idx + 1}`;
+                const isImage = typeof ev === 'object' ? (!ev.media_type || ev.media_type.startsWith('image/')) : Boolean(key.match(/\.(jpg|jpeg|png|heic|webp)$/i));
+                const imageUrl = key.startsWith('evidence/') ? `/v1/evidence?key=${encodeURIComponent(key)}` : null;
+
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      borderRadius: '0.5rem',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#f8fafc',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        padding: '0.75rem 1rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                        <span style={{ fontSize: '1.25rem' }}>📷</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {key}
+                          </div>
+                          {ev.media_type && (
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ev.media_type}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {imageUrl && (
+                        <a
+                          href={imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: '#0284c7',
+                            textDecoration: 'none',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem',
+                            backgroundColor: '#e0f2fe',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ↗ Full Image
+                        </a>
+                      )}
+                    </div>
+
+                    {imageUrl && isImage && (
+                      <div
+                        style={{
+                          borderTop: '1px solid #e2e8f0',
+                          backgroundColor: '#0f172a',
+                          textAlign: 'center',
+                          padding: '0.5rem',
+                        }}
+                      >
+                        <a href={imageUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={imageUrl}
+                            alt="Photo evidence"
+                            loading="lazy"
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '340px',
+                              objectFit: 'contain',
+                              borderRadius: '0.25rem',
+                              display: 'inline-block',
+                              verticalAlign: 'middle',
+                            }}
+                          />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              style={{
+                border: '1.5px dashed #cbd5e1',
+                borderRadius: '0.5rem',
+                padding: '1.25rem',
+                textAlign: 'center',
+                backgroundColor: '#f8fafc',
+                color: '#64748b',
+                fontSize: '0.875rem',
+              }}
+            >
+              <span>📷 {tr.no_photo_uploaded}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Merged Incident Reports */}
+        {t.all_reports && t.all_reports.length > 1 && (
+          <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
+                👥 {!isCitizen ? `All Incident Reports (${t.all_reports.length})` : `Combined Area Incident (${t.all_reports.length} reports)`}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                Merged within 500m
+              </span>
+            </div>
+            {!isCitizen ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {t.all_reports.map((rep: any, idx: number) => {
+                  const { customNote: repNote } = parseReportDetails(rep.description);
+                  return (
+                    <div
+                      key={rep.id || idx}
+                      style={{
+                        padding: '0.6rem 0.8rem',
+                        borderRadius: '0.5rem',
+                        backgroundColor: rep.is_primary ? '#eff6ff' : '#f8fafc',
+                        border: rep.is_primary ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.75rem', color: '#64748b' }}>
+                        <span style={{ fontWeight: 600, color: rep.is_primary ? '#1d4ed8' : '#475569' }}>
+                          {rep.reporter_identity} {rep.is_primary ? '★ Primary report' : '↳ Additional report'}
+                        </span>
+                        <span>{when(rep.received_at, lang)}</span>
+                      </div>
+                      <div style={{ color: repNote ? '#0f172a' : '#94a3b8', fontStyle: repNote ? 'normal' : 'italic' }}>
+                        {repNote || 'No custom note attached'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8rem', color: '#475569', backgroundColor: '#f1f5f9', padding: '0.6rem 0.8rem', borderRadius: '0.375rem', lineHeight: 1.4 }}>
+                ℹ️ Multiple citizens in your area reported this incident. Your report was linked with {t.all_reports.length - 1} other report(s) so authorities can respond swiftly.
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* 3. Location Map Card */}
+      <Card padding="lg">
+        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>📍 {tr.incident_location}</h3>
+        {t.location && (
+          <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.75rem' }}>
+            {tr.coordinates} {t.location.lat.toFixed(4)}, {t.location.lon.toFixed(4)}{resolvedRegion ? ` · ${resolvedRegion}` : ''}
+          </div>
+        )}
+        <div style={{ marginTop: '0.5rem' }}>
+          <CaseMap points={points} title="The report location" />
+        </div>
+      </Card>
+
+      {/* 4. Closed / Resolved summary */}
+      {closed && t.resolution_summary && (
+        <Card padding="lg">
+          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#166534' }}>
+            ✅ {tr.resolution_summary_title}
+          </h3>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: '#14532d' }}>
+            {t.resolution_summary}
+          </p>
         </Card>
       )}
 
-      <Card padding="lg">
-        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>
-          {detail.type === 'farmer_support' ? 'The request' : detail.type === 'kisan_grievance' ? "The farmer's complaint" : 'The report'}
-        </h3>
-        {detail.grievance && (
-          <p style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', fontWeight: 600, color: '#0f172a' }}>
-            {GRIEVANCE_NAMES[detail.grievance.subtype] ?? detail.grievance.subtype}
-            {detail.grievance.chcName ? ` · ${detail.grievance.chcName}` : ''}
-          </p>
-        )}
-        {detail.report.description && <p style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', color: '#1e293b' }}>“{detail.report.description}”</p>}
-        <div style={{ display: 'grid', gap: '0.35rem' }}>
-          <div style={row}><span>Evidence</span><span>{c.evidenceSummary}</span></div>
-          {detail.observation && (
-            <div style={row}><span>Satellite</span><span>FIRMS fire {distanceText(detail.observation.distanceFromReportMeters ?? 0)} away, {when(detail.observation.observedAt)}</span></div>
-          )}
-          <div style={row}><span>Sent to</span><span>{(detail.authorities ?? []).join(', ')}</span></div>
-          <div style={row}><span>Penalty</span><span>{detail.penalty ? (help?.status === 'OPEN' ? 'Possible, but offer the machine first' : 'Possible') : detail.type === 'kisan_grievance' ? "Never: this is the farmer's complaint" : 'Never: this is a request for help'}</span></div>
-        </div>
-        <div style={{ marginTop: '0.75rem' }}>
-          <CaseMap points={points} title="The report, the farm, the CHC and any satellite fire" />
-        </div>
-      </Card>
-
-      <Card padding="lg">
-        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>Decide</h3>
-        {closed ? (
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>This case is closed.</p>
-        ) : (
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <label style={{ display: 'grid', gap: '0.25rem', fontSize: '0.85rem', color: '#334155' }}>
-              Reason (recorded with the decision)
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} style={{ padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem', fontFamily: 'inherit' }} />
-            </label>
-            {machine && (
-              <label style={{ display: 'grid', gap: '0.25rem', fontSize: '0.85rem', color: '#334155' }}>
-                Machine to send
-                <input value={machineId} onChange={(e) => setMachineId(e.target.value)} style={{ padding: '0.45rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} />
-              </label>
+      {/* 5. OFFICER-ONLY SECTIONS (Hidden for citizens) */}
+      {!isCitizen && (
+        <>
+          {/* Threat Assessment Card */}
+          <Card padding="lg">
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>{tr.threat}</h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
+              {tr.current_threat}: {t.threat_level || 'None'}
+            </p>
+            {t.threat_reasons && t.threat_reasons.length > 0 && (
+              <ul style={{ margin: '0.5rem 0', fontSize: '0.85rem' }}>
+                {t.threat_reasons.map((r: string, i: number) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {help?.status === 'OPEN' && <Button onClick={() => act('APPROVE')} disabled={busy}>{ACTION_NAMES.APPROVE}</Button>}
-              {help?.status === 'OPEN' && <Button variant="outline" onClick={() => act('CHANGE')} disabled={busy}>{ACTION_NAMES.CHANGE}</Button>}
-              {help && <Button variant="ghost" onClick={() => act('REJECT')} disabled={busy}>{ACTION_NAMES.REJECT}</Button>}
-              <Button variant="secondary" onClick={() => act('MARK_IN_FIELD')} disabled={busy}>{ACTION_NAMES.MARK_IN_FIELD}</Button>
-              <Button variant="secondary" onClick={() => act('RECORD_ACTION_TAKEN')} disabled={busy}>{ACTION_NAMES.RECORD_ACTION_TAKEN}</Button>
-              <Button variant="danger" onClick={() => act('CLOSE')} disabled={busy}>{ACTION_NAMES.CLOSE}</Button>
-            </div>
-          </div>
-        )}
-        {message && <div style={{ marginTop: '0.75rem' }}><Alert variant={message.tone}>{message.text}</Alert></div>}
-        {detail.decisions.length > 0 && (
-          <ol style={{ margin: '1rem 0 0', paddingLeft: '1.1rem', display: 'grid', gap: '0.35rem', fontSize: '0.85rem', color: '#334155' }}>
-            {detail.decisions.map((d) => (
-              <li key={d.id}>
-                <strong>{ACTION_NAMES[d.action as CaseAction] ?? SYSTEM_ACTIONS[d.action] ?? d.action}</strong> · {when(d.createdAt)} · {d.officerId}: {d.reason}
-                {d.selectedMachineId ? ` (${d.selectedMachineId})` : ''}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
+            {t.override && (
+              <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#c2410c' }}>
+                {tr.overridden_by} {t.override.by}: {t.override.reason} ({t.override.level})
+              </p>
+            )}
+          </Card>
+
+          {/* Internal Notes Card */}
+          {t.internal_notes && t.internal_notes.length > 0 && (
+            <Card padding="lg">
+              <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>{tr.internal_notes}</h3>
+              <ul style={{ fontSize: '0.85rem', paddingLeft: '1.2rem', margin: 0 }}>
+                {t.internal_notes.map((n: any, i: number) => (
+                  <li key={i}>
+                    [{when(n.at)}] {n.by}: {n.text}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {/* Officer Actions Card */}
+          <Card padding="lg">
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', color: '#0f172a' }}>{tr.actions}</h3>
+            {closed ? (
+              <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
+                {tr.resolved_desc} Resolution: {t.resolution_summary}
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {isAccepted && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.85rem', borderRadius: '0.5rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', fontWeight: 600, fontSize: '0.875rem' }}>
+                    <span>✓ Ticket Accepted · In Progress</span>
+                    <Badge variant="primary">ACTIVE</Badge>
+                  </div>
+                )}
+
+                {/* Show notes recorded earlier */}
+                {t.internal_notes && t.internal_notes.length > 0 && (
+                  <div style={{ padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>
+                      Notes & Activity ({t.internal_notes.length}):
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.4rem' }}>
+                      {t.internal_notes.map((n: any, i: number) => (
+                        <div key={i} style={{ fontSize: '0.85rem', color: '#1e293b' }}>
+                          <span style={{ color: '#64748b', fontSize: '0.75rem' }}>[{when(n.at)}] <strong>{n.by}</strong>: </span>
+                          <span>{n.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <label style={{ display: 'grid', gap: '0.25rem', fontSize: '0.85rem', color: '#334155' }}>
+                  {isAccepted ? 'Add Follow-up Note' : tr.reason_note}
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={2}
+                    placeholder={isAccepted ? 'Enter note or update...' : 'Enter reason or note...'}
+                    style={{
+                      padding: '0.5rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.95rem',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {!isAccepted && (
+                    <Button style={{ minHeight: '44px' }} onClick={() => act('accept')} disabled={busy}>
+                      {tr.accept}
+                    </Button>
+                  )}
+                  <Button style={{ minHeight: '44px' }} variant="outline" onClick={() => act('note')} disabled={busy}>
+                    {tr.add_note}
+                  </Button>
+                  <Button style={{ minHeight: '44px' }} variant="ghost" onClick={() => act('request_info')} disabled={busy}>
+                    {tr.request_info}
+                  </Button>
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0.5rem 0' }} />
+
+                <label style={{ display: 'grid', gap: '0.25rem', fontSize: '0.85rem', color: '#334155' }}>
+                  {tr.resolve_summary}
+                  <textarea
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    rows={2}
+                    style={{
+                      padding: '0.5rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.95rem',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <Button style={{ minHeight: '44px' }} variant="danger" onClick={() => act('resolve')} disabled={busy}>
+                    {tr.resolve}
+                  </Button>
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '0.5rem 0' }} />
+
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.85rem', color: '#334155', minHeight: '44px' }}>
+                    {tr.new_level}
+                    <select
+                      value={overrideLevel}
+                      onChange={(e) => setOverrideLevel(e.target.value)}
+                      style={{ padding: '0.4rem', borderRadius: '0.25rem', minHeight: '44px' }}
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </label>
+                  <Button style={{ minHeight: '44px' }} variant="outline" onClick={() => act('override_threat')} disabled={busy}>
+                    {tr.override_threat}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {message && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <Alert variant={message.tone}>{message.text}</Alert>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
     </div>
   );
 }

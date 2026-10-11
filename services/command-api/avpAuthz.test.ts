@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { AVP_ACTION, avpCaseAuthz } from "./avpAuthz";
 import type { CaseFacts, Officer } from "./caseAuthz";
 
-const sangrurCase: CaseFacts = { id: "case-1", district: "Sangrur", status: "OPEN", type: "farm_fire", hasHelpRequest: true, reporterConsent: true };
+const sangrurCase: CaseFacts = { id: "case-1", district: "Sangrur", status: "OPEN", type: "farm_fire", hasHelpRequest: true, reporterConsent: true, reporterId: "" };
 const officer: Officer = { id: "sub-1", name: "sub-1", role: "district_officer", district: "Sangrur", token: "tok" };
 
 function fakeStore(allowedDistrict: string) {
@@ -40,7 +40,7 @@ describe("avpCaseAuthz", () => {
   it("lists only the queues the store allows", async () => {
     const { calls, rules } = fakeStore("patiala");
     expect(await rules.listable(officer)).toEqual(["Patiala"]);
-    expect(calls.map((c) => [c[1], c[3]])).toEqual([["list", "sangrur"], ["list", "patiala"], ["list", "unassigned"]]);
+    expect(calls.map((c) => [c[1], c[3]])).toEqual([["list", "sangrur"], ["list", "patiala"], ["list", "supervisor_queue"]]);
   });
 
   it("maps every verb to an action #26's schema has, or to none", () => {

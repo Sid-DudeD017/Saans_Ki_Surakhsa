@@ -4,6 +4,8 @@
     { "id": "officer-sangrur", "token": "local-officer-sangrur", "name": "SDM Sangrur (demo)", "role": "district_officer", "district": "Sangrur" },
     { "id": "field-sangrur", "token": "local-field-sangrur", "name": "Field officer, Sangrur (demo)", "role": "field_officer", "district": "Sangrur" },
     { "id": "officer-patiala", "token": "local-officer-patiala", "name": "SDM Patiala (demo)", "role": "district_officer", "district": "Patiala" },
-    { "id": "state-command", "token": "local-state-command", "name": "State command centre (demo)", "role": "state_admin", "district": "*" }
+    { "id": "state-command", "token": "local-state-command", "name": "State command centre (demo)", "role": "supervisor", "district": "*" },
+    { "id": "admin-demo", "token": "local-admin-demo", "name": "Admin (demo)", "role": "admin", "district": "*" },
+    { "id": "citizen-1", "token": "local-citizen-1", "name": "Citizen (demo)", "role": "citizen", "district": "Sangrur" }
   ]
 }
