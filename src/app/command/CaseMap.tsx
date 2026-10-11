@@ -11,8 +11,9 @@ export interface MapPoint extends LatLon {
   selected?: boolean;
 }
 
-const INLINE_SIZE = 480;
-const INLINE_HALF = INLINE_SIZE / 2;
+// The map on the page: wide rather than square, so it fills the column and sits centred in it.
+const INLINE_W = 720;
+const INLINE_H = 480;
 
 const MODAL_W = 1000;
 const MODAL_H = 650;
@@ -34,7 +35,7 @@ export function fitZoom(points: LatLon[]): number {
     const xs = points.map((p) => project(p, z));
     const w = Math.max(...xs.map((p) => p.x)) - Math.min(...xs.map((p) => p.x));
     const h = Math.max(...xs.map((p) => p.y)) - Math.min(...xs.map((p) => p.y));
-    if (w <= INLINE_SIZE - 80 && h <= INLINE_SIZE - 80) return z;
+    if (w <= INLINE_W - 80 && h <= INLINE_H - 80) return z;
   }
   return 5;
 }
@@ -191,19 +192,18 @@ export function CaseMap({
 
   return (
     <>
-      <figure style={{ margin: 0, display: 'grid', gap: '0.45rem' }}>
+      <figure style={{ margin: '0 auto', width: '100%', maxWidth: INLINE_W, display: 'grid', gap: '0.6rem' }}>
         <div
           style={{
             position: 'relative',
             width: '100%',
-            maxWidth: INLINE_SIZE,
-            borderRadius: '0.75rem',
+            borderRadius: '1rem',
             overflow: 'hidden',
             border: '1px solid #cbd5e1',
             boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
           }}
         >
-          {renderSvgMap(INLINE_SIZE, INLINE_SIZE, INLINE_HALF, INLINE_HALF)}
+          {renderSvgMap(INLINE_W, INLINE_H, INLINE_W / 2, INLINE_H / 2)}
 
           {/* Floating Map Controls (Top Right) */}
           <div
@@ -227,7 +227,7 @@ export function CaseMap({
                 backdropFilter: 'blur(4px)',
                 border: '1px solid #cbd5e1',
                 borderRadius: '0.375rem',
-                fontSize: '0.75rem',
+                fontSize: '0.875rem',
                 fontWeight: 700,
                 color: '#0f172a',
                 cursor: 'pointer',
@@ -254,12 +254,12 @@ export function CaseMap({
                 onClick={zoomIn}
                 title="Zoom in"
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '36px',
+                  height: '36px',
                   border: 'none',
                   background: 'none',
                   fontWeight: 800,
-                  fontSize: '0.9rem',
+                  fontSize: '1.15rem',
                   color: '#0f172a',
                   cursor: 'pointer',
                   display: 'flex',
@@ -275,12 +275,12 @@ export function CaseMap({
                 onClick={zoomOut}
                 title="Zoom out"
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '36px',
+                  height: '36px',
                   border: 'none',
                   background: 'none',
                   fontWeight: 800,
-                  fontSize: '0.9rem',
+                  fontSize: '1.15rem',
                   color: '#0f172a',
                   cursor: 'pointer',
                   display: 'flex',
@@ -306,7 +306,7 @@ export function CaseMap({
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
                 border: '1px solid #cbd5e1',
                 borderRadius: '0.375rem',
-                fontSize: '0.7rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 color: '#475569',
                 cursor: 'pointer',
@@ -320,7 +320,7 @@ export function CaseMap({
 
         <figcaption
           style={{
-            fontSize: '0.75rem',
+            fontSize: '0.875rem',
             color: '#64748b',
             display: 'flex',
             alignItems: 'center',
@@ -341,7 +341,7 @@ export function CaseMap({
                 border: 'none',
                 padding: 0,
                 color: '#0284c7',
-                fontSize: '0.75rem',
+                fontSize: '0.875rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 textDecoration: 'underline',

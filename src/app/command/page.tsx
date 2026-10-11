@@ -28,7 +28,7 @@ const STATUSES: [CaseStatus | '', string][] = [['OPEN', 'Open'], ['ACTION_APPROV
 const DISTRICTS = ['', 'Sangrur', 'Patiala', 'unassigned'];
 const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑️', vehicle: '🚚', firecrackers: '🎆', farmer_support: '🌾', kisan_grievance: '📣' };
 
-const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem', minHeight: '44px' };
+const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', fontSize: '1rem', minHeight: '44px', fontFamily: 'inherit', background: '#ffffff' };
 
 const COMMAND_TABS = ['cases', 'map', 'case'] as const;
 const TAB_WORDS: Record<(typeof COMMAND_TABS)[number], { icon: string; label: Record<Lang, string> }> = {
@@ -228,7 +228,7 @@ function MockCommandPage() {
               {/* The local console always offers the demo sign-ins: a citizen, or an officer with a PIN. Since #61
                   it only shows in local mode, so the old "live only" condition hid them for good. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+                  <label style={{ fontSize: '0.95rem', color: '#334155' }}>
                     {t.signed_in}{' '}
                     <select
                       style={select}
@@ -255,7 +255,7 @@ function MockCommandPage() {
                         reload();
                       }}
                       style={{
-                        fontSize: '0.75rem',
+                        fontSize: '0.95rem',
                         padding: '0.2rem 0.5rem',
                         borderRadius: '0.375rem',
                         backgroundColor: (typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '#dbeafe' : '#f1f5f9',
@@ -275,7 +275,7 @@ function MockCommandPage() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.25rem',
-                        fontSize: '0.75rem',
+                        fontSize: '0.95rem',
                         padding: '0.25rem 0.5rem',
                         borderRadius: '0.375rem',
                         backgroundColor: '#e0f2fe',
@@ -288,19 +288,19 @@ function MockCommandPage() {
                     </span>
                   )}
                 </div>
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+              <label style={{ fontSize: '0.95rem', color: '#334155' }}>
                 {t.status}{' '}
                 <select style={select} value={status} onChange={(e) => setStatus(e.target.value)}>
                   {STATUS_OPTS.map(([v, name]) => <option key={v} value={v}>{name}</option>)}
                 </select>
               </label>
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
+              <label style={{ fontSize: '0.95rem', color: '#334155' }}>
                 {t.category}{' '}
                 <select style={select} value={category} onChange={(e) => setCategory(e.target.value)}>
                   {CAT_OPTS.map(([v, name]) => <option key={v} value={v}>{name}</option>)}
                 </select>
               </label>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{queue.tickets ? `${queue.total || tickets.length} ticket${tickets.length === 1 ? '' : 's'}` : t.loading}</span>
+              <span style={{ fontSize: '0.9rem', color: '#64748b' }}>{queue.tickets ? `${queue.total || tickets.length} ticket${tickets.length === 1 ? '' : 's'}` : t.loading}</span>
             </div>
             {queue.error && <Alert variant="danger" title="No queue">{queue.error}</Alert>}
             {queue.tickets && tickets.length === 0 && <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>{t.no_tickets}</p>}
@@ -330,18 +330,18 @@ function MockCommandPage() {
                       <strong>{TYPE_ICONS[s.type] ?? '•'} {catName}{locText}</strong>
                       <span style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                         {s.total_reports > 1 && (
-                          <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
+                          <span style={{ fontSize: '0.9rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
                             👥 {s.total_reports} reports
                           </span>
                         )}
                         {s.threat_level && (
-                          <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
+                          <span style={{ fontSize: '0.95rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
                             {s.threat_level.toUpperCase()}
                           </span>
                         )}
                       </span>
                     </span>
-                    <span style={{ fontSize: '0.8rem', color: '#475569' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#475569' }}>
                       {s.help_request ? `🌾 ${t.help_request_badge} · ` : ''}
                       {statusName}
                       {' · '}{s.deadline ? `${t.sla} ${when(s.deadline)}` : `${t.created} ${new Date(s.created_at).toLocaleString()}`}
@@ -441,7 +441,7 @@ function MockCommandPage() {
               >
                 Officer Verification
               </h2>
-              <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.4 }}>
+              <p style={{ margin: '0 0 1rem', fontSize: '0.95rem', color: '#64748b', lineHeight: 1.4 }}>
                 Enter your authorized 6-digit Officer PIN to access the enforcement console.
               </p>
 
@@ -455,10 +455,10 @@ function MockCommandPage() {
                   textAlign: 'left',
                 }}
               >
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
                   Demo Prototype Access
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem' }}>
                   Use any of these authorized PIN values to log in:
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
@@ -495,7 +495,7 @@ function MockCommandPage() {
             <form onSubmit={handleVerifyOfficer}>
               <div style={{ marginBottom: '1rem' }}>
                 <label
-                  style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}
+                  style={{ display: 'block', fontSize: '0.95rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}
                 >
                   Officer PIN
                 </label>
