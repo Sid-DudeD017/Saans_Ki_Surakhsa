@@ -11,7 +11,6 @@ import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
 import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getTicket, listTickets, type CaseDetail, type CaseStatus } from './commandApi';
 import { translations, type Lang } from './i18n';
-import { LiveCommandPage } from './LiveCommandPage';
 
 const ALLOWED_OFFICER_IDS = new Set([
   '633870',
@@ -562,5 +561,5 @@ function MockCommandPage() {
 }
 
 export default function CommandPage() {
-  return USE_MOCKS ? <MockCommandPage /> : <LiveCommandPage />;
+  return <MockCommandPage />;
 }

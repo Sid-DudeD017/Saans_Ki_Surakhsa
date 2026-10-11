@@ -1,10 +1,8 @@
-// Saans Command's reads and writes for the console (P4), in p4-command.openapi.yaml's shapes. With
-// NEXT_PUBLIC_USE_MOCKS=true preserves the local demo behavior. Otherwise requests use a Cognito access
-// token, and the API Gateway authorizer plus Cedar decide what the signed-in officer may access.
+// Saans Command's reads and writes for the console (P4). The deployed demo intentionally uses the
+// teammate's PIN/citizen flow and same-origin Next.js routes, matching the local prototype.
 import officers from '../../../infra/config/officers.local.json';
 import type { components } from '../../../packages/contracts/types';
 import { nextStatus, type CaseAction } from '../../../services/command-api/caseRules';
-import { getCognitoAccessToken } from '../../lib/cognitoAuth';
 import { MOCK_CASES } from './mockCases';
 
 export type CaseSummary = components['schemas']['CaseSummary'];
@@ -13,8 +11,9 @@ export type CommandCase = components['schemas']['CommandCase'];
 export type CaseStatus = CommandCase['status'];
 export type { CaseAction };
 
-export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
-const BASE = (process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || '').replace(/\/$/, '');
+/** The Command demo always uses the PIN/citizen experience and same-origin Next.js API routes. */
+export const USE_MOCKS = true;
+const BASE = '';
 
 /** The console's role options: Officer and Citizen only */
 export const OFFICERS = [
@@ -44,12 +43,9 @@ export function getCitizenIdentity(): string {
 }
 
 async function call<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  if (!USE_MOCKS && !BASE) throw new ApiError(500, 'configuration_error', 'The Command API URL is not configured.');
-  const bearer = USE_MOCKS ? token : getCognitoAccessToken();
-  if (!bearer) throw new ApiError(401, 'authentication_required', 'Sign in with your officer account to continue.');
   const headers: Record<string, string> = {
     ...((init?.headers as Record<string, string>) || {}),
-    Authorization: `Bearer ${bearer}`,
+    Authorization: `Bearer ${token}`,
   };
   if (USE_MOCKS && token === 'local-citizen-1') {
     const customUser = typeof window !== 'undefined' ? sessionStorage.getItem('saans_view_citizen_id') : null;
