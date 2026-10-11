@@ -4574,6 +4574,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicBoard"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description The board is being recomputed */
             503: {
                 headers: {
@@ -4896,6 +4897,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createTicket: {
@@ -4932,6 +4934,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getTicket: {
@@ -4962,6 +4965,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getTicketHistory: {
@@ -4994,6 +4998,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     applyTicketAction: {
@@ -5033,6 +5038,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createUpload: {
