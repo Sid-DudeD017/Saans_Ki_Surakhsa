@@ -8,7 +8,7 @@ import React from 'react';
 
 import type { IndoorEstimate, IndoorRequest } from '../../../packages/aqi/indoor';
 import { CATEGORY_COLOURS, CATEGORY_NAMES } from '../shala/airQuality';
-import { aqiText, cleanestAndWorst, pm25Aqi, roomSources, sourcesNow, volumeOf, wholeHome, type AqiFromPm25, type SourceKey } from './homeAir';
+import { aqiText, cleanestAndWorst, pm25Aqi, roomSources, sourcesNow, volumeOf, wholeHome, type AqiFromPm25, type Category, type SourceKey } from './homeAir';
 import type { RoomState } from './homeState';
 
 type Lang = 'pa' | 'hi' | 'en';
@@ -29,6 +29,8 @@ const W = {
   windowsOpen: { en: 'windows open', hi: 'खिड़कियाँ खुली', pa: 'ਖਿੜਕੀਆਂ ਖੁੱਲ੍ਹੀਆਂ' },
   windowsShut: { en: 'windows shut', hi: 'खिड़कियाँ बंद', pa: 'ਖਿੜਕੀਆਂ ਬੰਦ' },
   purifier: { en: 'purifier', hi: 'प्यूरीफ़ायर', pa: 'ਪਿਊਰੀਫ਼ਾਇਰ' },
+  window: { en: 'window', hi: 'खिड़की', pa: 'ਖਿੜਕੀ' },
+  windows: { en: 'windows', hi: 'खिड़कियाँ', pa: 'ਖਿੜਕੀਆਂ' },
 } satisfies Record<string, Words>;
 
 const SOURCE: Record<SourceKey, { icon: string; name: Words }> = {
@@ -81,7 +83,16 @@ const card = (a: AqiFromPm25 | null): React.CSSProperties => ({
 
 const heading: React.CSSProperties = { margin: 0, fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#475569' };
 
-export function OutsideCard({ estimate, lang, loading }: { estimate?: IndoorEstimate; lang: Lang; loading: string }) {
+/** The station's overall AQI, as the app header shows it, when it has one. */
+export interface StationAir {
+  aqi: number;
+  category: string;
+  dominant: string | null;
+}
+
+const CATEGORIES: Category[] = ['good', 'satisfactory', 'moderate', 'poor', 'very_poor', 'severe'];
+
+export function OutsideCard({ estimate, live, lang, loading }: { estimate?: IndoorEstimate; live?: StationAir; lang: Lang; loading: string }) {
   if (!estimate) {
     return (
       <section style={card(null)}>
@@ -91,7 +102,10 @@ export function OutsideCard({ estimate, lang, loading }: { estimate?: IndoorEsti
     );
   }
   const now = estimate.outdoor_pm25_now_ug_m3;
-  const a = pm25Aqi(now);
+  // Now: the station's overall AQI, the same number as the header (it can be led by PM10 or a gas). The
+  // hours ahead come from the PM2.5 model.
+  const stationCategory = live && CATEGORIES.includes(live.category as Category) ? (live.category as Category) : null;
+  const a: AqiFromPm25 = live && stationCategory ? { aqi: Math.round(live.aqi), aboveScale: false, category: stationCategory } : pm25Aqi(now);
   const next12 = estimate.hourly_series.slice(0, 12);
   const worst = next12.reduce((w, h) => (h.outdoor_pm25_ug_m3 > w.outdoor_pm25_ug_m3 ? h : w), next12[0]);
   const best = next12.reduce((b, h) => (h.outdoor_pm25_ug_m3 < b.outdoor_pm25_ug_m3 ? h : b), next12[0]);
@@ -111,7 +125,7 @@ export function OutsideCard({ estimate, lang, loading }: { estimate?: IndoorEsti
             <div key={name} style={{ background: '#ffffff', borderRadius: '0.9rem', padding: '0.6rem 0.75rem', border: '1px solid #e2e8f0', minWidth: 0 }}>
               <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{name}</div>
               <div style={{ fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
-                {arrow} {clock(h.time)} · AQI {aqiText(pm25Aqi(h.outdoor_pm25_ug_m3))}
+                {arrow} {clock(h.time)} · PM2.5 {Math.round(h.outdoor_pm25_ug_m3)}
               </div>
             </div>
           ))}
@@ -201,7 +215,7 @@ export function HomeCard({ rooms, lang, loading, onRooms, now }: { rooms: RoomNo
 }
 
 function details(req: IndoorRequest, lang: Lang) {
-  const parts = [`${Math.round(req.room_area_m2)} m²`, `${req.windows} ${req.windows === 1 ? 'window' : 'windows'}`];
+  const parts = [`${Math.round(req.room_area_m2)} m²`, `${req.windows} ${req.windows === 1 ? W.window[lang] : W.windows[lang]}`];
   if (req.windows > 0) parts.push(req.windows_open ? W.windowsOpen[lang] : W.windowsShut[lang]);
   if (req.purifier_cadr_m3_h > 0) parts.push(W.purifier[lang]);
   return parts.join(' · ');

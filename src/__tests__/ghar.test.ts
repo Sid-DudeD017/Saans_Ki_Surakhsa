@@ -54,12 +54,12 @@ describe('ghar stage 2', () => {
     expect(livingReq?.mosquito_coils).toBe(false);
   });
 
-  it('Incense and smoking appear only in the living room request', () => {
+  it('Incense appears only in the living room request, and nobody smokes by default', () => {
     const { rooms } = homeState.DEFAULT_HOME;
     
     const livingReq = rooms.find(r => r.id === 'living_room')?.request;
     expect(livingReq?.incense).toBe(true);
-    expect(livingReq?.smokers).toBe(1);
+    expect(livingReq?.smokers).toBe(0);
     
     const kitchenReq = rooms.find(r => r.id === 'kitchen')?.request;
     expect(kitchenReq?.incense).toBe(false);

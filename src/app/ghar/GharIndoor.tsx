@@ -5,9 +5,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { type IndoorEstimate, type IndoorRequest, type PlanItem } from '../../../packages/aqi/indoor';
 import { INDOOR_DEFAULTS } from '../../../packages/aqi/indoorDefaults';
 import { Button, Card } from '../../components/ui';
-import { getIndoorEstimate } from './gharApi';
+import { getIndoorEstimate, getLiveAir, type LiveAir } from './gharApi';
 import { IndoorChart } from './IndoorChart';
-import { getAqi, type AqiData } from '../../lib/api';
 import { useLanguage } from '../../lib/i18n';
 import { CATEGORY_LABELS, CATEGORY_COLORS, getPm25Category } from './labels';
 import type { components } from '../../../packages/contracts/types';
@@ -59,7 +58,6 @@ function Step({ value, what, tone }: { value: number; what: React.ReactNode; ton
   );
 }
 
-type AqiWireResponse = components['schemas']['AqiResponse'];
 
 export function GharIndoor() {
   const { t, language } = useLanguage();
@@ -104,30 +102,25 @@ export function GharIndoor() {
     });
   }, [location.lat, location.lon, locationReady]);
 
-  const [aqiResult, setAqiResult] = useState<{ data?: AqiWireResponse; error?: string; loading?: boolean; empty?: boolean; stale?: boolean }>({ loading: true });
-
-  const fetchAqi = useCallback(() => {
-    setAqiResult({ loading: true });
-    // All rooms share lat/lon, use the first one
-    const req = home.rooms[0]?.request;
-    if (!req) return;
-    
-    getAqi(req.lat, req.lon)
-      .then((data) => {
-        const wireData = data as unknown as AqiWireResponse;
-        if (!wireData || wireData.aqi === undefined) {
-          setAqiResult({ empty: true });
-        } else {
-          setAqiResult({ data: wireData, stale: wireData.stale });
-        }
-      })
-      .catch((e: Error) => setAqiResult({ error: e.message }));
-  }, [home.rooms[0]?.request.lat, home.rooms[0]?.request.lon]);
-
+  // The station's reading at the home, every 2 minutes. The rooms' outdoor air is anchored to its PM2.5
+  // (gharApi.ts), so "outside" here matches the header. Undefined until the first answer.
+  const [live, setLive] = useState<LiveAir | null | undefined>(undefined);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchAqi();
-  }, [fetchAqi]);
+    if (!locationReady) return;
+    let on = true;
+    const load = () => getLiveAir(location.lat, location.lon).then((air) => on && setLive(air));
+    void load();
+    // A slow station shouldn't hold the rooms back: after 2.5 s they go ahead on the example day, and
+    // move to the live reading when it comes.
+    const slow = setTimeout(() => on && setLive((l) => (l === undefined ? null : l)), 2500);
+    const timer = setInterval(load, 120_000);
+    return () => {
+      on = false;
+      clearTimeout(slow);
+      clearInterval(timer);
+    };
+  }, [location.lat, location.lon, locationReady]);
+  const livePm25 = live === undefined ? undefined : (live?.pm25 ?? null);
 
   // Estimates state
   const [estimates, setEstimates] = useState<Record<string, { estimate?: IndoorEstimate; error?: string; isFetching: boolean }>>({});
@@ -199,7 +192,7 @@ export function GharIndoor() {
       {/* The air outside and the whole home (homeAir.ts: volume-weighted, on CPCB's AQI scale) */}
       <TabPanel id="air" current={tab} prefix="ghar">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))', gap: '1rem', alignItems: 'start' }}>
-          <OutsideCard estimate={firstEstimate} lang={lang} loading={tLocal('ui.loading')} />
+          <OutsideCard estimate={firstEstimate} live={live ?? undefined} lang={lang} loading={tLocal('ui.loading')} />
           <HomeCard rooms={home.rooms.map((room) => ({ room, estimate: estimates[room.id]?.estimate }))} lang={lang} loading={tLocal('ui.loading')} onRooms={() => go('rooms')} now={now} />
         </div>
       </TabPanel>
@@ -210,7 +203,7 @@ export function GharIndoor() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 900, color: '#0f172a' }}>🚪 {tLocal('ui.your_rooms')}</h2>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', color: '#475569' }}>The air in each room now, and what&apos;s making it worse.</p>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', color: '#475569' }}>{tLocal('ui.rooms_intro')}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button type="button" onClick={addRoom} style={{ minHeight: '2.6rem', padding: '0 1rem', borderRadius: '9999px', border: 'none', background: TEAL, color: '#ffffff', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -239,12 +232,13 @@ export function GharIndoor() {
               onUseExample={() => saveLocation(EXAMPLE_LOCATION)}
               lang={lang}
               now={now}
+              livePm25={livePm25}
             />
           ))}
         </div>
         
         <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-          These are estimates from each room&apos;s size, windows and smoke sources, not sensor readings. Change a room to make them closer to yours.
+          {tLocal('ui.estimates_note')}
         </p>
       </div>
 
@@ -257,7 +251,7 @@ export function GharIndoor() {
 
       {/* Family's Day */}
       <TabPanel id="family" current={tab} prefix="ghar">
-        <FamilyDay rooms={home.rooms} estimates={estimates} />
+        <FamilyDay rooms={home.rooms} estimates={estimates} livePm25={livePm25} />
       </TabPanel>
       
       <BottomTabs tabs={tabItems} current={tab} onChange={go} prefix="ghar" label={GHAR_TABS_NAME[lang]} accent={TEAL} space="ghar" />
@@ -267,16 +261,17 @@ export function GharIndoor() {
 
 const ROOM_SIZES: Record<string, number> = { small: 10, medium: 15, large: 20 };
 
-function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEstimate, onUseExample, lang, now }: { room: RoomState, selected: boolean, onSelect: () => void, onUpdate: (r: Partial<RoomState>) => void, onRename: (n: string) => void, onRemove: () => void, onEstimate: (est: any) => void, onUseExample: () => void, lang: 'pa' | 'hi' | 'en', now: number }) {
+function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEstimate, onUseExample, lang, now, livePm25 }: { room: RoomState, selected: boolean, onSelect: () => void, onUpdate: (r: Partial<RoomState>) => void, onRename: (n: string) => void, onRemove: () => void, onEstimate: (est: any) => void, onUseExample: () => void, lang: 'pa' | 'hi' | 'en', now: number, livePm25?: number | null }) {
   const { tLocal } = useGharLanguage();
   const [result, setResult] = useState<{ estimate?: IndoorEstimate; error?: string; errorCode?: string; isFetching: boolean; lastSuccessTime?: number; retryTick?: number }>({ isFetching: true });
 
   useEffect(() => {
+    if (livePm25 === undefined) return; // wait for the station, so the room isn't worked out twice
     let on = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setResult(prev => ({ ...prev, isFetching: true, error: undefined, errorCode: undefined }));
     const timer = setTimeout(() => {
-      getIndoorEstimate(room.request)
+      getIndoorEstimate(room.request, livePm25)
         .then((estimate) => { 
           if (on) { 
             setResult({ estimate, isFetching: false, lastSuccessTime: Date.now(), retryTick: undefined });
@@ -297,7 +292,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
         });
     }, 250);
     return () => { on = false; clearTimeout(timer); };
-  }, [room.request, result.retryTick]);
+  }, [room.request, result.retryTick, livePm25]);
 
   const e = result.estimate;
   const pm25 = e?.indoor_pm25_now_ug_m3;
@@ -312,9 +307,6 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
     onUpdate({ ui: nextRoom.ui, request: nextRoom.request });
   };
 
-  const isKitchen = room.id.includes('kitchen');
-  const isBedroom = room.id.includes('bedroom');
-  const isLiving = room.id.includes('living');
 
   if (!selected) {
     return <RoomSummary room={room} estimate={e} lang={lang} loading={tLocal('ui.loading')} onOpen={onSelect} now={now} />;
@@ -357,7 +349,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               type="text" 
               value={room.name} 
               onChange={(ev) => onRename(ev.target.value)} 
-              aria-label="Room name"
+              aria-label={tLocal('ui.room_name')}
               style={{ fontWeight: 900, fontSize: '1.6rem', color: '#0f172a', border: 'none', borderBottom: '1.5px dashed #cbd5e1', background: 'transparent', padding: '0 0 0.1rem', outline: 'none', width: '100%', minWidth: 0, flex: '1 1 8rem', fontFamily: 'inherit' }}
             />
             {pm25 !== undefined && (
@@ -367,7 +359,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
             )}
           </div>
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.95rem' }}>
-            Tell us about this room. The numbers update as you change it.
+            {tLocal('ui.tell_us')}
           </p>
         </div>
         
@@ -377,7 +369,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
             <span style={{ fontSize: '2.75rem', fontWeight: 900, color: '#0f172a', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{aqiText(pm25Aqi(pm25))}</span>
             <span style={{ fontSize: '0.85rem', color: '#475569' }}>PM2.5 {Math.round(pm25)} µg/m³</span>
             <button type="button" onClick={onSelect} style={{ marginLeft: '0.5rem', minHeight: '2.5rem', padding: '0 1rem', borderRadius: '9999px', border: 'none', background: '#0d9488', color: '#ffffff', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
-              ✓ Done
+              ✓ {tLocal('ui.done')}
             </button>
           </div>
         ) : (
@@ -398,7 +390,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
         {/* Left Pane: Environment Parameters */}
         <div style={{ minWidth: 0 }}>
           <h4 style={{ margin: '0 0 1rem', fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
-            About this room
+            {tLocal('ui.about_room')}
           </h4>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -430,19 +422,19 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               <label style={labelStyle}>{tLocal('ui.windows')}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                 <input style={{ ...inputStyle, width: '5rem', textAlign: 'center', background: '#fff', border: '1px solid #cbd5e1' }} type="number" min={0} value={room.request.windows} onChange={(e) => onUpdate({ request: { ...room.request, windows: Math.round(Number(e.target.value)) || 0 } })} />
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>windows to the outside</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{tLocal('ui.windows_outside')}</span>
               </div>
               {room.request.windows > 0 && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                   <input type="checkbox" style={{ width: '1.2rem', height: '1.2rem', accentColor: color }} checked={ui.windowsOpen} onChange={(e) => updateUi({ windowsOpen: e.target.checked })} /> 
-                  <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>Usually kept open</span>
+                  <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>{tLocal('ui.kept_open')}</span>
                 </label>
               )}
             </div>
 
             {/* Air Purifier */}
             <div>
-              <label style={labelStyle}>Air purifier</label>
+              <label style={labelStyle}>{tLocal('ui.air_purifier')}</label>
               <div style={{ position: 'relative' }}>
                 <select style={inputStyle} value={ui.purifierMode} onChange={(e) => updateUi({ purifierMode: e.target.value as any })}>
                   <option value="no">{tLocal('ui.no_purifier')}</option>
@@ -471,12 +463,43 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               )}
             </div>
 
-            {/* Smoking */}
-            {(isLiving || (!isKitchen && !isBedroom)) && (
+            {/* Smoke in this room: the same choices for every room, so a new room or a bedroom with a stove can say so */}
+            <div style={{ display: 'grid', gap: '1rem', paddingTop: '0.25rem' }}>
+              <h5 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a', fontWeight: 800 }}>🔥 {tLocal('ui.smoke_in_room')}</h5>
+              <div>
+                <label style={labelStyle}>{tLocal('ui.cooking_fuel')}</label>
+                <div style={{ position: 'relative' }}>
+                  <select style={inputStyle} value={room.request.cooking_fuel} onChange={(e) => onUpdate({ request: { ...room.request, cooking_fuel: e.target.value as IndoorRequest['cooking_fuel'] } })}>
+                    <option value="none">{tLocal('ui.no_cooking')}</option>
+                    <option value="lpg">🔵 {tLocal('ui.fuel_lpg')}</option>
+                    <option value="png">🟡 {tLocal('ui.fuel_png')}</option>
+                    <option value="electric">⚡ {tLocal('ui.fuel_electric')}</option>
+                    <option value="kerosene">🛢️ {tLocal('ui.fuel_kerosene')}</option>
+                    <option value="biomass">🪵 {tLocal('ui.fuel_biomass')}</option>
+                  </select>
+                  <div style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
+                </div>
+              </div>
+
+              {D.cooking.fuels[room.request.cooking_fuel].mg_per_h > 0 && (
+                <div>
+                  <label style={labelStyle}>{tLocal('ui.meal_times')}</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {ui.mealTimes.map((time, i) => (
+                      <input key={i} type="time" aria-label={`${tLocal('ui.meal_times')} ${i + 1}`} style={inputStyle} value={time} onChange={(e) => {
+                        const newTimes = [...ui.mealTimes];
+                        newTimes[i] = e.target.value;
+                        updateUi({ mealTimes: newTimes });
+                      }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={labelStyle}>{tLocal('ui.smoking')}</label>
                 <div style={{ position: 'relative' }}>
-                  <select style={inputStyle} value={ui.smokerSelect} onChange={(e) => updateUi({ smokerSelect: e.target.value as any })}>
+                  <select style={inputStyle} value={ui.smokerSelect} onChange={(e) => updateUi({ smokerSelect: e.target.value as RoomState['ui']['smokerSelect'] })}>
                     <option value="unanswered" disabled>{tLocal('ui.select')}</option>
                     <option value="no">{tLocal('ui.no')}</option>
                     <option value="sometimes">{tLocal('ui.sometimes')}</option>
@@ -486,53 +509,16 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
                   <div style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
                 </div>
               </div>
-            )}
-            
-            {/* Kitchen Details */}
-            {isKitchen && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem' }}>
-                <div>
-                  <label style={labelStyle}>{tLocal('ui.cooking_fuel')}</label>
-                  <div style={{ position: 'relative' }}>
-                    <select style={inputStyle} value={room.request.cooking_fuel} onChange={(e) => onUpdate({ request: { ...room.request, cooking_fuel: e.target.value as any } })}>
-                      <option value="lpg">🔵 {tLocal('ui.fuel_lpg')}</option>
-                      <option value="png">🟡 {tLocal('ui.fuel_png')}</option>
-                      <option value="electric">⚡ {tLocal('ui.fuel_electric')}</option>
-                      <option value="kerosene">🛢️ {tLocal('ui.fuel_kerosene')}</option>
-                      <option value="biomass">🪵 {tLocal('ui.fuel_biomass')}</option>
-                    </select>
-                    <div style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>▼</div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label style={labelStyle}>{tLocal('ui.meal_times')}</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {ui.mealTimes.map((time, i) => (
-                      <input key={i} type="time" style={inputStyle} value={time} onChange={(e) => {
-                        const newTimes = [...ui.mealTimes];
-                        newTimes[i] = e.target.value;
-                        updateUi({ mealTimes: newTimes });
-                      }} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Checkboxes for Incense/Coils */}
-            {isLiving && (
               <label style={checkStyle}>
-                <input type="checkbox" style={{ width: '1.25rem', height: '1.25rem', accentColor: color }} checked={room.request.incense} onChange={(e) => onUpdate({ request: { ...room.request, incense: e.target.checked } })} /> 
-                <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>Burn incense or dhoop routinely</span>
+                <input type="checkbox" style={{ width: '1.25rem', height: '1.25rem', accentColor: '#0d9488' }} checked={room.request.incense} onChange={(e) => onUpdate({ request: { ...room.request, incense: e.target.checked } })} />
+                <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>🪔 {tLocal('ui.incense')}</span>
               </label>
-            )}
-            {isBedroom && (
               <label style={checkStyle}>
-                <input type="checkbox" style={{ width: '1.25rem', height: '1.25rem', accentColor: color }} checked={room.request.mosquito_coils} onChange={(e) => onUpdate({ request: { ...room.request, mosquito_coils: e.target.checked } })} /> 
-                <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>Burn mosquito coils at night</span>
+                <input type="checkbox" style={{ width: '1.25rem', height: '1.25rem', accentColor: '#0d9488' }} checked={room.request.mosquito_coils} onChange={(e) => onUpdate({ request: { ...room.request, mosquito_coils: e.target.checked } })} />
+                <span style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>🦟 {tLocal('ui.mosquito_coils')}</span>
               </label>
-            )}
+            </div>
           </div>
         </div>
 
@@ -543,18 +529,18 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
               <div style={{ marginBottom: '2.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
-                    The next 24 hours
+                    {tLocal('ui.next_24h')}
                   </h4>
                 </div>
                 <div style={{ border: fieldBorder, borderRadius: '0.75rem', padding: '1rem', background: fieldBg }}>
                   <IndoorChart series={e.hourly_series} />
-                  <p style={{ margin: '0.5rem 0 0', textAlign: 'right', fontSize: '0.7rem', color: '#94a3b8' }}>PM2.5, µg/m³, India time · estimated, not measured</p>
+                  <p style={{ margin: '0.5rem 0 0', textAlign: 'right', fontSize: '0.7rem', color: '#94a3b8' }}>{tLocal('ui.chart_note')}</p>
                 </div>
               </div>
 
               <div>
                 <h4 style={{ margin: '0 0 0.75rem', fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
-                  What to do in the {room.name.toLowerCase()}
+                  {tLocal('ui.what_to_do_room')}
                 </h4>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {e.plan.map((p) => {
@@ -583,7 +569,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: '1 1 12rem', minWidth: 0 }}>
                     <details style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                      <summary style={{ cursor: 'pointer', outline: 'none', fontWeight: 600 }}>What we assumed</summary>
+                      <summary style={{ cursor: 'pointer', outline: 'none', fontWeight: 600 }}>{tLocal('ui.what_assumed')}</summary>
                       <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6, color: '#64748b' }}>
                         <li><strong>{tLocal('assumptions.warning').split(':')[0]}:</strong> {tLocal('assumptions.warning').split(':')[1]}</li>
                         <li>{tLocal('assumptions.room', { area: room.request.room_area_m2, height: room.request.ceiling_height_m, windows: room.request.windows })}</li>
@@ -596,7 +582,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
                     </details>
                     
                     <details style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                      <summary style={{ cursor: 'pointer', outline: 'none', fontWeight: 600 }}>Mathematical Model</summary>
+                      <summary style={{ cursor: 'pointer', outline: 'none', fontWeight: 600 }}>{tLocal('ui.math_model')}</summary>
                       <div style={{ margin: '0.75rem 0 0', padding: '1.25rem', background: '#f8fafc', borderRadius: '0.75rem', border: '1px solid #e2e8f0', color: '#475569', lineHeight: 1.6, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
                         <div style={{ marginBottom: '0.25rem', color: '#64748b' }}>Steady-State Concentration (C*):</div>
                         <div style={{ marginBottom: '1.25rem', color: '#0f172a', fontSize: '0.85rem' }}>
@@ -624,7 +610,7 @@ function RoomCard({ room, selected, onSelect, onUpdate, onRename, onRemove, onEs
                     onClick={onRemove} 
                     style={{ background: 'transparent', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                   >
-                    Remove this room
+                    {tLocal('ui.remove_room')}
                   </button>
                 </div>
               </div>

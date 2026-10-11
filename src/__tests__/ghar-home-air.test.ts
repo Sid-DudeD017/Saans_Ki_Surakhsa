@@ -58,7 +58,8 @@ describe('sources', () => {
     expect(roomSources(kitchen)).toEqual(['cooking']);
     expect(roomSources({ ...kitchen, cooking_fuel: 'electric' })).toEqual([]);
     expect(roomSources(bedroom)).toContain('mosquito_coil');
-    expect(roomSources(living)).toContain('smoking');
+    expect(roomSources(living)).toEqual(['incense']);
+    expect(roomSources({ ...living, smokers: 1 })).toEqual(['smoking', 'incense']);
   });
 
   it('knows what is burning now, by the model’s own hours', () => {

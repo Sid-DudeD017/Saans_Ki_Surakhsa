@@ -16,9 +16,11 @@ export type GharTranslationKey =
   | 'ui.smoking' | 'ui.select' | 'ui.no' | 'ui.sometimes' | 'ui.every_day' | 'ui.prefer_not'
   | 'ui.incense' | 'ui.mosquito_coils'
   | 'ui.remove_room' | 'ui.what_assumed'
+  | 'ui.smoke_in_room' | 'ui.no_cooking' | 'ui.tell_us' | 'ui.about_room' | 'ui.next_24h' | 'ui.what_to_do_room' | 'ui.done' | 'ui.windows_outside' | 'ui.kept_open' | 'ui.chart_note' | 'ui.rooms_intro' | 'ui.estimates_note' | 'ui.room_name' | 'ui.math_model'
   | 'location.home' | 'location.change' | 'location.save' | 'location.cancel' | 'location.use_current'
   | 'family.title' | 'family.add_person' | 'family.empty' | 'family.name_opt' | 'family.role_opt' | 'family.remove'
   | 'family.schedule' | 'family.to' | 'family.outdoors' | 'family.add_block'
+  | 'family.intro' | 'family.where_day' | 'family.saved' | 'family.without' | 'family.with_purifier' | 'family.purifier_line' | 'family.less' | 'family.save'
   | 'family.incomplete' | 'family.avg' | 'family.worst' | 'family.in' | 'family.purifier_comp'
   | 'chart.outside' | 'chart.this_room' | 'chart.unit'
   | 'cat.good' | 'cat.satisfactory' | 'cat.moderate' | 'cat.poor' | 'cat.very_poor' | 'cat.severe' | 'cat.severe_plus'
@@ -89,6 +91,20 @@ const EN: Record<GharTranslationKey, string> = {
   'ui.mosquito_coils': 'Burn mosquito coils at night',
   'ui.remove_room': 'Remove this room',
   'ui.what_assumed': 'What we assumed',
+  'ui.smoke_in_room': 'Smoke in this room',
+  'ui.no_cooking': 'No cooking here',
+  'ui.tell_us': 'Tell us about this room. The numbers update as you change it.',
+  'ui.about_room': 'About this room',
+  'ui.next_24h': 'The next 24 hours',
+  'ui.what_to_do_room': 'What to do in this room',
+  'ui.done': 'Done',
+  'ui.windows_outside': 'windows to the outside',
+  'ui.kept_open': 'Usually kept open',
+  'ui.chart_note': 'PM2.5, µg/m³, India time · estimated, not measured',
+  'ui.rooms_intro': 'The air in each room now, and what\'s making it worse.',
+  'ui.estimates_note': 'These are estimates from each room\'s size, windows and smoke sources, not sensor readings. Change a room to make them closer to yours.',
+  'ui.room_name': 'Room name',
+  'ui.math_model': 'The maths',
   'location.home': 'Home location',
   'location.change': 'Change',
   'location.save': 'Save',
@@ -101,6 +117,14 @@ const EN: Record<GharTranslationKey, string> = {
   'family.role_opt': 'Role (e.g. Child, Parent)',
   'family.remove': 'Remove',
   'family.schedule': 'Schedule:',
+  'family.intro': 'Add who lives here and where they spend the day, to see the air each person breathes.',
+  'family.where_day': 'Where they spend the day',
+  'family.saved': 'Saved days',
+  'family.without': 'Without a purifier',
+  'family.with_purifier': 'With a purifier',
+  'family.purifier_line': 'With a purifier in the {{room}} at night',
+  'family.less': '{{pct}}% less',
+  'family.save': 'Save',
   'family.to': 'to',
   'family.outdoors': 'Outdoors',
   'family.add_block': '+ Add time block',
@@ -202,6 +226,20 @@ const HI: Record<GharTranslationKey, string> = {
   'ui.mosquito_coils': 'रात में कछुआ छाप जलाना', // VERIFY
   'ui.remove_room': 'इस कमरे को हटाएं', // VERIFY
   'ui.what_assumed': 'हमने क्या माना', // VERIFY
+  'ui.smoke_in_room': 'इस कमरे में धुआँ', // VERIFY
+  'ui.no_cooking': 'यहाँ खाना नहीं बनता', // VERIFY
+  'ui.tell_us': 'इस कमरे के बारे में बताएँ। बदलते ही आँकड़े बदल जाते हैं।', // VERIFY
+  'ui.about_room': 'इस कमरे के बारे में', // VERIFY
+  'ui.next_24h': 'अगले 24 घंटे', // VERIFY
+  'ui.what_to_do_room': 'इस कमरे में क्या करें', // VERIFY
+  'ui.done': 'हो गया', // VERIFY
+  'ui.windows_outside': 'बाहर की ओर खिड़कियाँ', // VERIFY
+  'ui.kept_open': 'आमतौर पर खुली रहती हैं', // VERIFY
+  'ui.chart_note': 'PM2.5, µg/m³, भारतीय समय · अनुमान, माप नहीं', // VERIFY
+  'ui.rooms_intro': 'हर कमरे की अभी की हवा, और उसे क्या ख़राब कर रहा है।', // VERIFY
+  'ui.estimates_note': 'ये हर कमरे के आकार, खिड़कियों और धुएँ के स्रोतों से लगाए गए अनुमान हैं, सेंसर की रीडिंग नहीं। इन्हें अपने घर जैसा बनाने के लिए कमरा बदलें।', // VERIFY
+  'ui.room_name': 'कमरे का नाम', // VERIFY
+  'ui.math_model': 'गणित', // VERIFY
   'location.home': 'घर का स्थान', // VERIFY
   'location.change': 'बदलें', // VERIFY
   'location.save': 'सहेजें', // VERIFY
@@ -214,6 +252,14 @@ const HI: Record<GharTranslationKey, string> = {
   'family.role_opt': 'भूमिका (उदा. बच्चा, माता-पिता)', // VERIFY
   'family.remove': 'हटाएं', // VERIFY
   'family.schedule': 'शेड्यूल:', // VERIFY
+  'family.intro': 'बताएँ घर में कौन रहता है और दिन कहाँ बिताता है, ताकि हर व्यक्ति की साँस की हवा दिखे।', // VERIFY
+  'family.where_day': 'दिन कहाँ बीतता है', // VERIFY
+  'family.saved': 'सहेजे गए दिन', // VERIFY
+  'family.without': 'प्यूरीफ़ायर के बिना', // VERIFY
+  'family.with_purifier': 'प्यूरीफ़ायर के साथ', // VERIFY
+  'family.purifier_line': 'रात में {{room}} में प्यूरीफ़ायर हो तो', // VERIFY
+  'family.less': '{{pct}}% कम', // VERIFY
+  'family.save': 'सहेजें', // VERIFY
   'family.to': 'से', // VERIFY
   'family.outdoors': 'बाहर', // VERIFY
   'family.add_block': '+ समय खंड जोड़ें', // VERIFY
@@ -315,6 +361,20 @@ const PA: Record<GharTranslationKey, string> = {
   'ui.mosquito_coils': 'ਰਾਤ ਨੂੰ ਮੱਛਰ ਮਾਰਨ ਵਾਲੀ ਕੋਇਲ ਜਲਾਉਣਾ', // VERIFY
   'ui.remove_room': 'ਇਸ ਕਮਰੇ ਨੂੰ ਹਟਾਓ', // VERIFY
   'ui.what_assumed': 'ਅਸੀਂ ਕੀ ਮੰਨਿਆ', // VERIFY
+  'ui.smoke_in_room': 'ਇਸ ਕਮਰੇ ਵਿੱਚ ਧੂੰਆਂ', // VERIFY
+  'ui.no_cooking': 'ਇੱਥੇ ਖਾਣਾ ਨਹੀਂ ਬਣਦਾ', // VERIFY
+  'ui.tell_us': 'ਇਸ ਕਮਰੇ ਬਾਰੇ ਦੱਸੋ। ਬਦਲਦੇ ਹੀ ਅੰਕੜੇ ਬਦਲ ਜਾਂਦੇ ਹਨ।', // VERIFY
+  'ui.about_room': 'ਇਸ ਕਮਰੇ ਬਾਰੇ', // VERIFY
+  'ui.next_24h': 'ਅਗਲੇ 24 ਘੰਟੇ', // VERIFY
+  'ui.what_to_do_room': 'ਇਸ ਕਮਰੇ ਵਿੱਚ ਕੀ ਕਰੀਏ', // VERIFY
+  'ui.done': 'ਹੋ ਗਿਆ', // VERIFY
+  'ui.windows_outside': 'ਬਾਹਰ ਵੱਲ ਖਿੜਕੀਆਂ', // VERIFY
+  'ui.kept_open': 'ਆਮ ਤੌਰ ਤੇ ਖੁੱਲ੍ਹੀਆਂ ਰਹਿੰਦੀਆਂ ਹਨ', // VERIFY
+  'ui.chart_note': 'PM2.5, µg/m³, ਭਾਰਤੀ ਸਮਾਂ · ਅੰਦਾਜ਼ਾ, ਮਾਪ ਨਹੀਂ', // VERIFY
+  'ui.rooms_intro': 'ਹਰ ਕਮਰੇ ਦੀ ਹੁਣ ਦੀ ਹਵਾ, ਅਤੇ ਉਸਨੂੰ ਕੀ ਖ਼ਰਾਬ ਕਰ ਰਿਹਾ ਹੈ।', // VERIFY
+  'ui.estimates_note': 'ਇਹ ਹਰ ਕਮਰੇ ਦੇ ਆਕਾਰ, ਖਿੜਕੀਆਂ ਅਤੇ ਧੂੰਏਂ ਦੇ ਸਰੋਤਾਂ ਤੋਂ ਲਗਾਏ ਅੰਦਾਜ਼ੇ ਹਨ, ਸੈਂਸਰ ਰੀਡਿੰਗ ਨਹੀਂ। ਇਨ੍ਹਾਂ ਨੂੰ ਆਪਣੇ ਘਰ ਵਰਗਾ ਬਣਾਉਣ ਲਈ ਕਮਰਾ ਬਦਲੋ।', // VERIFY
+  'ui.room_name': 'ਕਮਰੇ ਦਾ ਨਾਮ', // VERIFY
+  'ui.math_model': 'ਗਣਿਤ', // VERIFY
   'location.home': 'ਘਰ ਦਾ ਸਥਾਨ', // VERIFY
   'location.change': 'ਬਦਲੋ', // VERIFY
   'location.save': 'ਸੇਵ ਕਰੋ', // VERIFY
@@ -327,6 +387,14 @@ const PA: Record<GharTranslationKey, string> = {
   'family.role_opt': 'ਭੂਮਿਕਾ (ਜਿਵੇਂ ਬੱਚਾ, ਮਾਤਾ-ਪਿਤਾ)', // VERIFY
   'family.remove': 'ਹਟਾਓ', // VERIFY
   'family.schedule': 'ਸ਼ਡਿਊਲ:', // VERIFY
+  'family.intro': 'ਦੱਸੋ ਘਰ ਵਿੱਚ ਕੌਣ ਰਹਿੰਦਾ ਹੈ ਅਤੇ ਦਿਨ ਕਿੱਥੇ ਬਿਤਾਉਂਦਾ ਹੈ, ਤਾਂ ਜੋ ਹਰ ਵਿਅਕਤੀ ਦੀ ਸਾਹ ਦੀ ਹਵਾ ਦਿਸੇ।', // VERIFY
+  'family.where_day': 'ਦਿਨ ਕਿੱਥੇ ਬੀਤਦਾ ਹੈ', // VERIFY
+  'family.saved': 'ਸੰਭਾਲੇ ਦਿਨ', // VERIFY
+  'family.without': 'ਪਿਊਰੀਫ਼ਾਇਰ ਤੋਂ ਬਿਨਾਂ', // VERIFY
+  'family.with_purifier': 'ਪਿਊਰੀਫ਼ਾਇਰ ਨਾਲ', // VERIFY
+  'family.purifier_line': 'ਰਾਤ ਨੂੰ {{room}} ਵਿੱਚ ਪਿਊਰੀਫ਼ਾਇਰ ਹੋਵੇ ਤਾਂ', // VERIFY
+  'family.less': '{{pct}}% ਘੱਟ', // VERIFY
+  'family.save': 'ਸੰਭਾਲੋ', // VERIFY
   'family.to': 'ਤੋਂ', // VERIFY
   'family.outdoors': 'ਬਾਹਰ', // VERIFY
   'family.add_block': '+ ਸਮਾਂ ਬਲਾਕ ਸ਼ਾਮਲ ਕਰੋ', // VERIFY

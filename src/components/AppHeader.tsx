@@ -8,12 +8,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { getAqi, type AqiData } from '../lib/api';
 import { useLanguage } from '../lib/i18n';
 import { PERSONA_WORDS, SPACES, session, word, type SpaceId } from '../lib/space';
+import { useHomeLocation } from '../app/ghar/useLocation';
+import { CATEGORY_NAMES } from '../app/shala/airQuality';
 import { NotificationCenter } from './NotificationCenter';
 import { SpaceSheet } from './SpaceSwitch';
 
 // Where the reading comes from until the phone has already shared its location (the shell's default).
 const DEFAULT_LAT = 28.73;
 const DEFAULT_LON = 77.12;
+
+const CATEGORY_CODE: Record<AqiData['category'], keyof typeof CATEGORY_NAMES> = {
+  Good: 'good',
+  Satisfactory: 'satisfactory',
+  Moderate: 'moderate',
+  Poor: 'poor',
+  'Very Poor': 'very_poor',
+  Severe: 'severe',
+};
 
 const CATEGORY_COLOUR: Record<AqiData['category'], string> = {
   Good: '#16a34a',
@@ -24,12 +35,17 @@ const CATEGORY_COLOUR: Record<AqiData['category'], string> = {
   Severe: '#7f1d1d',
 };
 
-/** The nearest reading, every 2 minutes. Uses the phone's location only if it was already allowed. */
-function useAirNow() {
+/**
+ * The nearest reading, every 2 minutes: at `place` when the page has one (Ghar ki Hawa's home), else where
+ * the phone is if it already allowed that, else the default.
+ */
+function useAirNow(place?: { lat: number; lon: number }) {
   const [air, setAir] = useState<AqiData | null>(null);
+  const placeLat = place?.lat;
+  const placeLon = place?.lon;
   useEffect(() => {
     let live = true;
-    let at = { lat: DEFAULT_LAT, lon: DEFAULT_LON };
+    let at = { lat: placeLat ?? DEFAULT_LAT, lon: placeLon ?? DEFAULT_LON };
     const load = () =>
       getAqi(at.lat, at.lon)
         .then((d) => live && setAir(d))
@@ -37,7 +53,7 @@ function useAirNow() {
     const perms = typeof navigator !== 'undefined' ? navigator.permissions : undefined;
     (perms ? perms.query({ name: 'geolocation' }).catch(() => null) : Promise.resolve(null)).then((p) => {
       if (!live) return;
-      if (p?.state !== 'granted') return void load();
+      if (placeLat !== undefined || p?.state !== 'granted') return void load();
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           at = { lat: pos.coords.latitude, lon: pos.coords.longitude };
@@ -52,7 +68,7 @@ function useAirNow() {
       live = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [placeLat, placeLon]);
   return air;
 }
 
@@ -76,9 +92,10 @@ export function AppHeader({ space }: { space: SpaceId }) {
   const { language } = useLanguage();
   const s = SPACES[space];
   const me = session.use();
-  const air = useAirNow();
+  const { location: home, isReady: homeReady } = useHomeLocation();
+  const air = useAirNow(space === 'ghar' && homeReady ? home : undefined);
   const [bell, setBell] = useState(false);
-  const [unread, setUnread] = useState(2);
+  const [unread, setUnread] = useState(0);
   const [sheet, setSheet] = useState(false);
   const closeSheet = useCallback(() => setSheet(false), []);
 
@@ -164,7 +181,7 @@ function AirPill({ air, language }: { air: AqiData | null; language: ReturnType<
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>{word('airNow', language)}</span>
             <strong style={{ fontSize: '1.05rem', color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>AQI {Math.round(air.aqi)}</strong>
-            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: colour }}>{air.category}</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: colour }}>{CATEGORY_NAMES[CATEGORY_CODE[air.category]]?.[language] ?? air.category}</span>
           </div>
           <div style={{ fontSize: '0.78rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             📍 {air.station_name}
