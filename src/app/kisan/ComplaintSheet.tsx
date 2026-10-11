@@ -3,23 +3,27 @@
 // A farmer's complaint (K20) in three short steps: what happened, details, check and send. It goes to
 // Saans Command as a kisan_grievance: a case for the district agriculture officer, never a penalty.
 // The idempotency key belongs to the draft, and an uploaded photo is kept for retries, so a weak
-// network or a double tap gives one ticket, not two.
+// network or a double tap gives one ticket, not two. The farmer can ask for the ticket number by SMS
+// (K22): Kisan's agent texts it, so the phone number never goes to Command or the officer.
 import React, { useRef, useState } from 'react';
 
 import { Alert, Button, Card } from '../../components/ui';
 import { uploadEvidencePhoto } from '../../lib/api';
 import { farmStore } from './farmProfile';
-import { ABOUT_A_CHC, GRIEVANCE_SUBTYPES, addTicket, farmPoint, type GrievanceSubtype } from './help';
-import { KisanError, submitGrievance, type KisanGrievance, type Language } from './kisanApi';
+import { ABOUT_A_CHC, GRIEVANCE_SUBTYPES, addTicket, farmPoint, mobileNumber, type GrievanceSubtype } from './help';
+import { KisanError, submitGrievance, textTicket, type KisanGrievance, type Language } from './kisanApi';
 import { complaintPhoto, newId } from './photoPrep';
 import { say, sayWith, type StringKey } from './strings';
 
 type Step = 'closed' | 'what' | 'details' | 'review' | 'sent';
 type Evidence = NonNullable<KisanGrievance['evidence']>[number];
+type Sms = null | 'sending' | 'failed' | { to: string };
 
 const BIG: React.CSSProperties = { minHeight: '3rem', fontSize: '1rem' };
 const FIELD: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   padding: '0.6rem 0.9rem',
   fontSize: '1.05rem',
   borderRadius: '0.5rem',
@@ -41,9 +45,13 @@ export function ComplaintSheet({ language }: { language: Language }) {
   const [error, setError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [sms, setSms] = useState<Sms>(null);
   const draft = useRef<{ key: string; evidence?: Evidence[] }>({ key: '' });
   const picker = useRef<HTMLInputElement | null>(null);
   const point = farmPoint(farm);
+  const mobile = mobileNumber(phone);
+  const phoneOk = !phone.trim() || !!mobile;
 
   function start() {
     draft.current = { key: newId() };
@@ -54,6 +62,7 @@ export function ComplaintSheet({ language }: { language: Language }) {
     setError(null);
     setTicket(null);
     setCopied(false);
+    setSms(null);
     setStep('what');
   }
 
@@ -94,6 +103,14 @@ export function ComplaintSheet({ language }: { language: Language }) {
       addTicket({ id: res.id, subtype, sentAt: new Date().toISOString() });
       setTicket(res.id);
       setStep('sent');
+      if (mobile) {
+        // The ticket is safe either way; the SMS is a copy of the number on the screen.
+        setSms('sending');
+        textTicket(res.id, mobile, language).then(
+          (r) => setSms({ to: r.to }),
+          () => setSms('failed'),
+        );
+      }
       if (photo) URL.revokeObjectURL(photo.preview);
       setPhoto(null);
     } catch (e) {
@@ -222,10 +239,32 @@ export function ComplaintSheet({ language }: { language: Language }) {
               <img src={photo.preview} alt="" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: '0.5rem' }} />
             )}
           </div>
+          <label htmlFor="kisan-complaint-phone" style={{ display: 'grid', gap: '0.3rem', color: '#334155' }}>
+            {say('smsLabel', language)}
+            <span style={{ display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
+              <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', padding: '0 0.75rem', border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '0.5rem 0 0 0.5rem', background: '#f8fafc', color: '#475569', fontSize: '1.05rem' }}>
+                +91
+              </span>
+              <input
+                id="kisan-complaint-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.slice(0, 16))}
+                aria-describedby="kisan-complaint-phone-hint"
+                aria-invalid={!phoneOk}
+                style={{ ...FIELD, minHeight: '3rem', borderRadius: '0 0.5rem 0.5rem 0', borderColor: phoneOk ? '#cbd5e1' : '#b45309' }}
+              />
+            </span>
+            <span id="kisan-complaint-phone-hint" style={{ fontSize: '0.85rem', color: phoneOk ? '#64748b' : '#b45309' }}>
+              {say(phoneOk ? 'smsHint' : 'smsInvalid', language)}
+            </span>
+          </label>
           {!point && <p role="alert" style={{ margin: 0, color: '#b45309' }}>{say('complaintNeedsLocation', language)}</p>}
           {error && <Alert variant="danger">{error}</Alert>}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <Button size="lg" onClick={() => void send()} disabled={busy || !point} style={BIG}>
+            <Button size="lg" onClick={() => void send()} disabled={busy || !point || !phoneOk} style={BIG}>
               {busy ? say('sendingComplaint', language) : `✓ ${say('sendComplaint', language)}`}
             </Button>
             <Button size="lg" variant="ghost" onClick={() => setStep('details')} disabled={busy} style={BIG}>
@@ -243,6 +282,11 @@ export function ComplaintSheet({ language }: { language: Language }) {
             {ticket}
           </span>
           <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>{say('keepTicket', language)}</p>
+          {sms && (
+            <p id="kisan-ticket-sms" style={{ margin: 0, fontSize: '0.9rem', color: sms === 'failed' ? '#b45309' : '#334155' }}>
+              📱 {sms === 'sending' ? say('smsSending', language) : sms === 'failed' ? say('smsFailed', language) : sayWith('smsSent', language, { to: sms.to })}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <Button variant="secondary" onClick={copyTicket} style={{ minHeight: '2.75rem' }}>
               {copied ? `✓ ${say('copied', language)}` : say('copy', language)}

@@ -2,7 +2,8 @@
 
 Command reports progress on a help request (seen, machine assigned, in the field, done);
 Kisan keeps the history for the farmer's status page and texts the farmer at the steps that
-matter. The messages are fixed templates with a few blanks: India's DLT rules need SMS templates
+matter. A farmer who files a complaint (a kisan_grievance) can also ask for its ticket number
+by SMS ("ticket", K22); Command never sees the farmer's number. The messages are fixed templates with a few blanks: India's DLT rules need SMS templates
 registered in advance, and these are the ones to register.
 
 KISAN_SMS=sns sends through Amazon SNS (transactional SMS); anything else writes to a local
@@ -27,16 +28,19 @@ TEMPLATES = {
         "filed": "ਸਾਂਸ: ਤੁਹਾਡੀ ਮਦਦ ਦੀ ਬੇਨਤੀ ਖੇਤੀਬਾੜੀ ਵਿਭਾਗ ਕੋਲ ਪਹੁੰਚ ਗਈ ਹੈ। ਬਾਕੀ {acres} ਏਕੜ।",
         "machine_assigned": "ਸਾਂਸ: {machine} {date} ਨੂੰ {chc} ਤੋਂ ਆਵੇਗਾ। ਫ਼ੋਨ {chc_phone}",
         "action_taken": "ਸਾਂਸ: ਤੁਹਾਡੇ ਖੇਤ ਦਾ ਕੰਮ ਹੋ ਗਿਆ ਹੈ। ਪਰਾਲੀ ਨਾ ਸਾੜਨ ਲਈ ਧੰਨਵਾਦ।",
+        "ticket": "ਸਾਂਸ: ਤੁਹਾਡੀ ਸ਼ਿਕਾਇਤ ਮਿਲ ਗਈ ਹੈ। ਟਿਕਟ ਨੰਬਰ {ticket}। ਇਹ ਨੰਬਰ ਸੰਭਾਲ ਕੇ ਰੱਖੋ।",
     },
     "hi": {
         "filed": "साँस: आपका मदद अनुरोध कृषि विभाग को मिल गया है। बाकी {acres} एकड़।",
         "machine_assigned": "साँस: {machine} {date} को {chc} से आएगा। फ़ोन {chc_phone}",
         "action_taken": "साँस: आपके खेत का काम हो गया है। पराली न जलाने के लिए धन्यवाद।",
+        "ticket": "साँस: आपकी शिकायत मिल गई है। टिकट नंबर {ticket}। यह नंबर सँभालकर रखें।",
     },
     "en": {
         "filed": "Saans: your help request has reached the agriculture department. {acres} acres still short.",
         "machine_assigned": "Saans: a {machine} from {chc} will come on {date}. Phone {chc_phone}",
         "action_taken": "Saans: the work on your field is done. Thank you for not burning the stubble.",
+        "ticket": "Saans: we have your complaint. Ticket number {ticket}. Keep this number.",
     },
 }
 
@@ -108,7 +112,7 @@ class RequestStatus:
 
 def sms_text(status: str, language: str, **detail) -> str:
     template = TEMPLATES.get(language, TEMPLATES["en"])[status]
-    blanks = {"acres": "", "machine": "", "chc": "", "date": "", "chc_phone": ""}
+    blanks = {"acres": "", "machine": "", "chc": "", "date": "", "chc_phone": "", "ticket": ""}
     return template.format(**{**blanks, **{k: v for k, v in detail.items() if v is not None}}).strip()
 
 

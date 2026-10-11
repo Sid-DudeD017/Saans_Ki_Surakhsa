@@ -32,4 +32,7 @@ The CHC names, distances and rates are **demo data**; say so on the end card, as
 - Fill the farm card as Gurpreet (18 acres, 1 tractor, 20 Oct, 9 Nov, village Bhawanigarh) so the
   Shop and Help tabs show his numbers.
 - Don't tap *Call* on camera: it would ring a real government office.
+- In demo mode the officer opens a ticket after 5 s and, with nobody acting, its deadline passes after
+  15 s: the ticket then shows "No officer acted in time" with the officer's number on top. Cut before
+  that, or wait for it if you want the escalation in the shot.
 - `npm run smoke` step 12 files the same complaint over HTTP, so the officer's 📣 case is there to cut to.
