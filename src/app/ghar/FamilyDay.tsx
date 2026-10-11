@@ -7,13 +7,17 @@ import { calculateDailyExposure, generatePurifierComparison } from './familyLogi
 import type { RoomState } from './homeState';
 import type { IndoorEstimate } from '../../../packages/aqi/indoor';
 import { getIndoorEstimate } from './gharApi';
+import { aqiText, pm25Aqi } from './homeAir';
+import { CATEGORY_COLOURS } from '../shala/airQuality';
 
 export interface FamilyDayProps {
   rooms: RoomState[];
   estimates: Record<string, { estimate?: IndoorEstimate }>;
+  /** The station's PM2.5 now, so the purifier comparison runs on the same outdoor air as the rooms. */
+  livePm25?: number | null;
 }
 
-export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
+export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates, livePm25 }) => {
   const { tLocal } = useGharLanguage();
   const [family, setFamily] = useState<FamilyState>(() => loadFamilyState());
 
@@ -59,14 +63,14 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
     const cadr = Math.max(50, Math.round((5 * bedroom.request.room_area_m2 * bedroom.request.ceiling_height_m) / 50) * 50) || 200;
     const hypotheticalReq = { ...bedroom.request, purifier_cadr_m3_h: cadr }; // VERIFY
     
-    getIndoorEstimate(hypotheticalReq).then(est => {
+    getIndoorEstimate(hypotheticalReq, livePm25).then(est => {
       if (mounted) setPurifierEstimate(est);
     }).catch(() => {
       if (mounted) setPurifierEstimate(null);
     });
 
     return () => { mounted = false; };
-  }, [bedroom, estimates]);
+  }, [bedroom, estimates, livePm25]);
 
   const addMember = () => {
     const newMember: FamilyMember = {
@@ -95,15 +99,15 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
   if (outdoorForecast.length < 24) return null;
 
   return (
-    <div style={{ background: '#fff', padding: '2rem', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.25rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            👥 Personal & Family Exposure Simulator
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ minWidth: 0, flex: '1 1 16rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 900, color: '#0f172a' }}>
+            👨‍👩‍👧 {tLocal('family.title')}
           </h2>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>Calculate modeled 24-hour toxic exposure by simulating individual family movement across rooms</p>
+          <p style={{ margin: '0.2rem 0 0', fontSize: '0.92rem', color: '#475569' }}>{tLocal('family.intro')}</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => {
             const newSaved = [...(family.savedResults || [])];
             const timestamp = new Date().toISOString();
@@ -140,78 +144,77 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
               btn.style.background = '#10b981';
               btn.style.color = '#fff';
               setTimeout(() => {
-                btn.innerHTML = '💾 Save Results';
-                btn.style.background = '#f1f5f9';
-                btn.style.color = '#0f172a';
+                btn.innerHTML = `💾 ${tLocal('family.save')}`;
+                btn.style.background = '#ffffff';
+                btn.style.color = '#334155';
               }, 2500);
             }
-          }} id="save-btn" style={{ background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: '2rem', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', transition: 'all 0.2s' }}>
-            💾 Save Results
+          }} id="save-btn" style={{ minHeight: '2.6rem', background: '#ffffff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '9999px', padding: '0 1rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', fontFamily: 'inherit' }}>
+            💾 {tLocal('family.save')}
           </button>
-          <button onClick={addMember} style={{ background: '#0f766e', color: '#fff', border: 'none', borderRadius: '2rem', padding: '0.5rem 1.25rem', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', boxShadow: '0 2px 4px rgba(15, 118, 110, 0.2)' }}>
-            + Add Family Member
+          <button onClick={addMember} style={{ minHeight: '2.6rem', background: '#0d9488', color: '#fff', border: 'none', borderRadius: '9999px', padding: '0 1.1rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem', fontFamily: 'inherit' }}>
+            {tLocal('family.add_person')}
           </button>
         </div>
       </div>
 
       {family.members.length === 0 && (
-        <div style={{ background: '#f8fafc', padding: '2rem', textAlign: 'center', borderRadius: '0.75rem', border: '1px dashed #cbd5e1' }}>
+        <div style={{ background: '#ffffff', padding: '2rem 1rem', textAlign: 'center', borderRadius: '1.25rem', border: '1px dashed #cbd5e1' }}>
           <p style={{ color: '#64748b', fontSize: '0.95rem', margin: 0 }}>{tLocal('family.empty')}</p>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {family.members.map((member, index) => {
           const exposure = calculateDailyExposure(member.blocks, rawEstimates, outdoorForecast);
           const comp = bedroom ? generatePurifierComparison(member.blocks, rawEstimates, purifierEstimate, bedroom.id, outdoorForecast) : null;
           
           return (
-            <div key={member.id} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2.5rem', borderBottom: index < family.members.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+            <div key={member.id} data-member={index} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: 'clamp(1rem, 4vw, 1.35rem)', background: '#ffffff', borderRadius: '1.25rem', border: '1px solid #e2e8f0' }}>
               
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>FAMILY MEMBER NAME</label>
+                <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>{tLocal('family.name_opt')}</label>
                   <input 
                     type="text" 
                     placeholder="e.g. Aarav Sharma"
                     value={member.name} 
                     onChange={e => updateMember(member.id, { name: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.95rem', color: '#0f172a', fontWeight: 500, outline: 'none' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.95rem', color: '#0f172a', fontWeight: 500, outline: 'none' }}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>ROLE / VULNERABILITY</label>
+                <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.4rem' }}>{tLocal('family.role_opt')}</label>
                   <input 
                     type="text" 
                     placeholder="e.g. Child (Age 7, Mild Asthma)"
                     value={member.role} 
                     onChange={e => updateMember(member.id, { role: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.95rem', color: '#0f172a', fontWeight: 500, outline: 'none' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.75rem 1rem', border: '1px solid #e2e8f0', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.95rem', color: '#0f172a', fontWeight: 500, outline: 'none' }}
                   />
                 </div>
                 <div>
                   <button onClick={() => removeMember(member.id)} style={{ padding: '0.75rem 1.25rem', backgroundColor: '#fff', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#fff'}>
-                    Remove Member
+                    {tLocal('family.remove')}
                   </button>
                 </div>
               </div>
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>DAILY SCHEDULE & ROOM OCCUPANCY</span>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, background: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '1rem' }}>Total: 24 Hours</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{tLocal('family.where_day')}</span>
                 </div>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0' }}>
                   {member.blocks.map((block, i) => (
-                    <div key={block.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', background: '#fff', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.25rem 0.5rem', borderRadius: '0.375rem' }}>
+                    <div key={block.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', minWidth: 0, background: '#fff', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem 0.5rem', maxWidth: '100%', boxSizing: 'border-box', background: '#f1f5f9', padding: '0.25rem 0.5rem', borderRadius: '0.375rem' }}>
                         <span style={{ color: '#64748b', fontSize: '1rem', marginLeft: '0.25rem' }}>⏱</span>
                         <input type="time" value={block.start} onChange={e => {
                           const newBlocks = member.blocks.map((b, idx) => idx === i ? { ...b, start: e.target.value } : b);
                           updateMember(member.id, { blocks: newBlocks });
                         }} style={{ padding: '0.25rem', border: 'none', background: 'transparent', fontWeight: 600, color: '#0f172a', outline: 'none' }} />
-                        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600 }}>to</span>
+                        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600 }}>{tLocal('family.to')}</span>
                         <input type="time" value={block.end} onChange={e => {
                           const newBlocks = member.blocks.map((b, idx) => idx === i ? { ...b, end: e.target.value } : b);
                           updateMember(member.id, { blocks: newBlocks });
@@ -223,9 +226,9 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
                       <select value={block.locationId} onChange={e => {
                         const newBlocks = member.blocks.map((b, idx) => idx === i ? { ...b, locationId: e.target.value } : b);
                         updateMember(member.id, { blocks: newBlocks });
-                      }} style={{ flex: 1, padding: '0.5rem', border: 'none', background: 'transparent', outline: 'none', color: '#334155', fontWeight: 500, minWidth: '200px', cursor: 'pointer' }}>
-                        <option value="out">Outdoors / School (Ambient Air)</option>
-                        {rooms.map(r => <option key={r.id} value={r.id}>{r.name} {r.id === bedroom?.id ? '(Night Sleep)' : ''}</option>)}
+                      }} style={{ flex: 1, padding: '0.5rem', border: 'none', background: 'transparent', outline: 'none', color: '#334155', fontWeight: 500, minWidth: 'min(100%, 10rem)', cursor: 'pointer' }}>
+                        <option value="out">🌳 {tLocal('family.outdoors')}</option>
+                        {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                       </select>
 
                       <button onClick={() => {
@@ -242,66 +245,43 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
                       const newBlocks = [...member.blocks, { id: 'b' + Date.now(), start: '12:00', end: '13:00', locationId: 'out' }];
                       updateMember(member.id, { blocks: newBlocks });
                     }} style={{ fontSize: '0.8rem', color: '#0f766e', background: '#ccfbf1', border: 'none', borderRadius: '1rem', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 600, transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#99f6e4'} onMouseOut={e => e.currentTarget.style.background = '#ccfbf1'}>
-                      + Add another time block
+                      {tLocal('family.add_block')}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {exposure.missingHours <= 0.1 && (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                    
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#475569', letterSpacing: '0.05em' }}>CALCULATED 24-HOUR DOSE</span>
-                        <span style={{ background: '#e2e8f0', color: '#475569', padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: 700 }}>Model Scenario #1</span>
-                      </div>
-                      
-                      <div style={{ fontSize: '0.95rem', color: '#334155', lineHeight: 1.5 }}>
-                        Today&apos;s weighted average: <strong style={{ color: '#ef4444', fontSize: '1.1rem' }}>{exposure.average} µg/m³</strong>
-                        <br />
-                        {exposure.worstStretch && (
-                          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                             Worst stretch: <strong>{exposure.worstStretch.start} - {exposure.worstStretch.end}</strong> in {exposure.worstStretch.locationId === 'out' ? 'Outdoors' : rooms.find(r => r.id === exposure.worstStretch!.locationId)?.name} 
-                            <span style={{ color: '#ef4444', fontWeight: 600 }}> (~{exposure.worstStretch.average} µg/m³)</span>
-                          </span>
-                        )}
-                      </div>
+              {exposure.missingHours <= 0.1 && exposure.average !== null && (() => {
+                const a = pm25Aqi(exposure.average);
+                const c = CATEGORY_COLOURS[a.category];
+                const pct = comp ? Math.round(((comp.baselineAvg - comp.improvedAvg) / comp.baselineAvg) * 100) : 0;
+                return (
+                  <div style={{ display: 'grid', gap: '0.75rem', background: c.tint, border: `1px solid ${c.edge}`, borderRadius: '1rem', padding: '1rem' }}>
+                    <div style={{ display: 'grid', gap: '0.25rem' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>{tLocal('family.avg')}</span>
+                      <span style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: c.ink }}>AQI</span>
+                        <strong style={{ fontSize: '2.25rem', lineHeight: 1, fontWeight: 900, color: c.ink, fontVariantNumeric: 'tabular-nums' }}>{aqiText(a)}</strong>
+                        <span style={{ fontSize: '0.85rem', color: '#475569' }}>PM2.5 <strong>{exposure.average}</strong> µg/m³</span>
+                      </span>
+                      {exposure.worstStretch && (
+                        <span style={{ fontSize: '0.9rem', color: '#334155' }}>
+                          {tLocal('family.worst')} <strong>{exposure.worstStretch.start}–{exposure.worstStretch.end}</strong> {tLocal('family.in')}{' '}
+                          {exposure.worstStretch.locationId === 'out' ? tLocal('family.outdoors') : rooms.find(r => r.id === exposure.worstStretch!.locationId)?.name} (~{exposure.worstStretch.average} µg/m³)
+                        </span>
+                      )}
                     </div>
-
                     {comp && (
-                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.75rem', padding: '1rem 1.5rem', textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#16a34a', marginBottom: '0.25rem', letterSpacing: '0.05em' }}>PURIFIER IMPACT</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#14532d' }}>
-                          {comp.baselineAvg} <span style={{ color: '#22c55e', margin: '0 0.25rem' }}>→</span> {comp.improvedAvg} µg/m³
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, marginTop: '0.25rem' }}>
-                          {Math.round(((comp.baselineAvg - comp.improvedAvg) / comp.baselineAvg) * 100)}% exposure reduction!
-                        </div>
+                      <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: '0.9rem', padding: '0.7rem 0.85rem', display: 'grid', gap: '0.2rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 700 }}>🌀 {tLocal('family.purifier_line', { room: bedroom?.name ?? '' })}</span>
+                        <span style={{ fontWeight: 800, color: '#14532d', fontVariantNumeric: 'tabular-nums' }}>
+                          {comp.baselineAvg} → {comp.improvedAvg} µg/m³ · {tLocal('family.less', { pct })}
+                        </span>
                       </div>
                     )}
                   </div>
-
-                  {comp && (
-                    <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.75rem' }}>
-                        <span style={{ color: '#64748b', fontWeight: 500 }}>Simulated if {bedroom?.name} purifier runs at night</span>
-                        <span style={{ color: '#16a34a', fontWeight: 700 }}>Clean Air Target Achievable</span>
-                      </div>
-                      <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
-                        <div style={{ height: '100%', width: '80%', background: '#22c55e' }}></div>
-                        <div style={{ height: '100%', width: '20%', background: '#ef4444' }}></div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 500 }}>
-                        <span>0 µg/m³ (WHO)</span>
-                        <span>{comp.baselineAvg} µg/m³ (Current Baseline)</span>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              )}
+                );
+              })()}
               {exposure.missingHours > 0.1 && (
                  <div style={{ color: '#b45309', background: '#fffbeb', padding: '1rem', borderRadius: '0.5rem', fontSize: '0.9rem', border: '1px solid #fde68a' }}>
                    <strong>{tLocal('family.incomplete', { missing: exposure.missingHours })}</strong>
@@ -313,11 +293,11 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
       </div>
 
       {family.savedResults && family.savedResults.length > 0 && (
-        <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '2px dashed #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#0f172a' }}>Saved Simulation Reports</h3>
+        <div style={{ paddingTop: '0.5rem' }}>
+          <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: '#0f172a' }}>{tLocal('family.saved')}</h3>
           <div style={{ display: 'grid', gap: '1rem' }}>
             {family.savedResults.map(res => (
-              <div key={res.id} style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.75rem', padding: '1rem', gap: '1rem' }}>
+              <div key={res.id} style={{ display: 'flex', flexDirection: 'column', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '1.25rem', padding: '1rem', gap: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
@@ -331,12 +311,12 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em' }}>BASELINE</div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>{tLocal('family.without')}</div>
                       <div style={{ fontWeight: 800, color: '#ef4444' }}>{res.baselineAvg} µg/m³</div>
                     </div>
                     {res.improvedAvg !== null && (
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', letterSpacing: '0.05em' }}>WITH PURIFIER</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#16a34a' }}>{tLocal('family.with_purifier')}</div>
                         <div style={{ fontWeight: 800, color: '#15803d' }}>{res.improvedAvg} µg/m³</div>
                       </div>
                     )}
@@ -353,14 +333,14 @@ export const FamilyDay: React.FC<FamilyDayProps> = ({ rooms, estimates }) => {
 
                 {res.blocks && res.blocks.length > 0 && (
                   <div style={{ marginTop: '0.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>DAILY SCHEDULE & ROOM OCCUPANCY</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{tLocal('family.where_day')}</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 13rem), 1fr))', gap: '0.5rem', marginTop: '0.75rem' }}>
                       {res.blocks.map(b => (
                         <div key={b.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#fff', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}>
                           <span style={{ fontWeight: 700, color: '#475569' }}>{b.start} - {b.end}</span>
                           <span style={{ color: '#cbd5e1' }}>|</span>
                           <span style={{ color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {b.locationId === 'out' ? 'Outdoors / School' : rooms.find(r => r.id === b.locationId)?.name || b.locationId}
+                            {b.locationId === 'out' ? tLocal('family.outdoors') : rooms.find(r => r.id === b.locationId)?.name || b.locationId}
                           </span>
                         </div>
                       ))}

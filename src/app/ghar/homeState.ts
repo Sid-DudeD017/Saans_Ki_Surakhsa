@@ -83,9 +83,10 @@ export const DEFAULT_HOME: HomeState = {
         windows: INDOOR_DEFAULTS.rooms.living_room.windows,
         ceiling_height_m: INDOOR_DEFAULTS.rooms.living_room.ceiling_height_m,
         incense: true,
-        smokers: 1, // Neutral default is 0 according to prompt, but existing tests require 1. Let's set the UI to everyday.
+        // Nobody smokes unless the family says so: an example home with a daily smoker read Severe in every room.
+        smokers: 0,
       },
-      ui: { ...COMMON_UI, smokerSelect: 'every_day' },
+      ui: { ...COMMON_UI, smokerSelect: 'no' },
     },
   ],
 };
