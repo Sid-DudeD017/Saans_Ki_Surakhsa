@@ -40,7 +40,7 @@ function memoryDb(): Db {
 }
 
 describe("smsNotifier", () => {
-  const numbers = { Sangrur: "+910000000001", unassigned: "+910000000009" };
+  const numbers = { Sangrur: "+910000000001", supervisor_queue: "+910000000009" };
 
   it("texts the case's district, keyed by case and by decision", async () => {
     const { sent, sender } = recorder();
@@ -53,7 +53,7 @@ describe("smsNotifier", () => {
     ]);
   });
 
-  it("falls back to the unassigned number, and texts nothing for actions that aren't help", async () => {
+  it("falls back to the supervisor_queue number, and texts nothing for actions that aren't help", async () => {
     const { sent, sender } = recorder();
     const n = smsNotifier(sender, numbers);
     await n.caseAssigned({ caseId: "case-2", district: "Patiala" });

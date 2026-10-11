@@ -1,8 +1,6 @@
-// What an officer can do to a case, and what each action does to its status (P4). Shared by the API
-// (cases.ts) and the console's mock mode, so both follow the same rules.
 export const CASE_STATUSES = ["OPEN", "ACTION_APPROVED", "ACTION_CHANGED", "CLOSED"] as const;
 export type CaseStatus = (typeof CASE_STATUSES)[number];
-export const ACTIONS = ["APPROVE", "CHANGE", "REJECT", "MARK_IN_FIELD", "RECORD_ACTION_TAKEN", "CLOSE"] as const;
+export const ACTIONS = ["APPROVE", "CHANGE", "REJECT", "MARK_IN_FIELD", "RECORD_ACTION_TAKEN", "CLOSE", "OVERRIDE_THREAT"] as const;
 export type CaseAction = (typeof ACTIONS)[number];
 
 /**

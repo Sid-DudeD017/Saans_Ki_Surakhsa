@@ -21,7 +21,7 @@ function loadRules() {
 
 const officerEntity = (o: Officer): cedar.EntityJson => ({
   uid: { type: "Saans::Officer", id: o.id },
-  attrs: { role: o.role, district: o.district },
+  attrs: { role: o.role, district: o.district, id: o.id },
   parents: [],
 });
 
@@ -45,7 +45,7 @@ function decide(officer: Officer, action: string, resource: cedar.EntityJson): b
 export function mayOnCase(officer: Officer, verb: CaseVerb, c: CaseFacts): boolean {
   return decide(officer, verb, {
     uid: { type: "Saans::Case", id: c.id },
-    attrs: { district: c.district, status: c.status, type: c.type, hasHelpRequest: c.hasHelpRequest, reporterConsent: c.reporterConsent },
+    attrs: { district: c.district, status: c.status, type: c.type, hasHelpRequest: c.hasHelpRequest, reporterConsent: c.reporterConsent, reporterId: c.reporterId },
     parents: [],
   });
 }

@@ -10,6 +10,7 @@ import { QUEUES, type CaseAuthz, type CaseVerb, type Officer } from "./caseAuthz
 export const AVP_ACTION: Record<CaseVerb, string | null> = {
   ViewCase: "detail",
   ViewEvidence: "evidence",
+  ViewInternalNotes: "detail",
   ViewReporter: null,
   Approve: "assign",
   Change: "assign",
@@ -17,6 +18,7 @@ export const AVP_ACTION: Record<CaseVerb, string | null> = {
   MarkInField: "mark_in_field",
   RecordActionTaken: "record_action",
   Close: "close",
+  OverrideThreat: "assign",
 };
 
 type Check = typeof authorizeResource;

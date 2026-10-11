@@ -15,9 +15,10 @@ const fieldSangrur = officer("field-sangrur");
 const sdmPatiala = officer("officer-patiala");
 const state = officer("state-command");
 
-const sangrurFire: CaseFacts = { id: "case-1", district: "Sangrur", status: "OPEN", type: "farm_fire", hasHelpRequest: true, reporterConsent: false };
-const patialaGarbage: CaseFacts = { id: "case-2", district: "Patiala", status: "OPEN", type: "garbage", hasHelpRequest: false, reporterConsent: false };
-const unassigned: CaseFacts = { id: "case-3", district: "unassigned", status: "OPEN", type: "farm_fire", hasHelpRequest: false, reporterConsent: false };
+const sangrurFire: CaseFacts = { id: "case-1", district: "Sangrur", status: "OPEN", type: "farm_fire", hasHelpRequest: true, reporterConsent: false, reporterId: "other-citizen" };
+const patialaGarbage: CaseFacts = { id: "case-2", district: "Patiala", status: "OPEN", type: "garbage", hasHelpRequest: false, reporterConsent: false, reporterId: "other-citizen" };
+const supervisorQueue: CaseFacts = { id: "case-3", district: "supervisor_queue", status: "OPEN", type: "farm_fire", hasHelpRequest: false, reporterConsent: false, reporterId: "" };
+const citizenOwnCase: CaseFacts = { id: "case-4", district: "Sangrur", status: "OPEN", type: "garbage", hasHelpRequest: false, reporterConsent: false, reporterId: "citizen-1" };
 
 describe("Cedar policies (infra/policies/saans.cedar)", () => {
   it("00 the policies validate against the schema", () => {
@@ -55,23 +56,24 @@ describe("Cedar policies (infra/policies/saans.cedar)", () => {
     const closed = { ...sangrurFire, status: "CLOSED" };
     expect(mayOnCase(sdmSangrur, "ViewCase", closed)).toBe(true);
     for (const a of ACTIONS) expect(mayOnCase(sdmSangrur, VERB_FOR[a], closed), a).toBe(false);
-    expect(mayOnCase(state, "Close", { ...unassigned, status: "CLOSED" })).toBe(false);
+    expect(mayOnCase(state, "Close", { ...supervisorQueue, status: "CLOSED" })).toBe(false);
   });
-  it("18 the state command centre views every district", () => {
+  it("18 the supervisor views every district and internal notes", () => {
     expect(mayOnCase(state, "ViewCase", sangrurFire)).toBe(true);
     expect(mayOnCase(state, "ViewEvidence", patialaGarbage)).toBe(true);
+    expect(mayOnCase(state, "ViewInternalNotes", sangrurFire)).toBe(true);
   });
-  it("19 the state command centre can't decide a district's case", () => {
+  it("19 the supervisor can't decide a district's case", () => {
     expect(mayOnCase(state, "Approve", sangrurFire)).toBe(false);
     expect(mayOnCase(state, "Close", patialaGarbage)).toBe(false);
   });
-  it("20 the state command centre decides reports outside both districts", () => {
-    expect(mayOnCase(state, "MarkInField", unassigned)).toBe(true);
-    expect(mayOnCase(state, "Close", unassigned)).toBe(true);
+  it("20 the supervisor decides reports in the supervisor queue", () => {
+    expect(mayOnCase(state, "MarkInField", supervisorQueue)).toBe(true);
+    expect(mayOnCase(state, "Close", supervisorQueue)).toBe(true);
   });
-  it("21 district officers can't see reports outside both districts", () => {
-    expect(mayOnCase(sdmSangrur, "ViewCase", unassigned)).toBe(false);
-    expect(mayOnCase(sdmPatiala, "ViewCase", unassigned)).toBe(false);
+  it("21 district officers can't see reports in the supervisor queue", () => {
+    expect(mayOnCase(sdmSangrur, "ViewCase", supervisorQueue)).toBe(false);
+    expect(mayOnCase(sdmPatiala, "ViewCase", supervisorQueue)).toBe(false);
   });
   it("22 a Patiala officer can't see a Sangrur case's evidence", () => expect(mayOnCase(sdmPatiala, "ViewEvidence", sangrurFire)).toBe(false));
   it("23 who reported is hidden unless the reporter agreed", () => {
@@ -84,11 +86,11 @@ describe("Cedar policies (infra/policies/saans.cedar)", () => {
     expect(mayOnCase(sdmPatiala, "ViewReporter", consented)).toBe(false);
     expect(mayOnCase(state, "ViewReporter", consented)).toBe(false);
   });
-  it("25 officers list only their own district's queue; the state lists all", () => {
+  it("25 officers list only their own district's queue; the supervisor lists all", () => {
     expect(listable(sdmSangrur)).toEqual(["Sangrur"]);
     expect(listable(fieldSangrur)).toEqual(["Sangrur"]);
     expect(listable(sdmPatiala)).toEqual(["Patiala"]);
-    expect(listable(state)).toEqual(["Sangrur", "Patiala", "unassigned"]);
+    expect(listable(state)).toEqual(["Sangrur", "Patiala", "supervisor_queue"]);
     expect(mayList(sdmPatiala, "Sangrur")).toBe(false);
   });
   it("26 an unknown role is refused everything", () => {
@@ -101,6 +103,23 @@ describe("Cedar policies (infra/policies/saans.cedar)", () => {
       expect(mayOnCase(sdmSangrur, VERB_FOR[a], sangrurFire), `${a} allowed`).toBe(true);
       expect(mayOnCase(sdmPatiala, VERB_FOR[a], sangrurFire), `${a} denied`).toBe(false);
     }
+  });
+  it("28 (a) a citizen sees only their own tickets, without internal notes", () => {
+    const citizen = officer("citizen-1");
+    // Can view own case
+    expect(mayOnCase(citizen, "ViewCase", citizenOwnCase)).toBe(true);
+    // Can view own evidence
+    expect(mayOnCase(citizen, "ViewEvidence", citizenOwnCase)).toBe(true);
+    // Can't view internal notes on own case
+    expect(mayOnCase(citizen, "ViewInternalNotes", citizenOwnCase)).toBe(false);
+    // Can't view another citizen's case
+    expect(mayOnCase(citizen, "ViewCase", sangrurFire)).toBe(false);
+  });
+  it("29 admins manage configuration, not complaint content", () => {
+    const admin = officer("admin-demo");
+    expect(mayOnCase(admin, "ViewCase", sangrurFire)).toBe(false);
+    expect(mayOnCase(admin, "Approve", sangrurFire)).toBe(false);
+    expect(mayList(admin, "Sangrur")).toBe(false);
   });
 });
 

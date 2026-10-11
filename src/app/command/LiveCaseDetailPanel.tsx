@@ -16,6 +16,7 @@ const ACTION_NAMES: Record<CaseAction, string> = {
   MARK_IN_FIELD: "Officer in the field",
   RECORD_ACTION_TAKEN: "Record action taken",
   CLOSE: "Close case",
+  OVERRIDE_THREAT: "Override threat assessment",
 };
 
 function indiaTime(iso: string | undefined) {
@@ -195,6 +196,13 @@ export function LiveCaseDetailPanel({
                 disabled={busy}
               >
                 {ACTION_NAMES.RECORD_ACTION_TAKEN}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => act("OVERRIDE_THREAT")}
+                disabled={busy}
+              >
+                {ACTION_NAMES.OVERRIDE_THREAT}
               </Button>
               <Button
                 variant="danger"

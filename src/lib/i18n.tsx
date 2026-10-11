@@ -61,6 +61,28 @@ export interface TranslationStrings {
     noData: string;
     titlePlan: string;
   };
+  commandCitizen: {
+    title: string;
+    subtitle: string;
+    emergencyBanner: string;
+    devBanner: string;
+    name: string;
+    contact: string;
+    location: string;
+    category: string;
+    desc: string;
+    dateTime: string;
+    attachments: string;
+    emergencyToggle: string;
+    consentText: string;
+    submit: string;
+    ticketTitle: string;
+    status: string;
+    timeline: string;
+    resolution: string;
+    confirmBtn: string;
+    reopenBtn: string;
+  };
 }
 
 const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
@@ -122,6 +144,28 @@ const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
       noData: 'Waiting for estimates...',
       titlePlan: 'Plan for today',
     },
+    commandCitizen: {
+      title: 'Report an Incident',
+      subtitle: 'Provide details about the incident.',
+      emergencyBanner: 'If someone is in immediate danger, call 112 now.',
+      devBanner: 'Development Mode - Data is mocked',
+      name: 'Name',
+      contact: 'Phone or Email',
+      location: 'Location (with pin)',
+      category: 'Category',
+      desc: 'Description',
+      dateTime: 'Date and Time',
+      attachments: 'Attachments (optional)',
+      emergencyToggle: 'This is an emergency',
+      consentText: 'I agree to submit this report anonymously.',
+      submit: 'Submit Report',
+      ticketTitle: 'Ticket Details',
+      status: 'Status',
+      timeline: 'Timeline',
+      resolution: 'Resolution Summary',
+      confirmBtn: 'Confirm Resolved',
+      reopenBtn: 'Reopen Ticket',
+    },
   },
   hi: {
     appName: 'सांस',
@@ -181,6 +225,28 @@ const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
       noData: 'आंकड़ों का इंतजार कर रहे हैं...',
       titlePlan: 'आज की योजना',
     },
+    commandCitizen: {
+      title: 'VERIFY: Report an Incident',
+      subtitle: 'VERIFY: Provide details about the incident.',
+      emergencyBanner: 'VERIFY: If someone is in immediate danger, call 112 now.',
+      devBanner: 'VERIFY: Development Mode - Data is mocked',
+      name: 'VERIFY: Name',
+      contact: 'VERIFY: Phone or Email',
+      location: 'VERIFY: Location (with pin)',
+      category: 'VERIFY: Category',
+      desc: 'VERIFY: Description',
+      dateTime: 'VERIFY: Date and Time',
+      attachments: 'VERIFY: Attachments (optional)',
+      emergencyToggle: 'VERIFY: This is an emergency',
+      consentText: 'VERIFY: I agree to submit this report anonymously.',
+      submit: 'VERIFY: Submit Report',
+      ticketTitle: 'VERIFY: Ticket Details',
+      status: 'VERIFY: Status',
+      timeline: 'VERIFY: Timeline',
+      resolution: 'VERIFY: Resolution Summary',
+      confirmBtn: 'VERIFY: Confirm Resolved',
+      reopenBtn: 'VERIFY: Reopen Ticket',
+    },
   },
   pa: {
     appName: 'ਸਾਂਸ',
@@ -239,6 +305,28 @@ const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
       biggestChange: 'ਸਭ ਤੋਂ ਵੱਡਾ ਬਦਲਾਅ: {{action}} ਨਾਲ {{reduction}} µg/m³ ਦੀ ਕਮੀ ਆਵੇਗੀ।',
       noData: 'ਅੰਕੜਿਆਂ ਦੀ ਉਡੀਕ ਕਰ ਰਹੇ ਹਾਂ...',
       titlePlan: 'ਅੱਜ ਦੀ ਯੋਜਨਾ',
+    },
+    commandCitizen: {
+      title: 'VERIFY: Report an Incident',
+      subtitle: 'VERIFY: Provide details about the incident.',
+      emergencyBanner: 'VERIFY: If someone is in immediate danger, call 112 now.',
+      devBanner: 'VERIFY: Development Mode - Data is mocked',
+      name: 'VERIFY: Name',
+      contact: 'VERIFY: Phone or Email',
+      location: 'VERIFY: Location (with pin)',
+      category: 'VERIFY: Category',
+      desc: 'VERIFY: Description',
+      dateTime: 'VERIFY: Date and Time',
+      attachments: 'VERIFY: Attachments (optional)',
+      emergencyToggle: 'VERIFY: This is an emergency',
+      consentText: 'VERIFY: I agree to submit this report anonymously.',
+      submit: 'VERIFY: Submit Report',
+      ticketTitle: 'VERIFY: Ticket Details',
+      status: 'VERIFY: Status',
+      timeline: 'VERIFY: Timeline',
+      resolution: 'VERIFY: Resolution Summary',
+      confirmBtn: 'VERIFY: Confirm Resolved',
+      reopenBtn: 'VERIFY: Reopen Ticket',
     },
   },
 };

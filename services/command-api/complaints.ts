@@ -142,16 +142,16 @@ export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<
     return errorResponse(404, "not_found", `no complaint ${id}`);
   }
 
-  // Check if an associated case exists
-  // Its own case, or the case it was merged into.
+  // Check if an associated case exists (either direct or merged via case_reports)
   const { rows: cases } = await deps.db.query<{
     id: string;
     status: string;
     updated_at: Date;
+    is_merged: boolean;
   }>(
-    `SELECT id, status, updated_at FROM cases WHERE complaint_id = $1
-     UNION ALL
-     SELECT c.id, 'MERGED', c.updated_at FROM case_reports r JOIN cases c ON c.id = r.case_id WHERE r.complaint_id = $1
+    `SELECT c.id, c.status, c.updated_at, false as is_merged FROM cases c WHERE c.complaint_id = $1
+     UNION
+     SELECT c.id, c.status, c.updated_at, true as is_merged FROM cases c JOIN case_reports cr ON cr.case_id = c.id WHERE cr.complaint_id = $1
      LIMIT 1`,
     [id],
   );
@@ -163,7 +163,7 @@ export async function getComplaintStatus(deps: IntakeDeps, id: string): Promise<
 
   if (cCase) {
     const caseStatus = (cCase.status || "").toUpperCase();
-    if (caseStatus === "MERGED") {
+    if (caseStatus === "MERGED" || cCase.is_merged) {
       status = "merged";
       stage_label = "Merged with existing report";
       explanation = "Someone already reported this fire. Your report was added to it, which helps it get attention.";

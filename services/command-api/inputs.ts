@@ -36,6 +36,14 @@ export const ComplaintInput = z.object({
   location: GeoPoint,
   description: z.string().max(1000).optional(),
   evidence: z.array(EvidenceMetadata).max(10),
+  urgency: z.boolean().optional(),
+  violence: z.boolean().optional(),
+  weapons: z.boolean().optional(),
+  vulnerable_people: z.boolean().optional(),
+  immediacy: z.enum(["past", "imminent", "ongoing"]).optional(),
+  location_sensitive: z.boolean().optional(),
+  reporter_identity: z.string().optional(),
+  reporter_consent: z.boolean().optional(),
 });
 export type ComplaintInput = z.infer<typeof ComplaintInput>;
 
