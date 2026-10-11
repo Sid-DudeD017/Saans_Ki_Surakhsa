@@ -1,10 +1,12 @@
-// Saans Command's reads and writes for the console (P4), in p4-command.openapi.yaml's shapes. With
-// NEXT_PUBLIC_USE_MOCKS=true preserves the local demo behavior. Otherwise requests use a Cognito access
-// token, and the API Gateway authorizer plus Cedar decide what the signed-in officer may access.
+// Saans Command's reads and writes for the console (P4), in p4-command.openapi.yaml's shapes. Where Cognito
+// is set up (the AWS deployment), requests use a Cognito access token, and the API Gateway authorizer plus
+// Cedar decide what the signed-in officer may access. Without it (a developer's machine), or with
+// NEXT_PUBLIC_USE_MOCKS=true, the console runs locally with the demo sign-ins (citizen, or officer by PIN)
+// against the local stack.
 import officers from '../../../infra/config/officers.local.json';
 import type { components } from '../../../packages/contracts/types';
 import { nextStatus, type CaseAction } from '../../../services/command-api/caseRules';
-import { getCognitoAccessToken } from '../../lib/cognitoAuth';
+import { getCognitoAccessToken, isCognitoConfigured } from '../../lib/cognitoAuth';
 import { MOCK_CASES } from './mockCases';
 
 export type CaseSummary = components['schemas']['CaseSummary'];
@@ -13,7 +15,8 @@ export type CommandCase = components['schemas']['CommandCase'];
 export type CaseStatus = CommandCase['status'];
 export type { CaseAction };
 
-export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
+/** The local console with demo sign-ins; false only where Cognito is configured and example mode is off. */
+export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === 'true' || !isCognitoConfigured();
 const BASE = (process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || '').replace(/\/$/, '');
 
 /** The console's role options: Officer and Citizen only */
