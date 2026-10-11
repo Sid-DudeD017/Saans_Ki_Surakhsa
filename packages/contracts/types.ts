@@ -249,9 +249,7 @@ export interface paths {
         };
         /**
          * Chcs Near
-         * @description CHCs within reach of a farm, nearest first (demo data until the KVK list comes in). Given the
-         *     farm's season (harvest to wheat deadline), each machine also says how many days it is free in it
-         *     and the first one.
+         * @description CHCs within reach of a farm, nearest first (demo data until the KVK list comes in).
          */
         get: operations["chcs_near"];
         put?: never;
@@ -3697,9 +3695,6 @@ export interface operations {
                 district?: string | null;
                 machine?: string | null;
                 max_km?: number;
-                /** @description With wheat_deadline: count each machine's free days in the season */
-                harvest_date?: string | null;
-                wheat_deadline?: string | null;
             };
             header?: never;
             path?: never;
@@ -3727,14 +3722,14 @@ export interface operations {
                      *               "machine": "super_seeder",
                      *               "units": 1,
                      *               "cost_per_acre_inr": 1000,
-                     *               "free_days": 1,
-                     *               "first_free": "2026-11-02"
+                     *               "free_days": null,
+                     *               "first_free": null
                      *             },
                      *             {
                      *               "machine": "happy_seeder",
                      *               "units": 1,
                      *               "cost_per_acre_inr": 750,
-                     *               "free_days": 0,
+                     *               "free_days": null,
                      *               "first_free": null
                      *             }
                      *           ]
@@ -3750,7 +3745,7 @@ export interface operations {
                      *               "machine": "happy_seeder",
                      *               "units": 1,
                      *               "cost_per_acre_inr": 750,
-                     *               "free_days": 0,
+                     *               "free_days": null,
                      *               "first_free": null
                      *             }
                      *           ]
