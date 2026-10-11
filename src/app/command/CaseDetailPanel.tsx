@@ -5,10 +5,11 @@
 import React, { useState } from 'react';
 
 import { Alert, Badge, Button, Card } from '../../components/ui';
-import { CaseMap, type MapPoint } from './CaseMap';
+import { SlippyMap, type Pin } from '../../components/SlippyMap';
 import { ApiError, actOnCase, type CaseAction, type CaseDetail } from './commandApi';
+import { PIN_COLOURS, TONE } from './tones';
 
-const TYPE_NAMES: Record<string, string> = {
+export const TYPE_NAMES: Record<string, string> = {
   farm_fire: 'Farm fire',
   garbage: 'Garbage burning',
   vehicle: 'Smoky vehicle',
@@ -92,11 +93,15 @@ export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDe
     }
   };
 
-  const points: MapPoint[] = [
-    { id: 'report', kind: detail.type === 'farmer_support' ? 'farm' : 'report', label: detail.type === 'farmer_support' ? 'The farm' : 'The report', ...detail.report.location },
-    ...(help && detail.type !== 'farmer_support' ? [{ id: 'farm', kind: 'farm' as const, label: `The farm with the open help request (${help.id})`, ...help.farmLocation }] : []),
-    ...(machine ? [{ id: 'chc', kind: 'chc' as const, label: `${machine.chcName}: ${machine.machineType}`, ...machine.location }] : []),
-    ...(detail.observation ? [{ id: 'firms', kind: 'fire' as const, label: `FIRMS fire, ${when(detail.observation.observedAt)}`, ...detail.observation.location }] : []),
+  const points: Pin[] = [
+    { id: 'report', colour: PIN_COLOURS[detail.type === 'farmer_support' ? 'farm' : 'report'], label: detail.type === 'farmer_support' ? 'The farm' : 'The report', ...detail.report.location },
+    ...(help && detail.type !== 'farmer_support' ? [{ id: 'farm', colour: PIN_COLOURS.farm, label: `The farm with the open help request (${help.id})`, ...help.farmLocation }] : []),
+    ...(machine ? [{ id: 'chc', colour: PIN_COLOURS.chc, label: `${machine.chcName}: ${machine.machineType}`, ...machine.location }] : []),
+    ...(detail.observation ? [{ id: 'firms', colour: PIN_COLOURS.fire, label: `FIRMS fire, ${when(detail.observation.observedAt)}`, ...detail.observation.location }] : []),
+  ];
+  const key: [string, string][] = [
+    [points[0].colour, points[0].label],
+    ...points.slice(1).map((p): [string, string] => [p.colour, p.id === 'farm' ? 'Farm asking for help' : p.id === 'chc' ? `CHC: ${machine?.chcName}` : 'Satellite fire']),
   ];
 
   return (
@@ -121,7 +126,7 @@ export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDe
       </Card>
 
       {help && (
-        <Card padding="lg" style={{ borderLeft: '6px solid #16a34a' }}>
+        <Card padding="lg" style={{ background: TONE.good.wash, border: `1.5px solid ${TONE.good.edge}` }}>
           <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem', color: '#14532d' }}>
             {help.status === 'OPEN' ? 'Help before penalty: this farmer asked for a machine' : `The farmer's help request is ${help.status.toLowerCase()}`}
           </h3>
@@ -136,7 +141,7 @@ export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDe
             </div>
           )}
           {machine ? (
-            <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '0.5rem', background: '#f0fdf4', fontSize: '0.9rem', color: '#14532d' }}>
+            <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '0.75rem', background: '#ffffff', border: `1px solid ${TONE.good.edge}`, fontSize: '0.9rem', color: '#14532d' }}>
               <strong>{machine.machineType} at {machine.chcName}</strong>, free from {day(machine.availableFrom)} to {day(machine.availableUntil)}.
             </div>
           ) : (
@@ -165,8 +170,16 @@ export function CaseDetailPanel({ detail, officer, onChanged }: { detail: CaseDe
           <div style={row}><span>Sent to</span><span>{(detail.authorities ?? []).join(', ')}</span></div>
           <div style={row}><span>Penalty</span><span>{detail.penalty ? (help?.status === 'OPEN' ? 'Possible, but offer the machine first' : 'Possible') : detail.type === 'kisan_grievance' ? "Never: this is the farmer's complaint" : 'Never: this is a request for help'}</span></div>
         </div>
-        <div style={{ marginTop: '0.75rem' }}>
-          <CaseMap points={points} title="The report, the farm, the CHC and any satellite fire" />
+        <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+          <SlippyMap pins={points} label="The report, the farm, the CHC and any satellite fire" height="18rem" maxZoom={14} />
+          <ul aria-label="Map key" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', gap: '0.8rem', flexWrap: 'wrap', fontSize: '0.82rem', color: '#334155' }}>
+            {key.map(([colour, name]) => (
+              <li key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span aria-hidden="true" style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: colour, border: '2px solid #ffffff', boxShadow: '0 0 0 1px #cbd5e1' }} />
+                {name}
+              </li>
+            ))}
+          </ul>
         </div>
       </Card>
 
