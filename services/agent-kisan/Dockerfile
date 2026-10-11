@@ -1,16 +1,18 @@
-# Kisan Saathi API + agent, for App Runner (port 8080). Build from the repo root:
+# Kisan Saathi API + agent, for ECS Express Mode (port 8080). Build from the repo root:
 #   docker build -f services/agent-kisan/Dockerfile -t saans-agent-kisan .
 FROM python:3.12-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.12.21 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
 COPY services/agent-kisan/pyproject.toml services/agent-kisan/uv.lock ./
-RUN uv sync --locked --no-default-groups --group tts --no-install-project
+RUN uv sync --locked --no-default-groups --group tts --group asr --no-install-project
 COPY services/agent-kisan/src ./src
-RUN uv sync --locked --no-default-groups --group tts
-# Bake the read-back voices in, so nothing downloads when the service starts.
+RUN uv sync --locked --no-default-groups --group tts --group asr
+# Bake the read-back voices and Whisper (speech recognition, about 1.6 GB) in, so nothing downloads when the
+# service starts.
 ENV HF_HOME=/app/hf
 RUN .venv/bin/python -c "from transformers import AutoTokenizer, VitsModel; from agent_kisan.tts import MODELS; [(AutoTokenizer.from_pretrained(m), VitsModel.from_pretrained(m)) for m in MODELS.values()]"
+RUN .venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('large-v3-turbo', device='cpu', compute_type='int8')"
 
 FROM python:3.12-slim
 RUN useradd --create-home --uid 10001 kisan

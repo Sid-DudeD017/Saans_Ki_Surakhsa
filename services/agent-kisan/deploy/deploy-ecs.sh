@@ -3,7 +3,7 @@
 # App Runner closed to new customers on 30 April 2026). Prints the https URL to use as KISAN_AGENT_URL.
 # Run from anywhere in the repo, with Docker running:
 #   AWS_PROFILE=saans services/agent-kisan/deploy/deploy-ecs.sh
-# Costs money while it runs (one Fargate task, 1 vCPU / 2 GB, plus a load balancer). Tear down with:
+# Costs money while it runs (one Fargate task, 2 vCPU / 4 GB, plus a load balancer). Tear down with:
 #   aws ecs delete-express-gateway-service --region ap-south-1 --service-arn <the ARN this prints>
 set -euo pipefail
 
@@ -13,6 +13,9 @@ SERVICE=saans-agent-kisan
 MODEL_ID=${KISAN_MODEL_ID:-in.anthropic.claude-opus-5}
 # Where the agent files complaints and looks up tickets (the SAM stack's ApiUrl).
 SAANS_API_URL=${SAANS_API_URL:-https://5qu2ontx1e.execute-api.ap-south-1.amazonaws.com/dev}
+# Whisper, the voices and the agent together need more than the default 1 vCPU / 2 GB.
+CPU=2048
+MEMORY=4096
 
 ROOT=$(git rev-parse --show-toplevel)
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
@@ -67,11 +70,12 @@ if [ "$ARN" = "None" ] || [ -z "$ARN" ]; then
     --task-role-arn "arn:aws:iam::$ACCOUNT:role/saansAgentKisanTaskRole" \
     --primary-container "$CONTAINER" \
     --health-check-path /healthz \
+    --cpu "$CPU" --memory "$MEMORY" \
     --scaling-target '{"minTaskCount":1,"maxTaskCount":1}' \
     --query service.serviceArn --output text)
 else
   aws ecs update-express-gateway-service --region "$REGION" --service-arn "$ARN" \
-    --primary-container "$CONTAINER" >/dev/null
+    --primary-container "$CONTAINER" --cpu "$CPU" --memory "$MEMORY" >/dev/null
 fi
 echo "Service: $ARN"
 echo "Waiting for it to come up (a few minutes the first time)..."
