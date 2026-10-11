@@ -79,6 +79,10 @@ describe("template.yaml structural checks (migrated)", () => {
   it("contains configurable CORS on Api", () => {
     expect(doc.Parameters.CorsAllowedOrigin).toBeDefined();
     expect(doc.Resources.Api.Properties.CorsConfiguration.AllowOrigins).toContainEqual({ Ref: "CorsAllowedOrigin" });
+    // The headers the app sends cross-origin; a missing one fails the browser's preflight ("Can't reach").
+    expect(doc.Resources.Api.Properties.CorsConfiguration.AllowHeaders).toEqual(
+      expect.arrayContaining(["content-type", "authorization", "idempotency-key", "x-user-id"]),
+    );
   });
 
   it("reads the deployed database URL from Secrets Manager and migrates it", () => {
