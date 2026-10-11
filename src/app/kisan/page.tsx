@@ -13,7 +13,7 @@ import { FarmCard } from './FarmCard';
 import { FarmLocationBar } from './FarmLocationBar';
 import { farmFromReadback, farmHint, farmStore, machinesFromReadback, mergeFromChat } from './farmProfile';
 import { KisanChat } from './KisanChat';
-import { type Language, type Readback } from './kisanApi';
+import { USE_MOCKS, type Language, type Readback } from './kisanApi';
 import { KisanTabs, useTab, type Tab } from './KisanTabs';
 import { MachineCheck } from './MachineCheck';
 import { ComplaintSheet } from './ComplaintSheet';
@@ -68,6 +68,12 @@ export default function KisanPage() {
   return (
     <Container maxWidth="md" style={{ paddingTop: '0.25rem', paddingBottom: '2rem', fontFamily: FONT }}>
       {/* The app header (src/components/AppHeader.tsx) carries the name. */}
+      {USE_MOCKS && (
+        <Badge variant="warning" size="sm">
+          {say('demo', lang)}
+        </Badge>
+      )}
+
       <FarmLocationBar language={lang} />
 
       <Panel tab="plan" current={tab}>

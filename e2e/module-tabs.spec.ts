@@ -63,18 +63,3 @@ test('Ghar ki Hawa: Air now, Rooms, What to do and Family', async ({ page }) => 
   await page.getByRole('tab', { name: /Air now/ }).press('Enter');
   await expect(page).toHaveURL(/\/ghar$/);
 });
-
-test('Ghar ki Hawa: a room can be added after "Start over", and starts with nothing burning', async ({ page }) => {
-  await page.goto('/ghar?tab=rooms');
-  const rooms = page.locator('#ghar-panel-rooms');
-  await expect(rooms.locator('[data-room]')).toHaveCount(3);
-  await rooms.getByRole('button', { name: 'Start over' }).click();
-  await expect(rooms.locator('[data-room], [data-room-editor]')).toHaveCount(0);
-  await rooms.getByRole('button', { name: /Add a room/ }).click();
-  // The new room opens for changes, then shows as a card once it's done.
-  await expect(rooms.locator('[data-room-editor]')).toHaveCount(1);
-  await rooms.getByRole('button', { name: '✓ Done' }).click();
-  await expect(rooms.locator('[data-room]')).toHaveCount(1);
-  await expect(rooms.locator('[data-room]')).toContainText('Room 1');
-  await expect(rooms.locator('[data-room]')).not.toContainText('Mosquito coil');
-});

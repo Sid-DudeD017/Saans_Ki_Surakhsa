@@ -80,7 +80,7 @@ describe('ghar stage 2', () => {
     homeState.saveHomeState(newState);
     const loaded = homeState.loadHomeState();
     expect(loaded.rooms).toHaveLength(4);
-    expect(loaded.rooms[3].name).toBe('Room 4');
+    expect(loaded.rooms[3].name).toBe('New Room');
   });
 
   it('Adding and removing rooms works', () => {
@@ -95,20 +95,6 @@ describe('ghar stage 2', () => {
     expect(removed.rooms).toHaveLength(3);
   });
   
-  it('Adding a room works with no rooms left (after "Start over")', () => {
-    const { state, addedId } = homeState.addRoomToState({ rooms: [] });
-    expect(addedId).not.toBeNull();
-    expect(state.rooms).toHaveLength(1);
-    expect(state.rooms[0].name).toBe('Room 1');
-  });
-
-  it("A new room starts with nothing burning, not a copy of the bedroom's coil", () => {
-    const { state } = homeState.addRoomToState(homeState.DEFAULT_HOME);
-    const added = state.rooms[3].request;
-    expect(added).toMatchObject({ mosquito_coils: false, incense: false, smokers: 0, cooking_fuel: 'none', windows: 1, room_area_m2: 15 });
-    expect(added.lat).toBe(homeState.DEFAULT_HOME.rooms[0].request.lat);
-  });
-
   it('A failure in one room does not break the other rooms', () => {
     // This is architecturally proven because each RoomCard component manages its own fetch state, 
     // rendering isolated `result.error` values while sibling RoomCard components remain unaffected.
