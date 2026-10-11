@@ -61,10 +61,10 @@ export function step(game: Game, dt: number, input: { move?: -1 | 0 | 1; target?
   const half = FILTER.width / 2;
   let filterX = game.filterX;
   if (input.target !== undefined && input.target !== null) {
-    const reach = FILTER.speed * 1.5 * t;
-    filterX += Math.max(-reach, Math.min(reach, input.target - filterX));
+    // Snappy finger/mouse tracking: jump directly to finger or glide at high speed
+    filterX = input.target;
   } else if (input.move) {
-    filterX += input.move * FILTER.speed * t;
+    filterX += input.move * FILTER.speed * 1.5 * t;
   }
   filterX = Math.max(half, Math.min(WORLD.width - half, filterX));
 
@@ -82,8 +82,9 @@ export function step(game: Game, dt: number, input: { move?: -1 | 0 | 1; target?
   let missed = game.missed;
   for (const p of [...game.particles, ...particles.splice(0)]) {
     const y = p.y + p.vy * t;
-    const crossing = p.y + p.r < FILTER.y && y + p.r >= FILTER.y;
-    if (crossing && Math.abs(p.x - filterX) <= half + p.r) {
+    // Catch when particle crosses filter line OR is currently in filter vertical bounding zone
+    const crossing = (p.y - p.r <= FILTER.y + FILTER.height && y + p.r >= FILTER.y);
+    if (crossing && Math.abs(p.x - filterX) <= half + p.r + 4) {
       caught++;
       continue;
     }

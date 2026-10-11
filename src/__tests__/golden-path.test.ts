@@ -172,7 +172,7 @@ describe('P2 G6 Complaint Category Mapping & Idempotency Audit', () => {
 
   it('validates live submission reaches API endpoint with contract-compliant headers and body', async () => {
     const originalEnv = process.env.NEXT_PUBLIC_USE_MOCKS;
-    const originalBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const originalBase = process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL;
 
     let interceptedUrl = '';
     let interceptedOptions: RequestInit = {};
@@ -193,7 +193,7 @@ describe('P2 G6 Complaint Category Mapping & Idempotency Audit', () => {
 
     try {
       process.env.NEXT_PUBLIC_USE_MOCKS = 'false';
-      process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:3100';
+      process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL = 'http://localhost:3100';
 
       const res = await submitComplaint({
         category: 'Burning waste',
@@ -222,7 +222,7 @@ describe('P2 G6 Complaint Category Mapping & Idempotency Audit', () => {
       expect(parsedBody.evidence).toEqual([]);
     } finally {
       process.env.NEXT_PUBLIC_USE_MOCKS = originalEnv;
-      process.env.NEXT_PUBLIC_API_BASE_URL = originalBase;
+      process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL = originalBase;
       global.fetch = originalGlobalFetch;
     }
   });

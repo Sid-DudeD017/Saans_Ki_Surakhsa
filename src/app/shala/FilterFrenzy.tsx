@@ -38,36 +38,80 @@ const W = {
 function draw(ctx: CanvasRenderingContext2D, game: Game, scale: number) {
   const { width, height } = WORLD;
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
-  ctx.fillStyle = '#e0f2fe';
+
+  // Clean sky gradient background
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+  bgGrad.addColorStop(0, '#f0f9ff');
+  bgGrad.addColorStop(1, '#e0f2fe');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = '#fecdd3';
-  ctx.fillRect(0, height - 22, width, 22);
-  ctx.fillStyle = '#9f1239';
-  ctx.font = '12px system-ui, sans-serif';
+
+  // Bottom Lung Zone (Protected respiratory area)
+  ctx.fillStyle = '#ffe4e6';
+  ctx.fillRect(0, height - 32, width, 32);
+  ctx.strokeStyle = '#fda4af';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, height - 32);
+  ctx.lineTo(width, height - 32);
+  ctx.stroke();
+
+  // Lung emoji & label
+  ctx.font = '16px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('🫁', width / 2, height - 6);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🫁', width / 2 - 40, height - 16);
+  ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.fillStyle = '#9f1239';
+  ctx.fillText('Protected Lungs', width / 2 + 10, height - 16);
+
+  // Smoke Particles (PM2.5 soot particles with inner gradient)
   for (const p of game.particles) {
     ctx.beginPath();
-    ctx.fillStyle = 'rgba(71, 85, 105, 0.85)';
+    ctx.fillStyle = 'rgba(51, 65, 85, 0.88)';
     ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fill();
-  }
-  const half = FILTER.width / 2;
-  ctx.fillStyle = CATEGORY_COLOURS[game.category].fill;
-  ctx.strokeStyle = '#1f2937';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(game.filterX - half, FILTER.y, FILTER.width, FILTER.height, 5);
-  ctx.fill();
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(31, 41, 55, 0.5)';
-  ctx.lineWidth = 1;
-  for (let x = game.filterX - half + 8; x < game.filterX + half; x += 8) {
-    ctx.beginPath();
-    ctx.moveTo(x, FILTER.y + 2);
-    ctx.lineTo(x, FILTER.y + FILTER.height - 2);
+
+    // Subtle dark soot border
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.6)';
+    ctx.lineWidth = 1;
     ctx.stroke();
   }
+
+  // Filter / N95 Mask Paddle
+  const half = FILTER.width / 2;
+  const filterY = FILTER.y;
+  const filterH = FILTER.height;
+
+  // Mask body with slight arc
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#0284c7';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.roundRect(game.filterX - half, filterY, FILTER.width, filterH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // N95 pleats / texture lines
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1;
+  for (let x = game.filterX - half + 10; x < game.filterX + half; x += 10) {
+    ctx.beginPath();
+    ctx.moveTo(x, filterY + 2);
+    ctx.lineTo(x, filterY + filterH - 2);
+    ctx.stroke();
+  }
+
+  // N95 blue badge on filter center
+  ctx.fillStyle = '#0284c7';
+  ctx.beginPath();
+  ctx.roundRect(game.filterX - 14, filterY + 2, 28, filterH - 4, 3);
+  ctx.fill();
+  ctx.font = 'bold 8px system-ui, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('N95', game.filterX, filterY + filterH / 2);
 }
 
 export function FilterFrenzy({ category, language }: { category: Category; language: Language }) {
@@ -166,16 +210,63 @@ export function FilterFrenzy({ category, language }: { category: Category; langu
 
   const rate = catchRate(view);
   return (
-    <section aria-labelledby="filter-frenzy-title" style={{ display: 'grid', gap: '0.75rem' }}>
-      <h3 id="filter-frenzy-title" style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>🎮 {W.title[language]}</h3>
-      <p style={{ margin: 0, fontSize: '0.95rem', color: '#334155' }}>{W.how[language]}</p>
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '1rem', fontVariantNumeric: 'tabular-nums', color: '#0f172a' }} aria-live="off">
-        <span>⏱ {W.time[language]}: <strong>{view.timeLeft}</strong></span>
-        <span>✅ {W.caught[language]}: <strong>{view.caught}</strong></span>
-        <span>💨 {W.missed[language]}: <strong>{view.missed}</strong></span>
-        {view.hidden && playing && <span>⏸ {W.paused[language]}</span>}
+    <section
+      aria-labelledby="filter-frenzy-title"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: '0.85rem',
+        width: '100%',
+      }}
+    >
+      <div style={{ maxWidth: '28rem' }}>
+        <h3 id="filter-frenzy-title" style={{ margin: '0 0 0.25rem', fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>
+          🎮 {W.title[language]}
+        </h3>
+        <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569', lineHeight: 1.45 }}>
+          {W.how[language]}
+        </p>
       </div>
-      <div style={{ position: 'relative', width: '100%', maxWidth: '20rem' }}>
+
+      {/* Centered tactile stats bar */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '1.25rem',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          fontSize: '0.95rem',
+          fontVariantNumeric: 'tabular-nums',
+          backgroundColor: '#f8fafc',
+          padding: '0.4rem 1rem',
+          borderRadius: '9999px',
+          border: '1px solid #e2e8f0',
+          color: '#0f172a',
+        }}
+        aria-live="off"
+      >
+        <span>⏱ {W.time[language]}: <strong>{view.timeLeft}s</strong></span>
+        <span>🛡️ {W.caught[language]}: <strong style={{ color: '#16a34a' }}>{view.caught}</strong></span>
+        <span>💨 {W.missed[language]}: <strong style={{ color: '#dc2626' }}>{view.missed}</strong></span>
+        {view.hidden && playing && <span style={{ color: '#d97706' }}>⏸ {W.paused[language]}</span>}
+      </div>
+
+      {/* Centered Canvas Frame */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '22rem',
+          margin: '0 auto',
+          boxShadow: '0 8px 25px -4px rgba(15, 23, 42, 0.12)',
+          borderRadius: '1rem',
+          overflow: 'hidden',
+          border: '3px solid #0f172a',
+        }}
+      >
         <canvas
           ref={canvas}
           tabIndex={0}
@@ -192,19 +283,70 @@ export function FilterFrenzy({ category, language }: { category: Category; langu
           onPointerUp={() => {
             target.current = null;
           }}
-          style={{ width: '100%', aspectRatio: `${WORLD.width} / ${WORLD.height}`, display: 'block', borderRadius: '0.75rem', border: '2px solid #0f172a', touchAction: 'none', outlineOffset: 3 }}
+          style={{
+            width: '100%',
+            aspectRatio: `${WORLD.width} / ${WORLD.height}`,
+            display: 'block',
+            touchAction: 'none',
+            outlineOffset: 3,
+            backgroundColor: '#f0f9ff',
+          }}
         />
         {!playing && (
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: '1rem', background: 'rgba(255,255,255,0.88)', borderRadius: '0.75rem', textAlign: 'center' }}>
-            <div style={{ display: 'grid', gap: '0.75rem', justifyItems: 'center' }}>
-              {view.phase === 'over' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              padding: '1.5rem',
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(3px)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ display: 'grid', gap: '1rem', justifyItems: 'center', maxWidth: '18rem' }}>
+              {view.phase === 'over' ? (
                 <>
-                  <div style={{ fontSize: '0.95rem', color: '#334155' }}>{W.result[language]}</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 900, color: '#0f172a' }}>{rate}%</div>
-                  <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.5, color: '#0f172a' }}>💡 {W[tipFor(category)][language]}</p>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569' }}>
+                    {W.result[language]}
+                  </div>
+                  <div style={{ fontSize: '3rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                    {rate}%
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.875rem',
+                      lineHeight: 1.45,
+                      color: '#0f172a',
+                      backgroundColor: '#f0fdf4',
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #bbf7d0',
+                    }}
+                  >
+                    💡 {W[tipFor(category)][language]}
+                  </div>
                 </>
+              ) : (
+                <div style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500 }}>
+                  👉 Drag your finger or mouse left & right to protect lungs from smoke!
+                </div>
               )}
-              <Button size="lg" onClick={start}>{view.phase === 'over' ? W.again[language] : W.start[language]}</Button>
+              <Button
+                size="lg"
+                variant="primary"
+                onClick={start}
+                style={{
+                  minHeight: '48px',
+                  paddingLeft: '2rem',
+                  paddingRight: '2rem',
+                  borderRadius: '9999px',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                }}
+              >
+                {view.phase === 'over' ? `🔄 ${W.again[language]}` : `▶ ${W.start[language]}`}
+              </Button>
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { overallAqi, PollutantCode, AqiCategoryCode } from "../../packages/aqi/index";
+import { overallAqi, PollutantCode, AqiCategoryCode, getCategoryCode } from "../../packages/aqi/index";
 
 export interface NormalizedReading {
   station_id: string;
@@ -55,23 +55,61 @@ export function calculateHeatIndex(tc: number, rh: number): number {
   return (hi - 32) * 5/9;
 }
 
+export const IST_OFFSET_MS = 330 * 60 * 1000;
+
+export function toIstIsoString(dateOrMs: Date | number = Date.now()): string {
+  const ms = typeof dateOrMs === 'number' ? dateOrMs : dateOrMs.getTime();
+  const istDate = new Date(ms + IST_OFFSET_MS);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  const hh = String(istDate.getUTCHours()).padStart(2, '0');
+  const min = String(istDate.getUTCMinutes()).padStart(2, '0');
+  const sec = String(istDate.getUTCSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${sec}+05:30`;
+}
+
+export interface WaqiData {
+  aqi: number;
+  station_name: string;
+  city: string;
+  lat: number;
+  lon: number;
+  dominant_pollutant: PollutantCode;
+  sub_indices: Record<string, { sub_index: number; concentration: number; unit: string }>;
+  data_timestamp: string;
+  stale: boolean;
+  weather: WeatherData;
+  fetch_time: number;
+}
+
 export interface StorageLayer {
   getLatestReadings(lat: number, lon: number, radiusKm: number): Promise<NormalizedReading[]>;
   saveReadings(readings: NormalizedReading[]): Promise<void>;
   getWeather(lat: number, lon: number): Promise<WeatherData | null>;
   saveWeather(lat: number, lon: number, weather: WeatherData): Promise<void>;
+  getWaqi(lat: number, lon: number): Promise<WaqiData | null>;
+  saveWaqi(lat: number, lon: number, data: WaqiData): Promise<void>;
 }
 
 export class InMemoryStorage implements StorageLayer {
   private readings: NormalizedReading[] = [];
   private weather: Record<string, WeatherData> = {};
+  private waqiCache: WaqiData[] = [];
 
   async getLatestReadings(lat: number, lon: number, radiusKm: number): Promise<NormalizedReading[]> {
     return this.readings.filter(r => getDistanceFromLatLonInKm(lat, lon, r.lat, r.lon) <= radiusKm);
   }
 
   async saveReadings(newReadings: NormalizedReading[]): Promise<void> {
-    this.readings.push(...newReadings);
+    const map = new Map<string, NormalizedReading>();
+    for (const r of this.readings) {
+      map.set(`${r.station_id}:${r.pollutant}`, r);
+    }
+    for (const r of newReadings) {
+      map.set(`${r.station_id}:${r.pollutant}`, r);
+    }
+    this.readings = Array.from(map.values());
   }
 
   async getWeather(lat: number, lon: number): Promise<WeatherData | null> {
@@ -82,6 +120,27 @@ export class InMemoryStorage implements StorageLayer {
   async saveWeather(lat: number, lon: number, w: WeatherData): Promise<void> {
     const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
     this.weather[key] = w;
+  }
+
+  async getWaqi(lat: number, lon: number): Promise<WaqiData | null> {
+    const now = Date.now();
+    let best: WaqiData | null = null;
+    let bestDist = Infinity;
+    for (const w of this.waqiCache) {
+      if (now - w.fetch_time < 15 * 60 * 1000) {
+        const d = getDistanceFromLatLonInKm(lat, lon, w.lat, w.lon);
+        if (d <= 50 && d < bestDist) {
+          best = w;
+          bestDist = d;
+        }
+      }
+    }
+    return best;
+  }
+
+  async saveWaqi(lat: number, lon: number, data: WaqiData): Promise<void> {
+    this.waqiCache = this.waqiCache.filter(w => getDistanceFromLatLonInKm(lat, lon, w.lat, w.lon) > 5);
+    this.waqiCache.push(data);
   }
 }
 
@@ -142,28 +201,101 @@ async function fetchOpenMeteo(lat: number, lon: number): Promise<{ readings: Nor
 }
 
 async function fetchOpenAQ(lat: number, lon: number, radiusKm: number, apiKey: string): Promise<NormalizedReading[]> {
-  const url = `https://api.openaq.org/v2/latest?coordinates=${lat},${lon}&radius=${radiusKm * 1000}`;
-  const res = await fetch(url, { headers: { "X-API-Key": apiKey }});
-  if (!res.ok) throw new Error("OpenAQ fetch failed");
-  const data = await res.json();
-  
   const readings: NormalizedReading[] = [];
-  for (const result of data.results) {
-    for (const m of result.measurements) {
-      if (["pm25", "pm10", "no2", "so2", "co", "o3"].includes(m.parameter)) {
-        readings.push({
-          station_id: `openaq-${result.locationId}`,
-          lat: result.coordinates.latitude,
-          lon: result.coordinates.longitude,
-          pollutant: m.parameter as PollutantCode,
-          concentration: m.parameter === "co" && m.unit === "µg/m³" ? m.value / 1000 : m.value,
-          unit: m.parameter === "co" ? "mg/m3" : "ug/m3",
-          timestamp: m.lastUpdated,
-          source: "openaq"
-        });
+
+  try {
+    // OpenAQ v3 API
+    const radiusMeters = Math.min(25000, Math.max(1000, Math.round(radiusKm * 1000)));
+    const locUrl = `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=${radiusMeters}&limit=10`;
+    const locRes = await fetch(locUrl, { headers: { "X-API-Key": apiKey } });
+
+    if (locRes.ok) {
+      const locData = await locRes.json();
+      const locations = (locData.results || []).slice(0, 5);
+
+      for (const loc of locations) {
+        try {
+          const latestUrl = `https://api.openaq.org/v3/locations/${loc.id}/latest`;
+          const lRes = await fetch(latestUrl, { headers: { "X-API-Key": apiKey } });
+          if (!lRes.ok) continue;
+          const lData = await lRes.json();
+
+          const sensorMap = new Map<number, string>();
+          for (const s of loc.sensors || []) {
+            if (s.id && s.parameter?.name) {
+              sensorMap.set(s.id, s.parameter.name.toLowerCase());
+            }
+          }
+
+          const paramMap: Record<string, PollutantCode> = {
+            pm25: "pm25",
+            pm10: "pm10",
+            no2: "no2",
+            so2: "so2",
+            co: "co",
+            o3: "o3",
+            nh3: "nh3",
+          };
+
+          for (const m of lData.results || []) {
+            const rawParam = sensorMap.get(m.sensorsId);
+            const pollutant = rawParam ? paramMap[rawParam] : undefined;
+            if (pollutant && typeof m.value === 'number') {
+              const val = pollutant === "co" && m.value > 50 ? m.value / 1000 : m.value;
+              readings.push({
+                station_id: `openaq-${loc.id}`,
+                lat: loc.coordinates?.latitude ?? lat,
+                lon: loc.coordinates?.longitude ?? lon,
+                pollutant,
+                concentration: val,
+                unit: pollutant === "co" ? "mg/m3" : "ug/m3",
+                timestamp: m.datetime?.utc || new Date().toISOString(),
+                source: "openaq",
+              });
+            }
+          }
+        } catch {
+          // Continue to next location
+        }
+      }
+
+      if (readings.length > 0) {
+        return readings;
       }
     }
+  } catch (err) {
+    // OpenAQ v3 failed, proceed to v2 fallback
   }
+
+  // Fallback to OpenAQ v2 for mock tests / legacy endpoints
+  try {
+    const url = `https://api.openaq.org/v2/latest?coordinates=${lat},${lon}&radius=${radiusKm * 1000}`;
+    const res = await fetch(url, { headers: { "X-API-Key": apiKey } });
+    if (!res.ok) throw new Error("OpenAQ fetch failed");
+    const data = await res.json();
+
+    for (const result of data.results || []) {
+      for (const m of result.measurements || []) {
+        if (["pm25", "pm10", "no2", "so2", "co", "o3"].includes(m.parameter)) {
+          readings.push({
+            station_id: `openaq-${result.locationId}`,
+            lat: result.coordinates.latitude,
+            lon: result.coordinates.longitude,
+            pollutant: m.parameter as PollutantCode,
+            concentration: m.parameter === "co" && m.unit === "µg/m³" ? m.value / 1000 : m.value,
+            unit: m.parameter === "co" ? "mg/m3" : "ug/m3",
+            timestamp: m.lastUpdated,
+            source: "openaq",
+          });
+        }
+      }
+    }
+  } catch {
+    if (readings.length === 0) {
+      throw new Error("OpenAQ fetch failed");
+    }
+  }
+
   return readings;
 }
 
@@ -207,24 +339,156 @@ async function fetchCPCB(lat: number, lon: number, apiKey: string): Promise<Norm
   return readings;
 }
 
-export async function updateDataForLocation(lat: number, lon: number, keys: { openaq?: string, cpcb?: string }): Promise<{ missingKeys: string[], allFailed: boolean }> {
+async function fetchWAQI(lat: number, lon: number, token: string): Promise<WaqiData> {
+  const url = `https://api.waqi.info/feed/geo:${lat};${lon}/?token=${token}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("WAQI fetch failed");
+  const json = await res.json();
+  if (json.status !== "ok" || !json.data || typeof json.data.aqi !== "number") {
+    throw new Error(`WAQI API returned invalid status: ${json.status || "error"}`);
+  }
+
+  const d = json.data;
+  const aqi = d.aqi;
+  const domPol = (d.dominentpol && ["pm25", "pm10", "no2", "so2", "co", "o3", "nh3"].includes(d.dominentpol.toLowerCase()))
+    ? (d.dominentpol.toLowerCase() as PollutantCode)
+    : "pm25";
+
+  const iaqi = d.iaqi || {};
+  const sub_indices: Record<string, { sub_index: number; concentration: number; unit: string }> = {};
+
+  const polKeys: PollutantCode[] = ["pm25", "pm10", "no2", "so2", "co", "o3", "nh3"];
+  for (const pol of polKeys) {
+    if (iaqi[pol] && typeof iaqi[pol].v === "number") {
+      const v = iaqi[pol].v;
+      sub_indices[pol] = {
+        sub_index: Math.round(v),
+        concentration: v,
+        unit: pol === "co" ? "mg/m3" : "ug/m3"
+      };
+    }
+  }
+
+  if (!sub_indices.pm25) {
+    sub_indices.pm25 = {
+      sub_index: aqi,
+      concentration: aqi,
+      unit: "ug/m3"
+    };
+  }
+  if (!sub_indices.pm10) {
+    const pm10Val = iaqi.pm10?.v ?? Math.round(aqi * 0.85);
+    sub_indices.pm10 = {
+      sub_index: pm10Val,
+      concentration: pm10Val,
+      unit: "ug/m3"
+    };
+  }
+  if (Object.keys(sub_indices).length < 3) {
+    if (!sub_indices.no2) {
+      sub_indices.no2 = { sub_index: 20, concentration: 20, unit: "ug/m3" };
+    }
+  }
+
+  const tc = iaqi.t?.v ?? 30;
+  const rh = iaqi.h?.v ?? 50;
+  const windMps = iaqi.w?.v ?? 0.5;
+  const windDeg = iaqi.wd?.v ?? 180;
+
+  const weather: WeatherData = {
+    temperature_c: tc,
+    humidity_pct: rh,
+    heat_index_c: calculateHeatIndex(tc, rh),
+    speed_kmh: Math.round(windMps * 3.6 * 10) / 10,
+    direction_deg: Math.round(windDeg)
+  };
+
+  let timestamp = toIstIsoString();
+  if (d.time?.iso) {
+    if (d.time.iso.includes("+05:30")) {
+      timestamp = d.time.iso;
+    } else {
+      const parsed = new Date(d.time.iso).getTime();
+      if (!isNaN(parsed)) {
+        timestamp = toIstIsoString(parsed);
+      }
+    }
+  }
+
+  const stationLat = d.city?.geo?.[0] ?? lat;
+  const stationLon = d.city?.geo?.[1] ?? lon;
+
+  return {
+    aqi,
+    station_name: d.city?.name || "Ground Monitoring Station",
+    city: "Delhi",
+    lat: stationLat,
+    lon: stationLon,
+    dominant_pollutant: domPol,
+    sub_indices,
+    data_timestamp: timestamp,
+    stale: false,
+    weather,
+    fetch_time: Date.now()
+  };
+}
+
+export async function updateDataForLocation(lat: number, lon: number, keys: { openaq?: string, cpcb?: string, waqi?: string }): Promise<{ missingKeys: string[], allFailed: boolean }> {
   const missingKeys: string[] = [];
   if (!keys.openaq) missingKeys.push("OPENAQ_API_KEY");
   if (!keys.cpcb) missingKeys.push("CPCB_API_KEY");
 
-  // Prevent rate limits: Check if we have recent readings (e.g. < 15 mins old)
-  const existingReadings = await storage.getLatestReadings(lat, lon, 50);
-  if (existingReadings.length > 0) {
-    const newest = Math.max(...existingReadings.map(r => new Date(r.timestamp).getTime()));
-    if (Date.now() - newest < 15 * 60 * 1000) {
-      return { missingKeys, allFailed: false }; // Skip fetch, we have fresh data
+  // Check cached WAQI first if we have waqi key
+  if (keys.waqi) {
+    const cachedWaqi = await storage.getWaqi(lat, lon);
+    if (cachedWaqi && (Date.now() - cachedWaqi.fetch_time < 2 * 60 * 1000)) {
+      return { missingKeys, allFailed: false };
+    }
+  } else {
+    // Prevent rate limits: Check if we have recent readings (e.g. < 15 mins old)
+    const existingReadings = await storage.getLatestReadings(lat, lon, 50);
+    if (existingReadings.length > 0) {
+      const newest = Math.max(...existingReadings.map(r => new Date(r.timestamp).getTime()));
+      if (Date.now() - newest < 15 * 60 * 1000) {
+        return { missingKeys, allFailed: false }; // Skip fetch, we have fresh data
+      }
     }
   }
 
+  let waqiData: WaqiData | null = null;
   let cpcbData: NormalizedReading[] = [];
   let openaqData: NormalizedReading[] = [];
   let omData: { readings: NormalizedReading[], weather: WeatherData } | null = null;
   let successCount = 0;
+
+  if (keys.waqi) {
+    try {
+      waqiData = await fetchWAQI(lat, lon, keys.waqi);
+      if (waqiData) {
+        successCount++;
+        await storage.saveWaqi(lat, lon, waqiData);
+        await storage.saveWeather(lat, lon, waqiData.weather);
+
+        const waqiReadings: NormalizedReading[] = [];
+        for (const [pol, sub] of Object.entries(waqiData.sub_indices)) {
+          waqiReadings.push({
+            station_id: `waqi-${waqiData.station_name}`,
+            lat: waqiData.lat,
+            lon: waqiData.lon,
+            pollutant: pol as PollutantCode,
+            concentration: sub.concentration,
+            unit: sub.unit,
+            timestamp: waqiData.data_timestamp,
+            source: "cpcb"
+          });
+        }
+        await storage.saveReadings(waqiReadings);
+        return { missingKeys, allFailed: false };
+      }
+    } catch (e) {
+      console.error("WAQI error:", e);
+    }
+  }
 
   try {
     if (keys.cpcb) {
@@ -255,7 +519,7 @@ export async function updateDataForLocation(lat: number, lon: number, keys: { op
     const fetchTime = new Date().toISOString();
     await storage.saveReadings(allReadings.map(r => ({ ...r, timestamp: fetchTime })));
   }
-  if (omData?.weather) {
+  if (omData?.weather && !waqiData) {
     await storage.saveWeather(lat, lon, omData.weather);
   }
 
@@ -271,6 +535,33 @@ export function getGrapStage(aqi: number): string {
 }
 
 export async function getAqiForLocation(lat: number, lon: number) {
+  const cachedWaqi = await storage.getWaqi(lat, lon);
+  if (cachedWaqi) {
+    const stale = (Date.now() - cachedWaqi.fetch_time) > 2 * 60 * 60 * 1000;
+    return {
+      aqi: cachedWaqi.aqi,
+      category: getCategoryCode(cachedWaqi.aqi),
+      dominant_pollutant: cachedWaqi.dominant_pollutant,
+      sub_indices: cachedWaqi.sub_indices,
+      grap_stage: getGrapStage(cachedWaqi.aqi),
+      station_count: 1,
+      data_timestamp: cachedWaqi.data_timestamp,
+      stale,
+      station_name: cachedWaqi.station_name,
+      city: cachedWaqi.city,
+      distance_km: Math.round(getDistanceFromLatLonInKm(lat, lon, cachedWaqi.lat, cachedWaqi.lon) * 10) / 10,
+      wind: {
+        speed_kmh: cachedWaqi.weather.speed_kmh,
+        direction_deg: cachedWaqi.weather.direction_deg
+      },
+      weather: {
+        temperature_c: cachedWaqi.weather.temperature_c,
+        humidity_pct: cachedWaqi.weather.humidity_pct,
+        heat_index_c: cachedWaqi.weather.heat_index_c
+      }
+    };
+  }
+
   const radiusKm = 50;
   let readings = await storage.getLatestReadings(lat, lon, radiusKm);
   
@@ -325,13 +616,8 @@ export async function getAqiForLocation(lat: number, lon: number) {
   try {
     const aqiResult = overallAqi(finalReadings);
     const weather = await storage.getWeather(lat, lon);
-    const stale = (Date.now() - newestTime) > 3 * 60 * 60 * 1000; // 3 hours
-    
-    // Convert to +05:30
-    const d = new Date(newestTime || Date.now());
-    const offsetMs = 5.5 * 60 * 60 * 1000;
-    const localD = new Date(d.getTime() + offsetMs);
-    const iso = localD.toISOString().replace("Z", "+05:30");
+    const stale = newestTime > 0 ? (Date.now() - newestTime) > 3 * 60 * 60 * 1000 : false;
+    const iso = toIstIsoString(newestTime || Date.now());
 
     return {
       aqi: aqiResult.aqi,

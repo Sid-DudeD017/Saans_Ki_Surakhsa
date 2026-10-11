@@ -9,6 +9,7 @@ function Card({ card, language }: { card: GasCard; language: Language }) {
   const colour = card.reading ? CATEGORY_COLOURS[card.reading.category] : null;
   return (
     <li
+      className="saans-gas-card"
       style={{
         display: 'grid',
         gridTemplateRows: 'auto 1fr auto',

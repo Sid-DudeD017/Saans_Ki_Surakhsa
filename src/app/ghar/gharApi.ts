@@ -4,7 +4,7 @@ import { estimateIndoor, type IndoorEstimate, type IndoorRequest } from '../../.
 import { EXAMPLE_OUTDOOR } from './sharma';
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
-const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+const BASE = '';
 
 export async function getIndoorEstimate(room: IndoorRequest): Promise<IndoorEstimate> {
   if (USE_MOCKS) return estimateIndoor(room, EXAMPLE_OUTDOOR, Date.now());

@@ -1466,11 +1466,12 @@ export function ReportSheet({
                     borderRadius: '0.5rem',
                     overflow: 'hidden',
                     touchAction: 'none',
-                    cursor: isDragging ? 'grabbing' : 'grab',
-                    border: '1px solid #cbd5e1',
+                    cursor: isDragging ? 'grabbing' : 'crosshair',
+                    border: '1.5px solid #0284c7',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)',
                   }}
                   role="region"
-                  aria-label="Map to select smoke location"
+                  aria-label="Map to select smoke location. Drag the pin or click anywhere to position it."
                 >
                   {/* Background raster tile grid using CartoDB Voyager (OSM-based, free, no 403 block) */}
                   <div
@@ -1482,6 +1483,7 @@ export function ReportSheet({
                       height: 0,
                       pointerEvents: 'none',
                     }}
+                    aria-hidden
                   >
                     {tiles.map((t) => {
                       const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY || 'cb1_4grj_1_dbbc20a1247c6aa97594b98a';
@@ -1526,8 +1528,9 @@ export function ReportSheet({
                         width: '36px',
                         height: '36px',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
+                        userSelect: 'none',
                       }}
                     >
                       <span
@@ -1647,13 +1650,15 @@ export function ReportSheet({
                       bottom: '0.5rem',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                      backgroundColor: 'rgba(15, 23, 42, 0.85)',
                       color: '#ffffff',
-                      padding: '0.25rem 0.6rem',
-                      borderRadius: '9999px',
                       fontSize: '0.75rem',
                       fontWeight: 600,
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '9999px',
                       pointerEvents: 'none',
+                      backdropFilter: 'blur(4px)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                       whiteSpace: 'nowrap',
                       zIndex: 11,
                       display: 'flex',
@@ -1690,9 +1695,9 @@ export function ReportSheet({
 
             {/* STEP 3: DETAILS */}
             {step === 3 && (
-              <Stack gap="md">
+              <Stack gap="sm">
                 <div>
-                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', color: '#0f172a', fontWeight: 700 }}>
                     📝 {REPORT_I18N.step3Title[language]}
                   </h4>
                 </div>

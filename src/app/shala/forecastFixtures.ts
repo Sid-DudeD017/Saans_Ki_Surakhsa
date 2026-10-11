@@ -6,19 +6,36 @@ import type { Category } from './airQuality';
 export type ForecastResponse = components['schemas']['ForecastResponse'];
 export type ForecastHour = components['schemas']['ForecastHour'];
 
+export const IST_OFFSET_MS = 330 * 60 * 1000;
+
+export function toIstIsoHour(dateOrMs: Date | number): string {
+  const ms = typeof dateOrMs === 'number' ? dateOrMs : dateOrMs.getTime();
+  const istDate = new Date(ms + IST_OFFSET_MS);
+  const year = istDate.getUTCFullYear();
+  const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(istDate.getUTCDate()).padStart(2, '0');
+  const hourStr = String(istDate.getUTCHours()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hourStr}:00:00+05:30`;
+}
+
 function build24Hours(
   startHour: number,
-  pattern: { hour: number; aqi: number; category: Category; pm25: number }[]
+  pattern: { hour: number; aqi: number; category: Category; pm25: number }[],
+  baseDate = new Date()
 ): ForecastHour[] {
   const result: ForecastHour[] = [];
-  for (let i = 0; i < 24; i++) {
-    const h = (startHour + i) % 24;
-    const day = startHour + i >= 24 ? '09' : '08';
-    const hourStr = String(h).padStart(2, '0');
-    const time = `2026-10-${day}T${hourStr}:00:00+05:30`;
+  const baseMs = baseDate.getTime();
+  const baseIstDate = new Date(baseMs + IST_OFFSET_MS);
+  const curHour = baseIstDate.getUTCHours();
 
-    // Pick closest match from pattern or extrapolate
-    const match = pattern.find((p) => p.hour === h) || pattern[pattern.length - 1];
+  for (let i = 0; i < 24; i++) {
+    const hourMs = baseMs + i * 60 * 60 * 1000;
+    const hourIstDate = new Date(hourMs + IST_OFFSET_MS);
+    const h = hourIstDate.getUTCHours();
+    const time = toIstIsoHour(hourMs);
+
+    // Pick closest match from pattern by hour-of-day
+    const match = pattern.find((p) => p.hour === h) || pattern[(i + curHour) % pattern.length] || pattern[pattern.length - 1];
     result.push({
       time,
       aqi: match.aqi,
@@ -179,6 +196,53 @@ export const FORECAST_FIXTURES: Record<Category, ForecastResponse> = {
     hours: SEVERE_DAY_HOURS,
   },
 };
+
+const PATTERNS_BY_CATEGORY: Record<Category, { hour: number; aqi: number; category: Category; pm25: number }[]> = {
+  poor: [
+    { hour: 9, aqi: 130, category: 'moderate', pm25: 68 },
+    { hour: 13, aqi: 125, category: 'moderate', pm25: 66 },
+    { hour: 17, aqi: 245, category: 'poor', pm25: 105 },
+    { hour: 20, aqi: 285, category: 'poor', pm25: 126 },
+  ],
+  moderate: [
+    { hour: 9, aqi: 85, category: 'satisfactory', pm25: 48 },
+    { hour: 13, aqi: 75, category: 'satisfactory', pm25: 42 },
+    { hour: 15, aqi: 125, category: 'moderate', pm25: 66 },
+    { hour: 19, aqi: 170, category: 'moderate', pm25: 84 },
+  ],
+  good: [
+    { hour: 9, aqi: 40, category: 'good', pm25: 24 },
+    { hour: 13, aqi: 35, category: 'good', pm25: 21 },
+    { hour: 17, aqi: 48, category: 'good', pm25: 29 },
+  ],
+  satisfactory: [
+    { hour: 9, aqi: 75, category: 'satisfactory', pm25: 42 },
+    { hour: 13, aqi: 70, category: 'satisfactory', pm25: 40 },
+    { hour: 17, aqi: 115, category: 'moderate', pm25: 62 },
+  ],
+  very_poor: [
+    { hour: 9, aqi: 340, category: 'very_poor', pm25: 150 },
+    { hour: 14, aqi: 280, category: 'poor', pm25: 122 },
+    { hour: 18, aqi: 285, category: 'poor', pm25: 124 },
+  ],
+  severe: [
+    { hour: 9, aqi: 440, category: 'severe', pm25: 275 },
+    { hour: 13, aqi: 420, category: 'severe', pm25: 255 },
+    { hour: 16, aqi: 390, category: 'very_poor', pm25: 220 },
+    { hour: 18, aqi: 430, category: 'severe', pm25: 265 },
+  ],
+};
+
+export function getDynamicForecastFixture(category: Category, now = new Date()): ForecastResponse {
+  const base = FORECAST_FIXTURES[category] || FORECAST_FIXTURES.poor;
+  const pattern = PATTERNS_BY_CATEGORY[category] || PATTERNS_BY_CATEGORY.poor;
+  const istNow = new Date(now.getTime() + IST_OFFSET_MS);
+  return {
+    ...base,
+    generated_at: toIstIsoHour(now),
+    hours: build24Hours(istNow.getUTCHours(), pattern, now),
+  };
+}
 
 /**
  * Checks whether coordinates fall into the forecast service's coverage area (Punjab & Delhi NCR).

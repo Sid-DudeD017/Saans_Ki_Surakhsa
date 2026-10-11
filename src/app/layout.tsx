@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import './globals.css';
 import { AuthProvider } from '../lib/auth';
 import { LanguageProvider } from '../lib/i18n';
 import { Header } from '../components/Header';

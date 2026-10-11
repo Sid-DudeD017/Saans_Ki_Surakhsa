@@ -90,3 +90,24 @@ describe('/v1/agent/kisan/* forwards to the agent', () => {
     expect((await res.json()).error.code).toBe('unavailable');
   });
 });
+
+import { POST as farmPOST } from '../app/v1/farm/[...path]/route';
+import { GET as chcsGET } from '../app/v1/chcs/route';
+
+describe('/v1/farm/* and /v1/chcs forward to the agent too', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('keeps their own paths and queries', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      return Response.json({ ok: true });
+    }));
+    await farmPOST(new Request('http://app.test/v1/farm/coverage', { method: 'POST', body: '{}' }), { params: Promise.resolve({ path: ['coverage'] }) });
+    await chcsGET(new Request('http://app.test/v1/chcs?village=Bhawanigarh&machine=super_seeder'));
+    expect(urls).toEqual([
+      'http://127.0.0.1:8001/v1/farm/coverage',
+      'http://127.0.0.1:8001/v1/chcs?village=Bhawanigarh&machine=super_seeder',
+    ]);
+  });
+});

@@ -44,7 +44,7 @@ interface CaseRow {
   updated_at: Date;
   help_body: HelpBody | null;
   help_district: string | null;
-  complaint_body: { description?: string; reporter_id?: string; reporter_consent?: boolean } | null;
+  complaint_body: { description?: string; reporter_id?: string; reporter_consent?: boolean; subtype?: string; chc_name?: string } | null;
   received_at: Date;
 }
 
@@ -332,7 +332,7 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
   const showInternalNotes = await rules.may(officer, "ViewInternalNotes", facts);
   const rec = recommendation(r, deps.now());
   const help = r.help_body;
-  const channel = r.type === "farmer_support" ? "kisan_saathi" : "anonymous";
+  const channel = r.type === "farmer_support" || r.type === "kisan_grievance" ? "kisan_saathi" : "anonymous";
   return Response.json({
     case: commandCase(r, deps.now()),
     type: r.type,
@@ -340,6 +340,10 @@ export async function getCase(deps: IntakeDeps, id: string, officer: Officer): P
     authorities: r.authorities,
     deadline: indiaTime(r.deadline),
     ...triageFields(r),
+    // What a farmer's complaint is about.
+    ...(r.type === "kisan_grievance" && r.complaint_body?.subtype
+      ? { grievance: { subtype: r.complaint_body.subtype, ...(r.complaint_body.chc_name ? { chcName: r.complaint_body.chc_name } : {}) } }
+      : {}),
     report: {
       id: r.complaint_id,
       reportedAt: indiaTime(r.received_at),

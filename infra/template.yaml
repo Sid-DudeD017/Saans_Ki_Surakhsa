@@ -210,6 +210,26 @@ Resources:
         Target: node22
         Sourcemap: true
 
+  ComplaintStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services/command-api/lambda.complaintStatus
+      CodeUri: ../
+      Events:
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: Api
+            Method: GET
+            Path: /v1/complaints/{id}
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [services/command-api/lambda.ts]
+        Target: node22
+        Sourcemap: true
+
   ValidateFunction:
     Type: AWS::Serverless::Function
     Properties:

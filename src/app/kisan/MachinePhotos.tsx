@@ -9,7 +9,7 @@ import { Alert, Button, Card } from '../../components/ui';
 import { MACHINE_TYPES, describeGuess, farmStore, preselect, type MachineType, type OwnedMachine } from './farmProfile';
 import { KisanError, sendPhoto, type Language, type PhotoResponse } from './kisanApi';
 import { newId, shrinkPhoto, thumbnail } from './photoPrep';
-import { machineLabel, say, sayWith } from './strings';
+import { dayWord, machineLabel, say, sayWith } from './strings';
 
 const GREEN = '#15803d';
 const CHOICES: (MachineType | 'other')[] = [...MACHINE_TYPES, 'other'];
@@ -233,7 +233,7 @@ export function MachinePhotos({ language }: { language: Language }) {
                       </div>
                       <div style={{ fontSize: '0.9rem', color: '#475569' }}>
                         {say(m.owned ? 'mine' : 'rented', language)} ·{' '}
-                        {m.days !== undefined ? sayWith('nDays', language, { n: m.days }) : say('wholeSeason', language)}
+                        {m.days !== undefined ? sayWith('nDays', language, { n: m.days, dayWord: dayWord(m.days) }) : say('wholeSeason', language)}
                       </div>
                     </div>
                     <Button variant="ghost" onClick={() => remove(m.id)} style={{ minHeight: '2.75rem' }}>

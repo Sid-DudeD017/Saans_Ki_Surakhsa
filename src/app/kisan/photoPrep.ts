@@ -49,3 +49,16 @@ export function newId(): string {
     ? crypto.randomUUID()
     : `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+/**
+ * A complaint photo as JPEG, at most 1600 px, with no camera details or GPS (the canvas drops them).
+ * Command's uploads expect the media type and SHA-256 to match exactly what is sent.
+ */
+export async function complaintPhoto(file: Blob): Promise<{ blob: Blob; sha256: string }> {
+  const canvas = await draw(file, MAX_SIDE);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  if (!blob) throw new Error("couldn't read the photo");
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const sha256 = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return { blob, sha256 };
+}

@@ -13,9 +13,43 @@ export default function RootPage() {
   const [aqiData, setAqiData] = useState<AqiData | null>(null);
 
   useEffect(() => {
-    getAqi(28.6472, 77.3058)
-      .then((data) => setAqiData(data))
-      .catch((err) => console.error('Failed to load AQI', err));
+    let mounted = true;
+
+    const fetchCurrentAqi = (lat: number, lon: number) => {
+      getAqi(lat, lon)
+        .then((data) => {
+          if (mounted) setAqiData(data);
+        })
+        .catch((err) => console.error('Failed to load AQI', err));
+    };
+
+    let activeLat = 28.73;
+    let activeLon = 77.12;
+
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          activeLat = pos.coords.latitude;
+          activeLon = pos.coords.longitude;
+          if (mounted) fetchCurrentAqi(activeLat, activeLon);
+        },
+        () => {
+          if (mounted) fetchCurrentAqi(activeLat, activeLon);
+        },
+        { timeout: 3000 }
+      );
+    } else {
+      fetchCurrentAqi(activeLat, activeLon);
+    }
+
+    const interval = setInterval(() => {
+      if (mounted) fetchCurrentAqi(activeLat, activeLon);
+    }, 120_000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const modules = [
@@ -73,18 +107,18 @@ export default function RootPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-              📍 Regional Monitoring Corridor (East Delhi)
+              📍 {aqiData?.station_name ? aqiData.station_name : 'Regional Monitoring Corridor'}
             </span>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginTop: '0.25rem' }}>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
-                {aqiData?.aqi ?? 287}
+                {aqiData?.aqi ?? 159}
               </span>
               <div>
-                <Badge variant="warning" size="md">
-                  {aqiData?.category ?? 'Poor'} (GRAP Stage II)
+                <Badge variant={aqiData?.category === 'Good' || aqiData?.category === 'Satisfactory' ? 'success' : aqiData?.category === 'Moderate' ? 'warning' : 'danger'} size="md">
+                  {aqiData?.category ?? 'Moderate'}
                 </Badge>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-                  Dominant: {aqiData?.dominant_pollutant ?? 'PM2.5'} ({aqiData?.pm25 ?? 168} µg/m³)
+                  Dominant: {aqiData?.dominant_pollutant ?? 'PM2.5'} ({aqiData?.pm25 ?? 159} µg/m³)
                 </div>
               </div>
             </div>

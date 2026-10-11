@@ -9,7 +9,7 @@ import YAML from "yaml";
 import { ROUTED_TYPES, commandConfig, routeFor } from "./config";
 import { canonicalJson, requestHash, submitComplaint } from "./complaints";
 import { s3Client, type IntakeDeps } from "./deps";
-import { CITIZEN_TYPES, MAX_UPLOAD_BYTES, MEDIA_TYPES, parseComplaint } from "./inputs";
+import { CITIZEN_TYPES, GRIEVANCE_SUBTYPES, MAX_UPLOAD_BYTES, MEDIA_TYPES, parseComplaint } from "./inputs";
 import { indiaTime } from "./time";
 import { createUpload } from "./uploads";
 
@@ -37,6 +37,14 @@ describe("inputs match the contract", () => {
     expect(parseComplaint(untyped)).toMatchObject({ success: true, data: { type: "farmer_support" } });
   });
 
+  it("a farmer's complaint (kisan_grievance) matches the contract", () => {
+    expect([...GRIEVANCE_SUBTYPES]).toEqual(schemas.KisanGrievance.properties.subtype.enum);
+    const ok = parseComplaint({ type: "kisan_grievance", location: { lat: 30.27, lon: 76.04 }, subtype: "chc_no_show", chc_name: "Demo CHC A" });
+    expect(ok).toMatchObject({ success: true, data: { type: "kisan_grievance", evidence: [] } });
+    const bad = parseComplaint({ type: "kisan_grievance", location: { lat: 30.27, lon: 76.04 }, subtype: "fire" });
+    expect(bad.error?.issues[0].path).toEqual(["subtype"]);
+  });
+
   it("a report outside the map is refused field by field", () => {
     const result = parseComplaint({ type: "farm_fire", location: { lat: 95, lon: 76 }, evidence: [] });
     expect(result.success).toBe(false);
@@ -45,8 +53,12 @@ describe("inputs match the contract", () => {
 });
 
 describe("routing (infra/config/routing.json)", () => {
-  it("routes every complaint type, farmer_support included", () => {
-    expect(ROUTED_TYPES.sort()).toEqual([...CITIZEN_TYPES, "farmer_support"].sort());
+  it("routes every complaint type, the farmer's two included", () => {
+    expect(ROUTED_TYPES.sort()).toEqual([...CITIZEN_TYPES, "farmer_support", "kisan_grievance"].sort());
+  });
+
+  it("a farmer's complaint goes to the District Agriculture Officer and is never a penalty", () => {
+    expect(routeFor("kisan_grievance")).toEqual({ authorities: ["District Agriculture Officer"], deadlineHours: 48, penalty: false });
   });
 
   it("a farmer's request for help is never a penalty", () => {
@@ -56,7 +68,7 @@ describe("routing (infra/config/routing.json)", () => {
 
   it("deadlines are the demo configuration's", () => {
     expect(Object.fromEntries(ROUTED_TYPES.map((t) => [t, routeFor(t).deadlineHours]))).toEqual({
-      farm_fire: 4, garbage: 12, vehicle: 24, firecrackers: 2, farmer_support: 72, dust: 24, industrial: 24,
+      farm_fire: 4, garbage: 12, vehicle: 24, firecrackers: 2, farmer_support: 72, dust: 24, industrial: 24, kisan_grievance: 48,
     });
   });
 });
