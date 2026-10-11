@@ -1913,18 +1913,6 @@ export function ReportSheet({
                   )}
                 </div>
 
-                {/* Navigation */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                  <Button
-                    size="md"
-                    variant="secondary"
-                    onClick={() => setStep(2)}
-                    style={{ minHeight: '44px', minWidth: '44px' }}
-                  >
-                    {REPORT_I18N.backBtn[language]}
-                  </Button>
-                </div>
-
                 {!allCategoriesSelected && (
                   <div
                     style={{
