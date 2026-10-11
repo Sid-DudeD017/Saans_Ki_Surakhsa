@@ -101,7 +101,7 @@ export default function KisanPage() {
         <div style={{ display: 'grid', gap: '1rem' }}>
           <Helplines district={district} language={lang} />
           <ComplaintSheet language={lang} />
-          <MyTickets district={district} language={lang} />
+          <MyTickets language={lang} />
         </div>
       </Panel>
 
