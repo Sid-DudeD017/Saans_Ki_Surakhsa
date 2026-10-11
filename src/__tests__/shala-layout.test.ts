@@ -82,15 +82,13 @@ describe('Saans Shala - Section 4 Layout Specification', () => {
       expect(pageSource).toContain('const [detailsOpen, setDetailsOpen] = useState(false);');
     });
 
-    it('renders RedZoneMap only when Around you is shown (opened, or on its own tab)', () => {
-      expect(pageSource).toContain("const aroundShown = aroundYouOpen || tab === 'around';");
-      expect(pageSource).toContain('{aroundShown && (');
+    it('renders RedZoneMap only when aroundYouOpen is true', () => {
+      expect(pageSource).toContain('{aroundYouOpen && (');
       expect(pageSource).toContain('<RedZoneMap');
     });
 
-    it('renders AirBuddy and GasCards only when Learn is shown (opened, or on its own tab)', () => {
-      expect(pageSource).toContain("const learnShown = learnOpen || tab === 'learn';");
-      expect(pageSource).toContain('{learnShown && (');
+    it('renders AirBuddy and GasCards only when learnOpen is true', () => {
+      expect(pageSource).toContain('{learnOpen && (');
       expect(pageSource).toContain('<AirBuddy');
       expect(pageSource).toContain('<GasCards');
     });
