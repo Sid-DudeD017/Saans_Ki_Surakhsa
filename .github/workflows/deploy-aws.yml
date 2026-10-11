@@ -63,10 +63,10 @@ jobs:
           --parameter-overrides
           Stage=dev
           DatabaseSecretArn="${{ vars.DATABASE_SECRET_ARN }}"
-          CorsAllowedOrigin="http://localhost:3000"
+          CorsAllowedOrigin="https://main.d1pmu6csdapqi4.amplifyapp.com"
           CognitoDomainPrefix="saans-dev-054266242578"
-          AppCallbackUrl="http://localhost:3000/callback"
-          AppLogoutUrl="http://localhost:3000/logout"
+          AppCallbackUrl="https://main.d1pmu6csdapqi4.amplifyapp.com/callback"
+          AppLogoutUrl="https://main.d1pmu6csdapqi4.amplifyapp.com/"
 
       - name: Show stack outputs
         run: >-

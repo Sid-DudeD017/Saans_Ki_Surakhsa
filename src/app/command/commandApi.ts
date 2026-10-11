@@ -1,10 +1,11 @@
 // Saans Command's reads and writes for the console (P4), in p4-command.openapi.yaml's shapes. With
-// NEXT_PUBLIC_USE_MOCKS on (the default) they run on the example cases in mockCases.ts, through the same
-// rules the real API uses (but no sign-in: every example is shown); off, they call /v1/cases as the chosen
-// demo officer, and Cedar on the server decides what that officer sees.
+// NEXT_PUBLIC_USE_MOCKS=true they run on the example cases in mockCases.ts, through the same rules the
+// real API uses (but no sign-in: every example is shown); otherwise, they call /v1/cases with the
+// Cognito access token, and Cedar on the server decides what that officer sees.
 import officers from '../../../infra/config/officers.local.json';
 import type { components } from '../../../packages/contracts/types';
 import { nextStatus, type CaseAction } from '../../../services/command-api/caseRules';
+import { getCognitoAccessToken } from '../../lib/cognitoAuth';
 import { MOCK_CASES } from './mockCases';
 
 export type CaseSummary = components['schemas']['CaseSummary'];
@@ -13,12 +14,10 @@ export type CommandCase = components['schemas']['CommandCase'];
 export type CaseStatus = CommandCase['status'];
 export type { CaseAction };
 
-export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== 'false';
-const BASE = (
-  process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || ''
-).replace(/\/$/, '');
+export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
+const BASE = (process.env.NEXT_PUBLIC_COMMAND_API_BASE_URL || '').replace(/\/$/, '');
 
-/** The local stack's demo officers (non-production; Cognito replaces them at G7). */
+/** The local stack's demo officers. They are used only when mock mode is explicitly enabled. */
 export const OFFICERS = officers.officers.map(({ token, name, district }) => ({ token, name, district }));
 export const DEFAULT_OFFICER = OFFICERS[0].token;
 
@@ -28,14 +27,33 @@ export class ApiError extends Error {
   }
 }
 
-async function call<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` } });
+async function call<T>(path: string, _legacyToken: string, init?: RequestInit): Promise<T> {
+  if (!BASE) throw new ApiError(500, 'configuration_error', 'The Command API URL is not configured.');
+  const accessToken = getCognitoAccessToken();
+  if (!accessToken) throw new ApiError(401, 'authentication_required', 'Sign in with your officer account to continue.');
+  const headers: Record<string, string> = {
+    ...((init?.headers as Record<string, string>) || {}),
+    Authorization: `Bearer ${accessToken}`,
+  };
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
   const body = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(res.status, body?.error?.code ?? 'error', body?.error?.message ?? res.statusText);
+  if (!res.ok) {
+    const code = body?.error?.code ?? (res.status === 401 ? 'authentication_required' : res.status === 403 ? 'forbidden' : 'error');
+    const message = body?.error?.message ?? body?.message ?? (res.status === 401
+      ? 'Your officer session has expired. Sign in again.'
+      : res.status === 403
+        ? 'This account is not authorized for the Command console.'
+        : res.statusText);
+    throw new ApiError(res.status, code, message);
+  }
   return body as T;
 }
 
-// ---- mock mode: a copy of the examples that actions change, as the database would ----
+export type OfficerIdentity = { subject: string; role: string; district: string };
+
+export function getOfficerIdentity(): Promise<OfficerIdentity> {
+  return call('/v1/officer/whoami', DEFAULT_OFFICER);
+}
 
 const mock: CaseDetail[] = structuredClone(MOCK_CASES);
 const toSummary = (d: CaseDetail): CaseSummary => ({

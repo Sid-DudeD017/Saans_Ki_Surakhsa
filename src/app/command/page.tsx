@@ -1,29 +1,26 @@
 'use client';
 
-// Saans Command's case console (P4): the officer's queue (nearest deadline first) and map, and one case at a
-// time with the farmer's help request before any penalty. Mock mode runs on example cases; live, on
-// /v1/cases from the local stack, signed in as one of the demo officers, so Cedar shows their district only.
+// Mock mode uses the local example queue. Live mode requires Cognito before making any API request.
 import React, { useCallback, useEffect, useState } from 'react';
-
 import { Alert, Badge, Card, Container } from '../../components/ui';
 import { CaseDetailPanel, when } from './CaseDetailPanel';
 import { CaseMap } from './CaseMap';
-import { DEFAULT_OFFICER, OFFICERS, USE_MOCKS, getCase, listCases, type CaseDetail, type CaseStatus, type CaseSummary } from './commandApi';
+import { DEFAULT_OFFICER, USE_MOCKS, getCase, listCases, type CaseDetail, type CaseStatus, type CaseSummary } from './commandApi';
+import { LiveCommandPage } from './LiveCommandPage';
 
 const STATUSES: [CaseStatus | '', string][] = [['OPEN', 'Open'], ['ACTION_APPROVED', 'Help approved'], ['ACTION_CHANGED', 'Changed'], ['CLOSED', 'Closed'], ['', 'All']];
 const DISTRICTS = ['', 'Sangrur', 'Patiala', 'unassigned'];
 const TYPE_ICONS: Record<string, string> = { farm_fire: '🔥', garbage: '🗑️', vehicle: '🚚', firecrackers: '🎆', farmer_support: '🌾', kisan_grievance: '📣' };
-
 const select: React.CSSProperties = { padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.9rem' };
 
-export default function CommandPage() {
+function MockCommandPage() {
   const [status, setStatus] = useState<CaseStatus | ''>('OPEN');
   const [district, setDistrict] = useState('');
   const [queue, setQueue] = useState<{ cases?: CaseSummary[]; error?: string }>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<{ case?: CaseDetail; error?: string }>({});
   const [reloads, setReloads] = useState(0);
-  const [officer, setOfficer] = useState(DEFAULT_OFFICER);
+  const officer = DEFAULT_OFFICER;
 
   useEffect(() => {
     let on = true;
@@ -31,9 +28,7 @@ export default function CommandPage() {
       (cases) => on && setQueue({ cases }),
       (e: Error) => on && setQueue({ error: e.message }),
     );
-    return () => {
-      on = false;
-    };
+    return () => { on = false; };
   }, [status, district, officer, reloads]);
 
   useEffect(() => {
@@ -43,9 +38,7 @@ export default function CommandPage() {
       (c) => on && setDetail({ case: c }),
       (e: Error) => on && setDetail({ error: e.message }),
     );
-    return () => {
-      on = false;
-    };
+    return () => { on = false; };
   }, [selected, officer, reloads]);
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
@@ -63,32 +56,20 @@ export default function CommandPage() {
         <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569' }}>Reports and farmers&apos; help requests, nearest deadline first. Where a farmer has asked for a machine, help comes before any penalty.</p>
       </div>
 
-      {USE_MOCKS && (
-        <div style={{ marginBottom: '1rem' }}>
-          <Alert variant="info" title="Example cases">Mock mode: these are example cases, and decisions last until the page reloads. Set NEXT_PUBLIC_USE_MOCKS=false to use the local stack.</Alert>
-        </div>
-      )}
+      <div style={{ marginBottom: '1rem' }}>
+        <Alert variant="info" title="Example cases">Mock mode is explicitly enabled. Decisions last until the page reloads.</Alert>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 22rem), 1fr))', gap: '1rem', alignItems: 'start' }}>
         <div style={{ display: 'grid', gap: '1rem', minWidth: 0 }}>
           <Card padding="md">
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-              {!USE_MOCKS && (
-                <label style={{ fontSize: '0.85rem', color: '#334155' }}>
-                  Signed in as{' '}
-                  <select style={select} value={officer} onChange={(e) => { setOfficer(e.target.value); setSelected(null); }}>
-                    {OFFICERS.map((o) => <option key={o.token} value={o.token}>{o.name}</option>)}
-                  </select>
-                </label>
-              )}
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
-                Status{' '}
+              <label style={{ fontSize: '0.85rem', color: '#334155' }}>Status{' '}
                 <select style={select} value={status} onChange={(e) => setStatus(e.target.value as CaseStatus | '')}>
                   {STATUSES.map(([v, name]) => <option key={v} value={v}>{name}</option>)}
                 </select>
               </label>
-              <label style={{ fontSize: '0.85rem', color: '#334155' }}>
-                District{' '}
+              <label style={{ fontSize: '0.85rem', color: '#334155' }}>District{' '}
                 <select style={select} value={district} onChange={(e) => setDistrict(e.target.value)}>
                   {DISTRICTS.map((d) => <option key={d} value={d}>{d || 'All'}</option>)}
                 </select>
@@ -100,15 +81,7 @@ export default function CommandPage() {
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.5rem' }}>
               {cases.map((s) => (
                 <li key={s.case.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(s.case.id)}
-                    aria-current={selected === s.case.id}
-                    style={{
-                      width: '100%', textAlign: 'left', display: 'grid', gap: '0.2rem', padding: '0.6rem 0.75rem', borderRadius: '0.6rem', cursor: 'pointer',
-                      border: selected === s.case.id ? '2px solid #0f172a' : '1px solid #e2e8f0', background: s.hasHelpRequest ? '#f0fdf4' : '#ffffff',
-                    }}
-                  >
+                  <button type="button" onClick={() => setSelected(s.case.id)} aria-current={selected === s.case.id} style={{ width: '100%', textAlign: 'left', display: 'grid', gap: '0.2rem', padding: '0.6rem 0.75rem', borderRadius: '0.6rem', cursor: 'pointer', border: selected === s.case.id ? '2px solid #0f172a' : '1px solid #e2e8f0', background: s.hasHelpRequest ? '#f0fdf4' : '#ffffff' }}>
                     <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.95rem', color: '#0f172a' }}>
                       <strong>{TYPE_ICONS[s.type] ?? '•'} {s.district}</strong>
                       <span style={{ fontSize: '0.8rem', color: '#b91c1c', whiteSpace: 'nowrap' }}>{s.escalatedAt ? '⏫ Escalated' : `by ${when(s.deadline)}`}</span>
@@ -124,13 +97,7 @@ export default function CommandPage() {
               ))}
             </ul>
           </Card>
-          {cases.length > 0 && (
-            <CaseMap
-              title="Cases on the map"
-              onPick={setSelected}
-              points={cases.map((s) => ({ id: s.case.id, label: `${s.type} · ${s.district}`, kind: s.case.status === 'CLOSED' ? 'closed' : s.hasHelpRequest ? 'help' : 'report', selected: s.case.id === selected, ...s.location }))}
-            />
-          )}
+          {cases.length > 0 && <CaseMap title="Cases on the map" onPick={setSelected} points={cases.map((s) => ({ id: s.case.id, label: `${s.type} · ${s.district}`, kind: s.case.status === 'CLOSED' ? 'closed' : s.hasHelpRequest ? 'help' : 'report', selected: s.case.id === selected, ...s.location }))} />}
         </div>
 
         <div style={{ minWidth: 0 }}>
@@ -141,4 +108,8 @@ export default function CommandPage() {
       </div>
     </Container>
   );
+}
+
+export default function CommandPage() {
+  return USE_MOCKS ? <MockCommandPage /> : <LiveCommandPage />;
 }
