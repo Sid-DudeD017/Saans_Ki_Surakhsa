@@ -17,14 +17,18 @@ type Words = Record<Language, string>;
 
 export const CATEGORIES: Category[] = ['good', 'satisfactory', 'moderate', 'poor', 'very_poor', 'severe'];
 
-/** CPCB's colour for each category, and a light tint of it for backgrounds. */
-export const CATEGORY_COLOURS: Record<Category, { fill: string; tint: string; ink: string }> = {
-  good: { fill: '#00b050', tint: '#e6f7ed', ink: '#14532d' },
-  satisfactory: { fill: '#92d050', tint: '#f1f9e8', ink: '#3f6212' },
-  moderate: { fill: '#ffff00', tint: '#fefce0', ink: '#713f12' },
-  poor: { fill: '#ff9900', tint: '#fff3e0', ink: '#7c2d12' },
-  very_poor: { fill: '#ff0000', tint: '#ffe8e8', ink: '#7f1d1d' },
-  severe: { fill: '#c00000', tint: '#f9e0e0', ink: '#5c0000' },
+/**
+ * CPCB's colour for each category (for dots and charts), a light tint of it for backgrounds, and a soft
+ * edge for borders: boxes and pills take Kisan Saathi's look, a pale wash with a thin edge, rather than
+ * CPCB's full-strength yellow and red.
+ */
+export const CATEGORY_COLOURS: Record<Category, { fill: string; tint: string; ink: string; edge: string }> = {
+  good: { fill: '#00b050', tint: '#f0fdf4', ink: '#166534', edge: '#bbf7d0' },
+  satisfactory: { fill: '#92d050', tint: '#f7fee7', ink: '#3f6212', edge: '#d9f99d' },
+  moderate: { fill: '#ffff00', tint: '#fefce8', ink: '#854d0e', edge: '#fde68a' },
+  poor: { fill: '#ff9900', tint: '#fff7ed', ink: '#9a3412', edge: '#fed7aa' },
+  very_poor: { fill: '#ff0000', tint: '#fef2f2', ink: '#b91c1c', edge: '#fecaca' },
+  severe: { fill: '#c00000', tint: '#fef2f2', ink: '#991b1b', edge: '#fca5a5' },
 };
 
 export const CATEGORY_NAMES: Record<Category, Words> = {
