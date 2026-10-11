@@ -45,7 +45,8 @@ async function call<T>(path: string, token: string, init?: RequestInit): Promise
     Authorization: `Bearer ${token}`,
   };
   if (token === 'local-citizen-1') {
-    headers['x-user-id'] = getCitizenIdentity();
+    const customUser = typeof window !== 'undefined' ? sessionStorage.getItem('saans_view_citizen_id') : null;
+    headers['x-user-id'] = customUser || getCitizenIdentity();
   }
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
   const body = await res.json().catch(() => null);

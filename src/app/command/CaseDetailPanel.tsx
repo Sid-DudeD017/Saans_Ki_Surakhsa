@@ -407,27 +407,57 @@ export function CaseDetailPanel({
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-              {tr.note_optional}
+              {tr.note_optional} {t.all_reports && t.all_reports.length > 1 ? `(${t.all_reports.length} citizen notes)` : ''}
             </span>
             <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
               {customNote.length}/1000
             </span>
           </div>
-          <div
-            style={{
-              padding: '0.75rem 1rem',
-              borderRadius: '0.5rem',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc',
-              color: customNote ? '#0f172a' : '#64748b',
-              fontSize: '0.925rem',
-              lineHeight: 1.5,
-              minHeight: '70px',
-              fontStyle: customNote ? 'normal' : 'italic',
-            }}
-          >
-            {customNote || tr.no_details_noted}
-          </div>
+
+          {!isCitizen && t.all_reports && t.all_reports.length > 1 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {t.all_reports.map((rep: any, idx: number) => {
+                const { customNote: repNote } = parseReportDetails(rep.description);
+                return (
+                  <div
+                    key={rep.id || idx}
+                    style={{
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '0.5rem',
+                      border: rep.is_primary ? '1.5px solid #93c5fd' : '1.5px solid #fed7aa',
+                      backgroundColor: rep.is_primary ? '#eff6ff' : '#fff7ed',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.75rem', color: '#64748b' }}>
+                      <span style={{ fontWeight: 700, color: rep.is_primary ? '#1d4ed8' : '#c2410c' }}>
+                        {rep.is_primary ? '★ Initial Report' : `↳ Additional Report #${idx + 1}`} ({rep.reporter_identity})
+                      </span>
+                      <span>{when(rep.received_at, lang)}</span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: repNote ? '#0f172a' : '#64748b', fontStyle: repNote ? 'normal' : 'italic' }}>
+                      {repNote || tr.no_details_noted}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#f8fafc',
+                color: customNote ? '#0f172a' : '#64748b',
+                fontSize: '0.925rem',
+                lineHeight: 1.5,
+                minHeight: '70px',
+                fontStyle: customNote ? 'normal' : 'italic',
+              }}
+            >
+              {customNote || tr.no_details_noted}
+            </div>
+          )}
         </div>
 
         {/* Photo Evidence */}

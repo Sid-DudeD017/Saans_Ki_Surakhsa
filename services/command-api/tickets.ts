@@ -123,10 +123,11 @@ export async function listTickets(
 ) {
   const params: any[] = [];
   let query = "";
-  if (filters.citizenId) {
+  if (filters.citizenId && filters.citizenId !== "*") {
     params.push(filters.citizenId);
     query = `
       SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
+             (1 + (SELECT count(*) FROM case_reports cr WHERE cr.case_id = c.id)::int) AS total_reports,
              COALESCE(
                (SELECT comp2.body FROM case_reports cr 
                 JOIN complaints comp2 ON comp2.id = cr.complaint_id 
@@ -140,6 +141,7 @@ export async function listTickets(
   } else {
     query = `
       SELECT c.*, ST_Y(c.location::geometry) as lat, ST_X(c.location::geometry) as lon,
+             (1 + (SELECT count(*) FROM case_reports cr WHERE cr.case_id = c.id)::int) AS total_reports,
              comp.body as complaint_body
       FROM cases c
       LEFT JOIN complaints comp ON comp.id = c.complaint_id
@@ -161,7 +163,7 @@ export async function listTickets(
     }
   };
 
-  if (filters.citizenId) {
+  if (filters.citizenId && filters.citizenId !== "*") {
     addFilter(`(
       c.reporter_identity = $X
       OR EXISTS (

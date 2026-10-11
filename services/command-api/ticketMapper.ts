@@ -61,7 +61,9 @@ export function mapCaseToTicket(c: any, isOfficer: boolean = false, currentUser?
     description: c.complaint_body?.description || c.description || null,
     complaint_body: c.complaint_body || null,
     location: (c.lat !== undefined && c.lon !== undefined) ? { lat: Number(c.lat), lon: Number(c.lon) } : undefined,
-    deadline: c.deadline
+    deadline: c.deadline,
+    total_reports: c.total_reports ? Number(c.total_reports) : (c.all_reports?.length || 1),
+    all_reports: c.all_reports || undefined,
   };
 
   if (c.resolution_summary) {

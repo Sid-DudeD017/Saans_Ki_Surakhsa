@@ -239,6 +239,33 @@ export default function CommandPage() {
                       ))}
                     </select>
                   </label>
+                  {officer === 'local-citizen-1' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = typeof window !== 'undefined' ? sessionStorage.getItem('saans_view_citizen_id') : null;
+                        if (cur === '*') {
+                          sessionStorage.removeItem('saans_view_citizen_id');
+                        } else {
+                          sessionStorage.setItem('saans_view_citizen_id', '*');
+                        }
+                        reload();
+                      }}
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: (typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '#dbeafe' : '#f1f5f9',
+                        color: (typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '#1d4ed8' : '#475569',
+                        border: '1px solid #cbd5e1',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                      title="Toggle between all demo reports and current session only"
+                    >
+                      {(typeof window !== 'undefined' && sessionStorage.getItem('saans_view_citizen_id') === '*') ? '🌐 Showing all citizen reports' : '👤 My session only'}
+                    </button>
+                  )}
                   {officer === 'local-state-command' && verifiedOfficerId && (
                     <span
                       style={{
@@ -299,11 +326,18 @@ export default function CommandPage() {
                   >
                     <span style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.95rem', color: '#0f172a' }}>
                       <strong>{TYPE_ICONS[s.type] ?? '•'} {catName}{locText}</strong>
-                      {s.threat_level && (
-                        <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
-                          {s.threat_level.toUpperCase()}
-                        </span>
-                      )}
+                      <span style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                        {s.total_reports > 1 && (
+                          <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
+                            👥 {s.total_reports} reports
+                          </span>
+                        )}
+                        {s.threat_level && (
+                          <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', backgroundColor: s.threat_level === 'critical' ? '#fee2e2' : s.threat_level === 'high' ? '#ffedd5' : '#fef3c7', color: s.threat_level === 'critical' ? '#b91c1c' : s.threat_level === 'high' ? '#c2410c' : '#b45309' }}>
+                            {s.threat_level.toUpperCase()}
+                          </span>
+                        )}
+                      </span>
                     </span>
                     <span style={{ fontSize: '0.8rem', color: '#475569' }}>
                       {s.help_request ? `🌾 ${t.help_request_badge} · ` : ''}
