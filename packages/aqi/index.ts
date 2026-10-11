@@ -92,21 +92,26 @@ export interface SubIndexResult {
 
 export function subIndex(pollutant: PollutantCode, concentration: number): SubIndexResult {
   if (concentration <= 0) return { value: 0, above_scale: false };
-
+  
   const bands = CPCB_BREAKPOINTS[pollutant];
-  const top = bands[bands.length - 1];
-  const above_scale = concentration > top.bpHi;
-  // The first band that reaches this far. CPCB's bands step in whole numbers (or 0.1, 0.01), so a reading
-  // can sit in the gap below that band (30.5 µg/m³ of PM2.5, between 0–30 and 31–60); it then goes between
-  // the previous band's top and this band's bottom, so the index never jumps or goes backwards.
-  const i = above_scale ? bands.length - 1 : bands.findIndex((b) => concentration <= b.bpHi);
-  const band = bands[i];
-  const prev = bands[i - 1];
-  const rawIdx =
-    prev && concentration < band.bpLo
-      ? prev.iHi + ((band.iLo - prev.iHi) * (concentration - prev.bpHi)) / (band.bpLo - prev.bpHi)
-      : ((band.iHi - band.iLo) / (band.bpHi - band.bpLo)) * (concentration - band.bpLo) + band.iLo;
-  return { value: Math.min(500, Math.round(rawIdx)), above_scale };
+  let band = bands.find(b => concentration >= b.bpLo && concentration <= b.bpHi);
+  let above_scale = false;
+  
+  if (!band) {
+    band = bands[bands.length - 1];
+    if (concentration > band.bpHi) {
+        above_scale = true;
+    } else if (concentration < bands[0].bpLo) {
+        band = bands[0]; 
+    }
+  }
+
+  const rawIdx = ((band.iHi - band.iLo) / (band.bpHi - band.bpLo)) * (concentration - band.bpLo) + band.iLo;
+  let finalIdx = Math.round(rawIdx);
+  if (finalIdx > 500) {
+    finalIdx = 500;
+  }
+  return { value: finalIdx, above_scale };
 }
 
 export interface AqiReading {
