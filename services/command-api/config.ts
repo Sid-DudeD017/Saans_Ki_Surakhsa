@@ -30,7 +30,7 @@ export interface CommandConfig {
 
 export function commandConfig(env: Record<string, string | undefined> = process.env): CommandConfig {
   return {
-    databaseUrl: env.SAANS_DATABASE_URL || LOCAL_DATABASE_URL,
+    databaseUrl: databaseUrlFrom(env.SAANS_DATABASE_URL) ?? LOCAL_DATABASE_URL,
     evidenceBucket: env.SAANS_EVIDENCE_BUCKET || "saans-evidence",
     region: env.AWS_REGION || "ap-south-1",
     s3Endpoint: env.SAANS_S3_ENDPOINT ?? (env.LOCALSTACK_URL || "http://127.0.0.1:4566"),
@@ -44,6 +44,44 @@ export function commandConfig(env: Record<string, string | undefined> = process.
     ...(Number(env.SAANS_DEMO_DEADLINE_MINUTES) > 0 ? { deadlineMinutes: Number(env.SAANS_DEMO_DEADLINE_MINUTES) } : {}),
     escalationSweepSeconds: Number(env.ESCALATION_SWEEP_SECONDS) || 20,
   };
+}
+
+/**
+ * SAANS_DATABASE_URL as Postgres can read it. Pasted values often carry stray spaces or quotes, and a password
+ * typed into the URL as-is breaks it when it has a `#`, `?`, `/` or `%` (the URL parser, and so pg, answers just
+ * "Invalid URL"). This trims, unwraps quotes and percent-encodes the user and password when the URL doesn't
+ * parse; if it still doesn't, it says which variable is wrong without printing the password.
+ */
+export function databaseUrlFrom(raw: string | undefined): string | undefined {
+  let url = raw?.trim();
+  if (!url) return undefined;
+  if (url.length > 1 && /^(["'`])[\s\S]*\1$/.test(url)) url = url.slice(1, -1).trim();
+  if (parses(url)) return url;
+  // postgres://user:password@host… with the password as typed: the last "@" ends it, since a host has none.
+  const m = /^(postgres(?:ql)?:\/\/)([^:@]*)(?::([\s\S]*))?@([^@]+)$/.exec(url);
+  if (m) {
+    const [, scheme, user, password, rest] = m;
+    const fixed = `${scheme}${encodePart(user)}${password === undefined ? "" : `:${encodePart(password)}`}@${rest}`;
+    if (parses(fixed)) return fixed;
+  }
+  throw new Error(
+    "SAANS_DATABASE_URL isn't a valid postgres:// URL. Check it has postgres://user:password@host:5432/database " +
+      "with nothing after it, and percent-encode any # ? / % @ in the password.",
+  );
+}
+
+function parses(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (u.protocol === "postgres:" || u.protocol === "postgresql:") && u.hostname !== "";
+  } catch {
+    return false;
+  }
+}
+
+/** Percent-encodes what isn't already encoded, so "p%23w" stays as typed and "p#w" becomes "p%23w". */
+function encodePart(part: string): string {
+  return part.replace(/%(?![0-9a-f]{2})|[^A-Za-z0-9\-._~!$&'()*+,;=%]/gi, (c) => encodeURIComponent(c));
 }
 
 export type ComplaintType = keyof typeof routing & string;
